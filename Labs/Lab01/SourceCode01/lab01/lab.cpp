@@ -107,7 +107,7 @@ void mainLoop() {
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         // task draw points
-
+        //glEnable(GL_PROGRAM_POINT_SIZE); // Task 3
 
         // Swap buffers
         glfwSwapBuffers(window);

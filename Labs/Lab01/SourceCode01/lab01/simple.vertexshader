@@ -17,4 +17,9 @@ void main()
     color = vertexColor;
 
     // task change the size of points (gl_PointSize)
+    /*//gl_PointSize = 1;
+    if (gl_PointSize >= 0)
+        gl_PointSize = 20;
+    else
+        gl_PointSize = 1;*/ // Task 3
 }

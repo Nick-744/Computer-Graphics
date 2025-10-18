@@ -11,4 +11,7 @@ void main()
     // task assign color to fragment output variable
     //fragmentColor = vec3(1, 0, 0);
     fragmentColor = color;
+
+    // Task 4
+    fragmentColor *= vec3(abs(cos(length(color) * 10.0)));
 }
