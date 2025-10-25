@@ -268,22 +268,46 @@ void mainLoop() {
         // Bind the cube VAO
         glBindVertexArray(cubeVAO);
 
-		// For the cube animation
-        mat4 translationCube = glm::translate(mat4(), vec3(3.0f, 0.0f, 0.0f));
-        mat4 scalingCube     = glm::scale(mat4(), vec3(1.0f, 1.0f, 1.0f));
+        mat4 ModelCube = mat4();
 
         /* - <> - TASK 1 - <> - */
-        mat4 rotationCube = {
-            { 0.5f * cos(theta) + 0.5f,  0.5f - 0.5f * cos(theta), -0.707 * sin(theta), 0.0f },
-            { 0.5f - 0.5f * cos(theta),  0.5f * cos(theta) + 0.5f,  0.707 * sin(theta), 0.0f },
-            { 0.707 * sin(theta),       -0.707 * sin(theta),        cos(theta),         0.0f },
-            { 0.0f,                      0.0f,                      0.0f,               1.0f }
-        }; // Rodrigues' Rotation Formula
+        if (false)
+        {
+            mat4 rotationCube = {
+                { 0.5f * cos(theta) + 0.5f,  0.5f - 0.5f * cos(theta), -0.707 * sin(theta), 0.0f },
+                { 0.5f - 0.5f * cos(theta),  0.5f * cos(theta) + 0.5f,  0.707 * sin(theta), 0.0f },
+                { 0.707 * sin(theta),       -0.707 * sin(theta),        cos(theta),         0.0f },
+                { 0.0f,                      0.0f,                      0.0f,               1.0f }
+            }; // Rodrigues' Rotation Formula
+
+            ModelCube = rotationCube * ModelCube;
+        }
 
         /* - <> - TASK 2 - <> - */
-        mat4 rotateCubeAxis = glm::rotate(mat4(), theta, vec3(0.0f, 1.0f, 0.0f));
+        if (false)
+        {
+            mat4 rotationAxis = glm::rotate(mat4(), theta, vec3(-0.5f, 1.0f, 0.0f));
 
-        mat4 ModelCube = rotateCubeAxis * translationCube * rotationCube * scalingCube;
+            mat4 translationCube        = glm::translate(mat4(), vec3(-2.0f, 0.0f, 0.0f));
+            mat4 translationCubeReverse = glm::translate(mat4(), vec3( 2.0f, 0.0f, 0.0f));
+
+            ModelCube = translationCubeReverse * rotationAxis * translationCube * ModelCube;
+        }
+
+        /* - <> - TASK 3 - <> - */
+        if (true)
+        {
+            mat4 rotate = glm::rotate(mat4(), 3.14f / 4.0f, vec3(0.0f, 1.0f, 1.0f));
+
+			ModelCube = rotate * ModelCube;
+            // ...to the cube that is not aligned with the axes!
+			// Το κάνω έτσι, ώστε να είναι ανεξάρτητες οι υλοποιήσεις των tasks.
+
+            mat4 scaleCube     = glm::scale(mat4(), vec3(2.0f, 1.5f, 3.0f));
+			mat4 rotateReverse = glm::rotate(mat4(), -3.14f / 4.0f, vec3(0.0f, 1.0f, 1.0f));
+
+            ModelCube = rotate * scaleCube * rotateReverse * ModelCube;
+        }
 
         MVP = Proj * View * ModelCube;
         
