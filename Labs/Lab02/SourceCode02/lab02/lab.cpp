@@ -295,7 +295,7 @@ void mainLoop() {
         }
 
         /* - <> - TASK 3 - <> - */
-        if (true)
+        if (false)
         {
             mat4 rotate = glm::rotate(mat4(), 3.14f / 4.0f, vec3(0.0f, 1.0f, 1.0f));
 
@@ -307,6 +307,31 @@ void mainLoop() {
 			mat4 rotateReverse = glm::rotate(mat4(), -3.14f / 4.0f, vec3(0.0f, 1.0f, 1.0f));
 
             ModelCube = rotate * scaleCube * rotateReverse * ModelCube;
+        }
+
+        /* - <> - TASK 4 - <> - */
+        if (false)
+        {
+			mat4 y_rotation = glm::rotate(mat4(), 3.14f/3.0f, vec3(0.0f, 1.0f, 0.0f));
+			mat4 x_rotation = glm::rotate(mat4(), theta,      vec3(1.0f, 0.0f, 0.0f));
+
+			ModelCube = x_rotation * y_rotation * ModelCube;
+        }
+
+        /* - <> - TASK 5 - <> - */
+        if (false)
+        {
+            mat4 y_rotation = glm::rotate(mat4(), 3.14f/3.0f, vec3(0.0f, 1.0f, 0.0f));
+            mat4 x_rotation = glm::rotate(mat4(), theta,      vec3(1.0f, 0.0f, 0.0f));
+
+            ModelCube = y_rotation * x_rotation * ModelCube;
+        }
+
+        /* - <> - TASK 7 - <> - */
+        if (false)
+        {
+            camPos = vec3(10.0f * sin(theta), 5.0f, 10.0f * cos(theta));
+            View   = lookAt(camPos, camTarget, camUp);
         }
 
         MVP = Proj * View * ModelCube;
