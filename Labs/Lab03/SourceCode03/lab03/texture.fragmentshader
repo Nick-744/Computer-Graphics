@@ -1,0 +1,33 @@
+#version 330 core // Specify GLSL version 330, compatible with OpenGL 3.3
+
+in vec2 UV;
+
+// Output color variable for the final color of each fragment
+out vec4 color;
+
+uniform sampler2D textureSampler;
+
+uniform float time;
+uniform sampler2D movingTextureSampler;
+
+uniform sampler2D displacementTextureSampler;
+
+void main()
+{
+    // Set the fragment color to fully transparent black
+    color = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 main_texture = vec4(texture(textureSampler, UV).rgb, 1.0f);
+    color = main_texture;
+
+    // Task 7 - Moving Textures
+    vec4 moving_texture = vec4(texture(movingTextureSampler, UV + time).rgb, 1.0f);
+    color = vec4(mix(main_texture, moving_texture, 0.6).rgb, 1.0f);
+
+    // Task 8 - Displacement texture
+    vec4 displacement_texture = vec4(texture(displacementTextureSampler, UV + 1.01 * time).rgb, 1.0f);
+    vec4 sureface_texture     = vec4(mix(moving_texture, displacement_texture, 0.1).rgb, 1.0f);
+
+    main_texture = vec4(texture(textureSampler, UV + length(displacement_texture) * 0.05).rgb, 1.0f);
+
+    color = main_texture;
+}

@@ -1,0 +1,17 @@
+#version 330 core // Specify GLSL version 330, compatible with OpenGL 3.3
+
+layout(location = 0) in vec3 vertexPosition_modelspace; // Input attribute for the 3D position of each vertex in model space
+layout(location = 1) in vec2 vertexUV;
+
+uniform mat4 MVP; // Uniform 4x4 Model-View-Projection matrix that transforms vertices to screen space
+
+out vec2 UV;
+
+void main()
+{
+    // Calculate the screen-space position of the vertex by transforming it with the MVP matrix.
+    // 'vec4(vertexPosition_modelspace, 1.0)' converts the 3D position into a 4D homogeneous coordinate.
+    gl_Position = MVP * vec4(vertexPosition_modelspace, 1.0f);
+
+    UV = vertexUV;
+}
