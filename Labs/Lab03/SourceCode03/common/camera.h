@@ -23,6 +23,9 @@ public:
     float mouseSpeed;
     float fovSpeed;
 
+    float tiltAngle;
+    float tiltSpeed;
+
     Camera(GLFWwindow* window);
 
     void update();

@@ -61,8 +61,8 @@ void createContext() {
     MVPLocation = glGetUniformLocation(shaderProgram, "MVP");
 
     // Load 3D model from the specified OBJ file.
-    loadOBJ("suzanne.obj", suzanneVertices, suzanneUVs, suzanneNormals);
-	//loadOBJ("cube.obj", suzanneVertices, suzanneUVs, suzanneNormals);
+    //loadOBJ("suzanne.obj", suzanneVertices, suzanneUVs, suzanneNormals);
+    loadOBJ("cube.obj", suzanneVertices, suzanneUVs, suzanneNormals);
 
     // VAO
     glGenVertexArrays(1, &suzanneVAO);
@@ -135,25 +135,6 @@ void mainLoop() {
         // Declare the transformation matrices
         mat4 MVP, modelMatrix, viewMatrix, projectionMatrix;
 
-        // Projection matrix: defines the perspective projection
-        // 45 degrees Field of View, 4:3 aspect ratio, rendering range from 0.1 units to 100 units
-        projectionMatrix = perspective(radians(45.0f), 4.0f / 3.0f, 0.1f, 100.0f);
-        // Uncomment the next line to use an orthographic projection instead
-        // projectionMatrix = ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.0f, 15.0f);
-
-        // View matrix: defines the camera's position and orientation in the world
-        viewMatrix = lookAt(
-            vec3(10*sin((float)glfwGetTime()), 0, 10*cos((float)glfwGetTime())), // Camera position in world space (moves in a circle)
-            vec3(0, 0, 0), // Camera target point (the origin)
-            vec3(0, 1, 0)  // Up vector (y-axis) - this keeps the camera upright
-        );
-
-        // Model matrix: identity matrix for the default object transformation
-        modelMatrix = mat4(1.0); // No transformations applied (the object is rendered as is)
-
-        // Combine the matrices to create the Model-View-Projection (MVP) matrix
-        MVP = projectionMatrix * viewMatrix * modelMatrix;
-
         // Clear the screen and depth buffer to prepare for the new frame
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -172,10 +153,16 @@ void mainLoop() {
 
         // Reset the model matrix to identity (no transformations)
         modelMatrix = glm::mat4(1.0);
+        
+        
+        
+        // --- Setup objects in the scene --- //
 
         // Move Suzanne!
         mat4 translateSuzanne = glm::translate(mat4(), vec3(0.0f, 0.0f, -2.0f));
-		modelMatrix           = translateSuzanne * modelMatrix;
+        modelMatrix           = translateSuzanne * modelMatrix;
+
+
 
         // Recalculate the MVP matrix with the updated camera settings
         MVP = projectionMatrix * viewMatrix * modelMatrix; // Combined transformation matrix

@@ -13,6 +13,9 @@ Camera::Camera(GLFWwindow* window) : window(window)
     speed           = 3.0f;
     mouseSpeed      = 0.1f;
     fovSpeed        = 10.0f;
+
+    tiltAngle = 0.0f;
+    tiltSpeed = 4.0f;
 }
 
 void Camera::update()
@@ -36,7 +39,7 @@ void Camera::update()
 
     // Set up the view matrix to orient and position the camera
     // Looking from 'position' towards 'position - forward direction' with 'up' direction as (0, 1, 0)
-    viewMatrix = lookAt(position, position - vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f));
+    // viewMatrix = lookAt(position, position - vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f));
 
 
     
@@ -96,6 +99,24 @@ void Camera::update()
         position += speed * deltaTime * up;
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
         position -= speed * deltaTime * up;
+    
+    
+    
+    // Tilt camera sideways left/right using R and T keys
+    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+        tiltAngle += deltaTime * tiltSpeed; // Αντιορολογιακά
+    else if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
+        tiltAngle -= deltaTime * tiltSpeed; // Ορολογιακά
+    else
+    {   // Επιστροφή στην αρχική θέση
+        tiltAngle -= deltaTime * tiltSpeed * tiltAngle;
+        if (abs(tiltAngle) < 0.002f) tiltAngle = 0.0f;
+    }
+
+    tiltAngle = clamp(tiltAngle, -3.14f / 6.0f, 3.14f / 6.0f); // Μην στραβολεμιάσει κιόλας...
+    mat4 rotationMatrix = rotate(mat4(1.0f), tiltAngle, direction);
+    right = vec3(rotationMatrix * vec4(right, 0.0f));
+    up    = vec3(rotationMatrix * vec4(up, 0.0f));
 
 
 
@@ -106,7 +127,7 @@ void Camera::update()
     // projectionMatrix = ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.0f, 15.0f);
 
     // Update the view matrix to reflect the camera's current position and orientation
-    viewMatrix = lookAt(position, position + direction, vec3(0.0f, 1.0f, 0.0f));
+    viewMatrix = lookAt(position, position + direction, up);
     
     // For the next frame, the "last time" will be "now"
     lastTime = currentTime;
