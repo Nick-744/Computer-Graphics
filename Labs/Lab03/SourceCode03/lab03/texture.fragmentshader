@@ -29,5 +29,5 @@ void main()
     //distortion only
     color = main_texture;
     //distortion + mix
-    color = vec4(mix(main_texture, surface_texture, 0.5).rgb, 1.0);
+    //color = vec4(mix(main_texture, surface_texture, 0.5).rgb, 1.0);
 }

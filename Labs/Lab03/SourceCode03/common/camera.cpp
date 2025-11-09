@@ -94,18 +94,19 @@ void Camera::update()
 
 
 
-    // Move camera up/down using Q and E keys
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    // Move camera up/down using SPACE and CONTROL keys
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
         position += speed * deltaTime * up;
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+        glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS)
         position -= speed * deltaTime * up;
     
     
     
-    // Tilt camera sideways left/right using R and T keys
-    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+    // Tilt camera sideways left/right using Q and E keys
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
         tiltAngle += deltaTime * tiltSpeed; // Αντιορολογιακά
-    else if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
+    else if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
         tiltAngle -= deltaTime * tiltSpeed; // Ορολογιακά
     else
     {   // Επιστροφή στην αρχική θέση

@@ -115,7 +115,8 @@ void createContext() {
     timeUniform = glGetUniformLocation(shaderProgram, "time");
 
     // Task 8 load displacement texture BMP and get handle
-    displacementTexture = loadBMP("gray.bmp");
+    //displacementTexture = loadBMP("gray.bmp");
+    displacementTexture = loadBMP("my_perlin_noise.bmp");
     displacementTextureSampler = glGetUniformLocation(shaderProgram, "displacementTextureSampler");
 }
 
