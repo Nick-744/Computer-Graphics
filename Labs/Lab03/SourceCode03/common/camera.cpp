@@ -43,10 +43,9 @@ void Camera::update()
     // Task 2: Orient the camera using the mouse
 
     // Update the horizontal angle based on the mouse’s horizontal movement (left-right).
-	horizontalAngle += deltaTime * mouseSpeed * ((float) xPos - width / 2);
-
+    horizontalAngle += deltaTime * mouseSpeed * ((float) xPos - width / 2);
     // Update the vertical angle based on the mouse’s vertical movement (up-down).
-	verticalAngle -= deltaTime * mouseSpeed * ((float) yPos - height / 2);
+    verticalAngle   -= deltaTime * mouseSpeed * ((float) yPos - height / 2);
 
     // Calculate the direction vector for the camera
     vec3 direction(
@@ -56,29 +55,25 @@ void Camera::update()
     );
 
     // Compute the right vector of the camera's coordinate system
-	vec3 right = cross(direction, vec3(0.0f, 1.0f, 0.0f));
-
+    vec3 right = cross(direction, vec3(0.0f, 1.0f, 0.0f));
     // Calculate the up vector for the camera's coordinate system
-    vec3 up;
+    vec3 up    = cross(right, direction);
+
+
 
     // Update camera position using the direction and right vectors based on user input
-
-
 
     // Task 1: Navigate using WSAD keys
 
     // Move forward: If 'W' is pressed, move the camera forward along the direction vector
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         position += speed * deltaTime * direction;
-
     // Move backward: If 'S' is pressed, move the camera backward along the direction vector
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         position -= speed * deltaTime * direction;
-
     // Strafe right: If 'D' is pressed, move the camera to the right along the right vector
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         position += speed * deltaTime * right;
-
     // Strafe left: If 'A' is pressed, move the camera to the left along the right vector
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         position -= speed * deltaTime * right;
@@ -89,11 +84,18 @@ void Camera::update()
 
     // Zoom in if the up arrow key is pressed
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-		FoV -= deltaTime * fovSpeed;
-
+        FoV -= deltaTime * fovSpeed;
     // Zoom out if down arrow key is pressed
-	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-		FoV += deltaTime * fovSpeed;
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        FoV += deltaTime * fovSpeed;
+
+
+
+    // Move camera up/down using Q and E keys
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        position += speed * deltaTime * up;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        position -= speed * deltaTime * up;
 
 
 
