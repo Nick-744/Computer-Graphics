@@ -91,6 +91,7 @@ void Camera::update()
     // Zoom out if down arrow key is pressed
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
         FoV += deltaTime * fovSpeed;
+    FoV = clamp(FoV, 10.0f, 100.0f); // Μην τυφλωθεί κιόλας...
 
 
 
