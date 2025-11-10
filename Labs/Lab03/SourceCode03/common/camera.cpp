@@ -64,6 +64,24 @@ void Camera::update()
 
 
 
+    // Tilt camera sideways left/right using Q and E keys
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        tiltAngle += deltaTime * tiltSpeed; // Αντιορολογιακά
+    else if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        tiltAngle -= deltaTime * tiltSpeed; // Ορολογιακά
+    else
+    {   // Επιστροφή στην αρχική θέση
+        tiltAngle -= deltaTime * tiltSpeed * tiltAngle;
+        if (abs(tiltAngle) < 0.002f) tiltAngle = 0.0f;
+    }
+
+    tiltAngle = clamp(tiltAngle, -3.14f / 6.0f, 3.14f / 6.0f); // Μην στραβολεμιάσει κιόλας...
+    mat4 rotationMatrix = rotate(mat4(1.0f), tiltAngle, direction);
+    right = vec3(rotationMatrix * vec4(right, 0.0f));
+    up    = vec3(rotationMatrix * vec4(up, 0.0f));
+
+
+
     // Update camera position using the direction and right vectors based on user input
 
     // Task 1: Navigate using WSAD keys
@@ -101,24 +119,6 @@ void Camera::update()
     if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
         glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS)
         position -= speed * deltaTime * up;
-    
-    
-    
-    // Tilt camera sideways left/right using Q and E keys
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-        tiltAngle += deltaTime * tiltSpeed; // Αντιορολογιακά
-    else if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-        tiltAngle -= deltaTime * tiltSpeed; // Ορολογιακά
-    else
-    {   // Επιστροφή στην αρχική θέση
-        tiltAngle -= deltaTime * tiltSpeed * tiltAngle;
-        if (abs(tiltAngle) < 0.002f) tiltAngle = 0.0f;
-    }
-
-    tiltAngle = clamp(tiltAngle, -3.14f / 6.0f, 3.14f / 6.0f); // Μην στραβολεμιάσει κιόλας...
-    mat4 rotationMatrix = rotate(mat4(1.0f), tiltAngle, direction);
-    right = vec3(rotationMatrix * vec4(right, 0.0f));
-    up    = vec3(rotationMatrix * vec4(up, 0.0f));
 
 
 
