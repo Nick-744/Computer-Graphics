@@ -1,0 +1,16 @@
+#version 330 core
+
+// input vertex and UV coordinates, different for all executions of this shader
+layout(location = 0) in vec3 vertexPosition_modelspace;
+
+// model view projection matrix 
+uniform mat4 VP;
+uniform mat4 M;
+
+
+void main()
+{
+        
+    gl_Position = VP * M * vec4(vertexPosition_modelspace, 1.0);
+    
+}
