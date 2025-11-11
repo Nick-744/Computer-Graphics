@@ -114,6 +114,9 @@ add_executable(lab04
 
   lab04/Shader.fragmentshader
   lab04/Shader.vertexshader
+
+  lab04/plane.fragmentshader
+  lab04/plane.vertexshader
   )
 target_link_libraries(lab04
   ${ALL_LIBS}
