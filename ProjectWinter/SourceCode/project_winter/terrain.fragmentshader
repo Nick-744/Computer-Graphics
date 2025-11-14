@@ -1,0 +1,13 @@
+#version 330 core
+
+// output data
+in vec2 UV;
+out vec4 color;
+
+uniform sampler2D textureSampler;
+ 
+void main()
+{
+    vec4 main_texture = vec4(texture(textureSampler, UV).rgb, 1.0f);
+    color = main_texture;
+}

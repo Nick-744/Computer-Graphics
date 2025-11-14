@@ -1,0 +1,51 @@
+#version 330 core
+
+// output data
+out vec4 color;
+
+// Task 3.2c FS: get vertex position from VS 
+in vec4 vertexPosition_worldspace;
+
+// Task 3.2d FS: get the coefficients of the plane from main program (uniform vec4) 
+uniform vec4 planeCoeffs;
+
+// Task 4.1b FS:
+uniform vec3 detachmentDisplacement; // Υπάρχει και στους 2 shaders!
+ 
+void main()
+{
+    color = vec4(0.0, 0.0, 0.0, 1.0);
+
+    // Task 3.2e FS: find on which side of the plane is the vertex and
+    // apply different colors (red above 0.02, green below -0.02 else blue)
+    /*float d = dot(planeCoeffs, vertexPosition_worldspace);
+    if (d > 0.02)
+        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+    else if (d < -0.02)
+        color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    else
+        color = vec4(0.0f, 0.0f, 1.0f, 1.0f);*/
+
+
+
+    // Task 3.3 FS: color the model based on the vertex position and make the
+    // lower part vanish (use alpha)
+    float d = dot(planeCoeffs, vertexPosition_worldspace);
+    if (d > 0.02f)
+        color = vec4(vertexPosition_worldspace.xyz, 1.0f);
+        // Τυχαίνει το αντικείμενο και οι xyz υπάρχουνε μέσα στον μοναδιαίο κύκλο!
+    else if (d < -0.02f)
+        color = vec4(vertexPosition_worldspace.xyz, 0.3f);
+    else
+        color = vec4(vertexPosition_worldspace.xyz, 0.5f);
+    // Homework 1: assign color based on distance from plane
+
+
+
+    // Task 4.1d: discard the fragments that are between the two halves
+    float l = length(detachmentDisplacement);
+    if ((0 < d && d < l) || (-l < d && d < 0))
+    {
+        discard;
+    }
+}
