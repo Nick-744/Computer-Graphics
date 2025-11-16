@@ -49,20 +49,24 @@ GLuint textureSamplerWorld;
 
 GLuint textureSamplerSlope;
 GLuint textureSamplerSoil;
-GLuint textureSamplerCurvature;
+GLuint textureSamplerPeaks;
 GLuint textureSamplerLake;
+GLuint textureSamplerRivers;
 
 GLuint textureSamplerRock;
 GLuint textureSamplerGrass;
 GLuint textureSamplerDirt;
 GLuint textureSamplerSand;
 
-// Moving water texture
+// Moving water texture + displacement
 GLuint timeUniform;
 GLuint textureSamplerWater;
 
+GLuint displacementTexture;
+GLuint displacementTextureSampler;
+
 // Terrain textures
-GLuint textureWorld, textureSlope, textureSoil, textureCurvature, textureLake;
+GLuint textureWorld, textureSlope, textureSoil, texturePeaks, textureLake, textureRivers;
 GLuint textureRock, textureGrass, textureDirt, textureSand, textureWater;
 
 // Terrain shader variables
@@ -99,29 +103,35 @@ void createContext()
 		// Texture sampler locations in the shader
         textureSamplerWorld = glGetUniformLocation(terrainShaderProgram, "textureSamplerWorld");
 
-        textureSamplerSlope     = glGetUniformLocation(terrainShaderProgram, "textureSamplerSlope");
-        textureSamplerSoil      = glGetUniformLocation(terrainShaderProgram, "textureSamplerSoil");
-		textureSamplerCurvature = glGetUniformLocation(terrainShaderProgram, "textureSamplerCurvature");
-		textureSamplerLake      = glGetUniformLocation(terrainShaderProgram, "textureSamplerLake");
+        textureSamplerSlope  = glGetUniformLocation(terrainShaderProgram, "textureSamplerSlope");
+        textureSamplerSoil   = glGetUniformLocation(terrainShaderProgram, "textureSamplerSoil");
+        textureSamplerPeaks  = glGetUniformLocation(terrainShaderProgram, "textureSamplerPeaks");
+		textureSamplerLake   = glGetUniformLocation(terrainShaderProgram, "textureSamplerLake");
+		textureSamplerRivers = glGetUniformLocation(terrainShaderProgram, "textureSamplerRivers");
 
 		textureSamplerRock  = glGetUniformLocation(terrainShaderProgram, "textureSamplerRock");
 		textureSamplerGrass = glGetUniformLocation(terrainShaderProgram, "textureSamplerGrass");
 		textureSamplerDirt  = glGetUniformLocation(terrainShaderProgram, "textureSamplerDirt");
 		textureSamplerSand  = glGetUniformLocation(terrainShaderProgram, "textureSamplerSand");
 
-		// Moving water texture
+		// Moving water texture + displacement
 		textureSamplerWater = glGetUniformLocation(terrainShaderProgram, "textureSamplerWater");
         timeUniform         = glGetUniformLocation(terrainShaderProgram, "time");
+
+        displacementTexture        = loadBMP("assets/world_textures/gray.bmp");
+        displacementTextureSampler = glGetUniformLocation(terrainShaderProgram, "displacementTextureSampler");
 
         // load BMP textures
 		textureWorld = loadBMP("assets/worldmap_gaea/worldmap_texture_NO-BLUE.bmp"); // General terrain texture
 
 		// Load terrain attribute textures
-		textureSlope     = loadBMP("assets/worldmap_gaea/slope_texture.bmp");
-		textureSoil      = loadBMP("assets/worldmap_gaea/soil_texture.bmp");
-		textureCurvature = loadBMP("assets/worldmap_gaea/curvature_texture.bmp");
-		textureLake      = loadBMP("assets/worldmap_gaea/lake_texture_4k.bmp");
+		textureSlope  = loadBMP("assets/worldmap_gaea/slope_texture.bmp");
+		textureSoil   = loadBMP("assets/worldmap_gaea/soil_texture.bmp");
+		texturePeaks  = loadBMP("assets/worldmap_gaea/peaks_texture.bmp");
+		textureLake   = loadBMP("assets/worldmap_gaea/lake_texture.bmp");
+		textureRivers = loadBMP("assets/worldmap_gaea/rivers_texture.bmp");
 
+		// They are low resolution textures, so use GL_LINEAR for filtering!
         glBindTexture(GL_TEXTURE_2D, textureSlope);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -130,13 +140,17 @@ void createContext()
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        glBindTexture(GL_TEXTURE_2D, textureCurvature);
+        glBindTexture(GL_TEXTURE_2D, texturePeaks);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
         glBindTexture(GL_TEXTURE_2D, textureLake);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glBindTexture(GL_TEXTURE_2D, textureRivers);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		// For detailed terrain texturing!
 		textureRock  = loadBMP("assets/world_textures/rock_face_03_diff_4k.bmp");
@@ -146,10 +160,11 @@ void createContext()
 		textureWater = loadBMP("assets/world_textures/water.bmp");
 
         // Load the terrain as a Drawable
-        terrain = new Drawable("assets/worldmap_gaea/low_poly_worldmap.obj");
+        terrain = new Drawable("assets/worldmap_gaea/super_low_poly_worldmap.obj");
 
     }
 }
+
 void free()
 {
     glDeleteBuffers(1, &modelVerticiesVBO);
@@ -191,27 +206,34 @@ void mainLoop()
 			glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, textureSoil);
 			glUniform1i(textureSamplerSoil, 2);
 
-			glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, textureCurvature);
-			glUniform1i(textureSamplerCurvature, 3);
+			glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, texturePeaks);
+			glUniform1i(textureSamplerPeaks, 3);
 
 			glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, textureLake);
             glUniform1i(textureSamplerLake, 4);
 
+			glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, textureRivers);
+			glUniform1i(textureSamplerRivers, 5);
+
 			// Bind detailed terrain textures
-			glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, textureRock);
-			glUniform1i(textureSamplerRock, 5);
+			glActiveTexture(GL_TEXTURE6); glBindTexture(GL_TEXTURE_2D, textureRock);
+			glUniform1i(textureSamplerRock, 6);
 
-			glActiveTexture(GL_TEXTURE6); glBindTexture(GL_TEXTURE_2D, textureGrass);
-			glUniform1i(textureSamplerGrass, 6);
+			glActiveTexture(GL_TEXTURE7); glBindTexture(GL_TEXTURE_2D, textureGrass);
+			glUniform1i(textureSamplerGrass, 7);
 
-			glActiveTexture(GL_TEXTURE7); glBindTexture(GL_TEXTURE_2D, textureDirt);
-			glUniform1i(textureSamplerDirt, 7);
+			glActiveTexture(GL_TEXTURE8); glBindTexture(GL_TEXTURE_2D, textureDirt);
+			glUniform1i(textureSamplerDirt, 8);
 
-			glActiveTexture(GL_TEXTURE8); glBindTexture(GL_TEXTURE_2D, textureSand);
-			glUniform1i(textureSamplerSand, 8);
+			glActiveTexture(GL_TEXTURE9); glBindTexture(GL_TEXTURE_2D, textureSand);
+			glUniform1i(textureSamplerSand, 9);
 
-			glActiveTexture(GL_TEXTURE9); glBindTexture(GL_TEXTURE_2D, textureWater);
-			glUniform1i(textureSamplerWater, 9);
+			glActiveTexture(GL_TEXTURE10); glBindTexture(GL_TEXTURE_2D, textureWater);
+			glUniform1i(textureSamplerWater, 10);
+
+			// Bind displacement texture
+			glActiveTexture(GL_TEXTURE11); glBindTexture(GL_TEXTURE_2D, displacementTexture);
+			glUniform1i(displacementTextureSampler, 11);
 
             // Pass time to shader
             glUniform1f(timeUniform, (float) glfwGetTime() / 20.0);
