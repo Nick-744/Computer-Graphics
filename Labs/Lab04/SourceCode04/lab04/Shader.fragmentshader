@@ -11,10 +11,18 @@ uniform vec4 planeCoeffs;
 
 // Task 4.1b FS:
 uniform vec3 detachmentDisplacement; // Υπάρχει και στους 2 shaders!
+
+// Plane 2 info
+uniform vec4 plane2Coeffs;
+uniform vec3 detachmentDisplacement2;
+
+uniform int isPlane; // 0 = model, 1 = plane geometry
  
 void main()
 {
     color = vec4(0.0, 0.0, 0.0, 1.0);
+
+
 
     // Task 3.2e FS: find on which side of the plane is the vertex and
     // apply different colors (red above 0.02, green below -0.02 else blue)
@@ -30,22 +38,45 @@ void main()
 
     // Task 3.3 FS: color the model based on the vertex position and make the
     // lower part vanish (use alpha)
-    float d = dot(planeCoeffs, vertexPosition_worldspace);
+    /*float d = dot(planeCoeffs, vertexPosition_worldspace);
     if (d > 0.02f)
         color = vec4(vertexPosition_worldspace.xyz, 1.0f);
         // Τυχαίνει το αντικείμενο και οι xyz υπάρχουνε μέσα στον μοναδιαίο κύκλο!
     else if (d < -0.02f)
         color = vec4(vertexPosition_worldspace.xyz, 0.3f);
     else
-        color = vec4(vertexPosition_worldspace.xyz, 0.5f);
+        color = vec4(vertexPosition_worldspace.xyz, 0.5f);*/
+
+
+
     // Homework 1: assign color based on distance from plane
-
-
+    float d = dot(planeCoeffs, vertexPosition_worldspace);
+    float t = abs(d) / length(planeCoeffs.xyz); // Απόσταση σημείου-επιπέδου (βάση τύπου)
+    vec3  c = vec3(1.0f, 1.0f, 1.0f) - vec3(t, t, t);
+    color   = vec4(c, 1.0f); // Άσπρο κοντά στο επίπεδο και μαύρο όσο απομακρυνόμαστε!
 
     // Task 4.1d: discard the fragments that are between the two halves
     float l = length(detachmentDisplacement);
-    if ((0 < d && d < l) || (-l < d && d < 0))
-    {
+    if (((0 < d && d < l) || (-l < d && d < 0)) && isPlane == 0)
         discard;
-    }
+
+
+
+    // Plane 2 - Homework 3 - Combined color logic
+    float d2 = dot(plane2Coeffs, vertexPosition_worldspace);
+    float t2 = abs(d2) / length(plane2Coeffs.xyz);
+
+    // Color based on its distance to plane 1 and plane 2
+    if (t2 < 0.2f)
+        color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+    else if (t2 < 0.4f)
+        color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    else if (t < 0.2f)
+        color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
+    else if (t < 0.4f)
+        color = vec4(1.0f, 0.5f, 0.0f, 1.0f);
+
+    float l2 = length(detachmentDisplacement2);
+    if (((0 < d2 && d2 < l2) || (-l2 < d2 && d2 < 0)) && isPlane == 0)
+        discard;
 }

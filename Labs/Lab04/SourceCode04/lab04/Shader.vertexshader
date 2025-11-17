@@ -11,8 +11,12 @@ uniform mat4 M;
 out vec4 vertexPosition_worldspace;
 
 // Task 4.1b VS: 
-uniform vec3 detachmentDisplacement;
 uniform vec4 planeCoeffs;
+uniform vec3 detachmentDisplacement;
+
+// Plane 2 info
+uniform vec4 plane2Coeffs;
+uniform vec3 detachmentDisplacement2;
 
 void main()
 {
@@ -32,6 +36,12 @@ void main()
         vertexPosition_worldspace = vertexPosition_worldspace + vec4(detachmentDisplacement, 0.0f);
     else if (d < -0.001f)
         vertexPosition_worldspace = vertexPosition_worldspace - vec4(detachmentDisplacement, 0.0f);
+
+    float d2 = dot(plane2Coeffs, vertexPosition_worldspace);
+    if (d2 > 0.001f)
+        vertexPosition_worldspace = vertexPosition_worldspace + vec4(detachmentDisplacement2, 0.0f);
+    else if (d2 < -0.001f)
+        vertexPosition_worldspace = vertexPosition_worldspace - vec4(detachmentDisplacement2, 0.0f);
     
     gl_Position = VP * vertexPosition_worldspace;
 }

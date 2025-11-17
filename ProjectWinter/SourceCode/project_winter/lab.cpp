@@ -38,11 +38,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 // Global variables
 GLFWwindow* window;
 Camera* camera;
-GLuint shaderProgram;
 GLuint VPLocation, MLocation;
 GLuint modelVAO, modelVerticiesVBO, terrainVAO, terrainVerticiesVBO;
 std::vector<vec3> modelVertices, modelNormals;
 std::vector<vec2> modelUVs;
+
+// ===< Terrain >=== //
 
 // Terrain texture samplers
 GLuint textureSamplerWorld;
@@ -72,6 +73,18 @@ GLuint textureRock, textureGrass, textureDirt, textureSand, textureWater;
 // Terrain shader variables
 GLuint terrainShaderProgram, terrainMLocation, terrainVPLocation;
 
+// ===< Clouds >=== //
+
+// Quad for rendering clouds
+GLuint quadVAO;
+GLuint quadPosVBO, quadUVVBO;
+
+// Clouds textures
+GLuint cloudBaseTex, cloudDetailTex;
+
+// Clouds shader variables
+GLuint cloudsShaderProgram;
+
 // Drawables
 Drawable* terrain;
 Drawable* model;
@@ -80,17 +93,6 @@ void createContext()
 {
     // Draw wire frame triangles or fill: GL_LINE, or GL_FILL
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-    { // Nothing yet...
-
-        // Create and compile our GLSL program from the shaders
-        shaderProgram = loadShaders("Shader.vertexshader", "Shader.fragmentshader");
-
-        // Get a pointer location to model matrix in the vertex shader
-        VPLocation = glGetUniformLocation(shaderProgram, "VP");
-        MLocation  = glGetUniformLocation(shaderProgram, "M");
-
-    }
 
 	{ // Terrain setup
 
@@ -163,6 +165,55 @@ void createContext()
         terrain = new Drawable("assets/worldmap_gaea/super_low_poly_worldmap.obj");
 
     }
+
+    { // Clouds setup
+
+        cloudsShaderProgram = loadShaders("clouds.vertexshader", "clouds.fragmentshader");
+
+		cloudBaseTex   = loadBMP("assets/clouds_textures/cloud_base.bmp");
+		cloudDetailTex = loadBMP("assets/clouds_textures/cloud_detail.bmp");
+
+        glGenVertexArrays(1, &quadVAO);
+        glBindVertexArray(quadVAO);
+
+		// Quad data (Rectangle made out of triangles)
+        static const GLfloat quadPositions[] = {
+            1.0f,  10.0f, -1.0f,
+            -1.0f, 10.0f, -1.0f,
+            -1.0f, 10.0f,  1.0f,
+            
+            1.0f,  10.0f, -1.0f,
+            -1.0f, 10.0f,  1.0f,
+            1.0f,  10.0f,  1.0f
+        };
+
+        static const GLfloat quadUVs[] = {
+            0.0f, 1.0f,
+            0.0f, 0.0f,
+            1.0f, 0.0f,
+
+            0.0f, 1.0f,
+            1.0f, 0.0f,
+            1.0f, 1.0f
+        };
+
+        // Position VBO
+        glGenBuffers(1, &quadPosVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadPosVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadPositions), quadPositions, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+        glEnableVertexAttribArray(0);
+
+        // UV VBO
+        glGenBuffers(1, &quadUVVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadUVVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadUVs), quadUVs, GL_STATIC_DRAW);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+        glEnableVertexAttribArray(1);
+
+        glBindVertexArray(0);
+
+    }
 }
 
 void free()
@@ -173,7 +224,7 @@ void free()
     glDeleteBuffers(1, &terrainVerticiesVBO);
     glDeleteVertexArrays(1, &terrainVAO);
 
-    glDeleteProgram(shaderProgram);
+    glDeleteProgram(cloudsShaderProgram);
 	glDeleteProgram(terrainShaderProgram);
 
     glfwTerminate();
@@ -189,7 +240,27 @@ void mainLoop()
         camera->update();
         mat4 projectionMatrix = camera->projectionMatrix;
         mat4 viewMatrix       = camera->viewMatrix;
-        glUseProgram(shaderProgram);
+
+        { // Sky
+
+            glUseProgram(cloudsShaderProgram);
+
+            mat4 cloudModel = mat4(1.0f); // positioned by vertex data
+            mat4 cloudMVP = projectionMatrix * viewMatrix * cloudModel;
+
+            glUniformMatrix4fv(glGetUniformLocation(cloudsShaderProgram, "MVP"),
+                1, GL_FALSE, &cloudMVP[0][0]);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, cloudBaseTex);
+
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, cloudDetailTex);
+
+            glBindVertexArray(quadVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        }
 
         { // Terrain
 

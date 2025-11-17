@@ -112,8 +112,8 @@ add_executable(project_winter
   common/texture.cpp
   common/texture.h
 
-  project_winter/Shader.fragmentshader
-  project_winter/Shader.vertexshader
+  project_winter/clouds.fragmentshader
+  project_winter/clouds.vertexshader
 
   project_winter/terrain.fragmentshader
   project_winter/terrain.vertexshader

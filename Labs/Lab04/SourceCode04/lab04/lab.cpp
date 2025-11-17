@@ -46,15 +46,27 @@ std::vector<vec3> modelVertices, modelNormals;
 std::vector<vec2> modelUVs;
 
 // Task 5: for the new shader program
-GLuint planeShaderProgram, planeMLocation, planeVPLocation;
+GLuint plane2ShaderProgram, plane2MLocation, plane2VPLocation;
 
 // Drawables
 Drawable* plane;
+Drawable* plane2;
+
 Drawable* model;
 
+// 1st plane parameters
 float planeY          = 0.0f;
 float planeAngle      = 0.0f;
 float detachmentCoeff = 0.0f;
+
+// 2nd plane parameters
+float plane2Y          = 0.0f;
+float plane2Angle      = 0.0f;
+float detachmentCoeff2 = 0.0f;
+
+GLuint plane2Location, detachmentCoeff2Location;
+
+GLuint isPlaneLocation; // So the plane is not discarded by the shader when drawing the model!
 
 void createContext() {
     // Create and compile our GLSL program from the shaders
@@ -76,10 +88,13 @@ void createContext() {
 
     // Task 5.2:
     // Create a new shader program to render the plane
-    planeShaderProgram = loadShaders("plane.vertexshader", "plane.fragmentshader");
+    plane2ShaderProgram = loadShaders("plane.vertexshader", "plane.fragmentshader");
 
-    planeVPLocation = glGetUniformLocation(planeShaderProgram, "VP");
-    planeMLocation  = glGetUniformLocation(planeShaderProgram, "M");
+    plane2VPLocation = glGetUniformLocation(plane2ShaderProgram, "VP");
+    plane2MLocation  = glGetUniformLocation(plane2ShaderProgram, "M");
+
+	plane2Location           = glGetUniformLocation(shaderProgram, "plane2Coeffs");
+	detachmentCoeff2Location = glGetUniformLocation(shaderProgram, "detachmentDisplacement2");
 
     // model
     // Task 1.3 Load a heart model as a Drawable
@@ -97,8 +112,24 @@ void createContext() {
 		vec3( size, planeY, -size),
 		vec3(-size, planeY, -size)
     };
+    
+    plane = new Drawable(planeVertices);
 
-    plane = new Drawable(planeVertices); 
+    // Red plane
+    float size2 = 1.5f;
+    vector<vec3>plane2Vertices = { // Συντεταγμένες κορυφών του 2ου plain
+        vec3(-size2, plane2Y, -size2),
+        vec3(-size2, plane2Y,  size2),
+        vec3( size2, plane2Y,  size2),
+
+        vec3( size2, plane2Y,  size2),
+        vec3( size2, plane2Y, -size2),
+        vec3(-size2, plane2Y, -size2)
+    };
+    
+    plane2 = new Drawable(plane2Vertices);
+
+	isPlaneLocation = glGetUniformLocation(shaderProgram, "isPlane");
 }
 void free() {
     glDeleteBuffers(1, &modelVerticiesVBO);
@@ -108,6 +139,8 @@ void free() {
     glDeleteVertexArrays(1, &planeVAO);
 
     glDeleteProgram(shaderProgram);
+    glDeleteProgram(plane2ShaderProgram);
+
     glfwTerminate();
 }
 
@@ -119,9 +152,37 @@ void mainLoop() {
         camera->update();
         mat4 projectionMatrix = camera->projectionMatrix;
         mat4 viewMatrix       = camera->viewMatrix;
-        glUseProgram(shaderProgram);
 
+        // Homework 2 - Create a red second plane
+        glUseProgram(plane2ShaderProgram);
 
+		plane2->bind();
+		vec3 plane2Position(0, plane2Y, 0);
+		mat4 plane2Translation = translate(mat4(), plane2Position);
+		mat4 plane2Rotation    = rotate(mat4(), plane2Angle, vec3(0.0f, 0.0f, 1.0f));
+
+		mat4 plane2ModelMatrix = plane2Translation * plane2Rotation;
+		mat4 plane2VP          = projectionMatrix * viewMatrix;
+		glUniformMatrix4fv(plane2VPLocation, 1, GL_FALSE, &plane2VP[0][0]);
+		glUniformMatrix4fv(plane2MLocation,  1, GL_FALSE, &plane2ModelMatrix[0][0]);
+		plane2->draw(); // Task 5.3: Render the plane using the new shader program
+
+        glUseProgram(shaderProgram); // Original shader used during the lab...
+
+		vec3 plane2Normal(plane2Rotation * vec4(0, 1, 0, 0));
+		float d2 = -dot(plane2Normal, plane2Position);
+		vec4 plane2Coeffs(plane2Normal, d2);
+
+		glUniform4f(
+			plane2Location,
+			plane2Coeffs.x,
+			plane2Coeffs.y,
+			plane2Coeffs.z,
+			plane2Coeffs.w
+		);
+
+		vec3 detachmentVec2 = detachmentCoeff2 * plane2Normal;
+		glUniform3fv(detachmentCoeff2Location, 1, &detachmentVec2[0]);
 
 		// Task 1.2: Render the plane - Comment out, αλλιώς θα ζωγραφίζει 2 φορές το ίδιο πράγμα!
         /*plane->bind();
@@ -137,6 +198,9 @@ void mainLoop() {
         // Task 2: 
         // Task 2.1: translate the plane in + -y direction using the keyboard
         // Task 2.2: and rotate the plane around z-direction
+
+		glUniform1i(isPlaneLocation, 1); // Do not discard the plane in the shader
+
         plane->bind();
         // Task 2.1: translation, use planeY as variable
         vec3 planePosition(0, planeY, 0);
@@ -150,10 +214,6 @@ void mainLoop() {
         glUniformMatrix4fv(VPLocation, 1, GL_FALSE, &planeVP[0][0]);
         glUniformMatrix4fv(MLocation,  1, GL_FALSE, &planeModelMatrix[0][0]);
         plane->draw();
-
-
-
-        // Task 5.3: Render the plane using the new shader program
 
         // Task 3.1: calculate plane coefficients
         vec3 planeNormal(planeRotation * vec4(0, 1, 0, 0)); // Σε generalized συντεταγμένες -> w = 0!
@@ -179,6 +239,7 @@ void mainLoop() {
 
         // model
         // Task 1.4: Draw the heart model
+        glUniform1i(isPlaneLocation, 0);
         model->bind();
         mat4 modelModelMatrix = mat4(1);
         mat4 modelVP          = projectionMatrix * viewMatrix;
@@ -196,15 +257,15 @@ void mainLoop() {
 void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mods) {
     // Task 2.1:
     if (key == GLFW_KEY_I)
-        planeY += 0.01f; 
+        planeY += 0.005f; 
     if (key == GLFW_KEY_K)
-        planeY -= 0.01f;
+        planeY -= 0.005f;
 
     // Task 2.2: planeAngle J, L keys
     if (key == GLFW_KEY_J)
-		planeAngle += 0.01f;
+		planeAngle += 0.005f;
 	if (key == GLFW_KEY_L)
-		planeAngle -= 0.01f;
+		planeAngle -= 0.005f;
 
 
 
@@ -224,9 +285,42 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
     // Use variable: detachmentCoeff
     if (key == GLFW_KEY_U)
         detachmentCoeff += 0.01f;
-    if (key == GLFW_KEY_O) {
+    if (key == GLFW_KEY_O)
+    {
         detachmentCoeff -= 0.01f;
         if (detachmentCoeff <= 0.0f) detachmentCoeff = 0.01f;
+    }
+
+	// Plane 2 controls
+    if (key == GLFW_KEY_KP_8)
+		plane2Y += 0.01f;
+	if (key == GLFW_KEY_KP_5)
+		plane2Y -= 0.01f;
+	if (key == GLFW_KEY_KP_4)
+		plane2Angle += 0.01f;
+	if (key == GLFW_KEY_KP_6)
+		plane2Angle -= 0.01f;
+
+	if (key == GLFW_KEY_KP_7)
+		detachmentCoeff2 += 0.01f;
+    if (key == GLFW_KEY_KP_9)
+    {
+        detachmentCoeff2 -= 0.01f;
+		if (detachmentCoeff2 <= 0.0f) detachmentCoeff2 = 0.01f;
+    }
+
+    // Combined μετατόπιση των τμημάτων!
+    if (key == GLFW_KEY_KP_0)
+    {
+        detachmentCoeff2 += 0.01f;
+        detachmentCoeff  += 0.01f;
+    }
+    if (key == GLFW_KEY_KP_1)
+    {
+        detachmentCoeff2 -= 0.01f;
+        detachmentCoeff  -= 0.01f;
+        if (detachmentCoeff2 <= 0.0f) detachmentCoeff2 = 0.01f;
+        if (detachmentCoeff <= 0.0f)  detachmentCoeff  = 0.01f;
     }
 }
 

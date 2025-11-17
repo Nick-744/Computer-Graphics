@@ -1,0 +1,35 @@
+#version 330 core
+
+in vec2 UV;
+out vec4 color;
+
+uniform sampler2D cloudBase;
+uniform sampler2D cloudDetail;
+
+uniform float time;
+
+void main()
+{
+    // Scroll UVs
+    vec2 baseUV = UV + vec2(time * 1.5, 0.0);
+    vec2 detailUV = UV * 2.0 + vec2(time * 2, time * 3);
+
+    // Sample textures
+    float baseCloud = texture(cloudBase, baseUV).r;
+    float detail = texture(cloudDetail, detailUV).r * 0.4;
+
+    // Combine layers
+    float clouds = baseCloud + detail;
+    clouds = clamp(clouds, 0.0, 1.0);
+
+    // Sky color + clouds
+    vec3 skyColorTop = vec3(0.4, 0.6, 1.0);
+    vec3 skyColorBottom = vec3(0.7, 0.8, 1.0);
+
+    vec3 skyGradient = mix(skyColorBottom, skyColorTop, UV.y);
+
+    // Final color
+    vec3 final = mix(skyGradient, vec3(1.0), clouds);
+
+    color = vec4(final, 1.0);
+}
