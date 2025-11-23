@@ -105,7 +105,7 @@ void main()
     fragment_color = Ia + Id + Is;
     
     // Task 7: create the spotlight effect
-    vec4 spotlight_dir_cameraspace = vec4(0, 0, -1, 0);
+    /*vec4 spotlight_dir_cameraspace = vec4(0, 0, -1, 0);
     float spotlight_arc = dot(spotlight_dir_cameraspace, -L);
 
     float spotlight_cutoff = cos(radians(10.0));
@@ -116,9 +116,22 @@ void main()
     else
         spotlight_factor = (spotlight_arc - spotlight_cutoff) / (1.0 - spotlight_cutoff);
 
-    fragment_color = Ia + (Id + Is) * spotlight_factor;
+    fragment_color = Ia + (Id + Is) * spotlight_factor;*/
 
     // Homework 1: modify the code for the spotlight in order to create a “ring light”.
+    {
+        vec4 spotlight_dir_cameraspace = vec4(0, 0, -1, 0);
+        float spotlight_arc = dot(spotlight_dir_cameraspace, -L);
+
+        float spotlight_cutoff_inner = cos(radians(8.0)); // => 0.99026806873
+        float spotlight_cutoff_outer = cos(radians(4.0)); // => 0.99756405025
+
+        float spotlight_factor = 0.0f;
+        if (spotlight_cutoff_inner < spotlight_arc && spotlight_arc < spotlight_cutoff_outer)
+            spotlight_factor = 1.0f;
+
+        fragment_color = Ia + (Id + Is) * spotlight_factor;
+    }
 
     // Homework 5: make light properties as uniform variables and use the keyboard  
     // keys to adjust them (light position, color and power).

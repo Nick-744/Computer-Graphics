@@ -52,15 +52,14 @@ Drawable* obj;
 void createContext()
 {
     // Create and compile our GLSL program from the shaders
-    shaderProgram = loadShaders("PhongShading.vertexshader", "PhongShading.fragmentshader");
+    //shaderProgram = loadShaders("PhongShading.vertexshader", "PhongShading.fragmentshader");
 
     // Homework 2: implement Gouraud shading.
-    // shaderProgram = loadShaders("GouraudShading.vertexshader", "GouraudShading.fragmentshader");
+    //shaderProgram = loadShaders("GouraudShading.vertexshader", "GouraudShading.fragmentshader");
 
     // Homework 3: implement flat shading.
-    // shaderProgram = loadShaders("FlatShading.vertexshader", "FlatShading.fragmentshader");
+    shaderProgram = loadShaders("FlatShading.vertexshader", "FlatShading.fragmentshader");
     
-
     // Task 6.2: load diffuse and specular texture maps
     diffuseTexture  = loadSOIL("suzanne_diffuse.bmp");
 	specularTexture = loadSOIL("suzanne_specular.bmp"); // Έτσι γυαλίζουν μόνο τα μάτια!

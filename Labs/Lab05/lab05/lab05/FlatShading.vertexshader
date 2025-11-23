@@ -29,13 +29,69 @@ void main()
     //vec4 vertex_normal_cameraspace = ...
     //vec4 light_position_cameraspace = ...
     //vec2 vertex_UV = vertexUV;
-
-    // default color
-    vertex_color = vec4(1, 1, 1, 1);
+    vec4 vertex_position_cameraspace = V * M * vec4(vertexPosition_modelspace, 1);
+    vec4 vertex_normal_cameraspace   = V * M * vec4(vertexNormal_modelspace, 0);
+    vec4 light_position_cameraspace  = V * vec4(light_position_worldspace, 1);
 
     // Homework 3: implement flat shading.
 
     // copy code from "GouraudShading.vertexshader"
     
-    // ...
+    // Model light; specular (Ls), diffuse (Ld) and ambient (La) color
+    vec4 Ls = vec4(1, 1, 1, 1);
+    vec4 Ld = vec4(1, 1, 1, 1);
+    vec4 La = vec4(1, 1, 1, 1);
+
+    // Material properties)
+    vec4 Ks = texture(specularColorSampler, vertexUV);
+    vec4 Kd = texture(diffuseColorSampler, vertexUV);
+    vec4 Ka = vec4(0.1 * Kd.xyz, Kd.w);
+    float Ns = 10;
+
+    // Ambient intensity (Ia)
+    vec4 Ia = La * Ka;
+
+    // Normalized vertex normal (N) in camera space
+    vec4 N = normalize(vertex_normal_cameraspace);
+
+    // Normalized light direction (L) in camera space
+    vec4 L = normalize(light_position_cameraspace - vertex_position_cameraspace);
+
+    // Calculate the diffuse intensity
+    float cosTheta = dot(N, L);
+    cosTheta = clamp(cosTheta, 0.0, 1.0); // Ώστε ΜΟΝΟ να προσθέτει φωτισμό!
+    
+    vec4 Id = Ld * Kd * cosTheta;
+
+    // Calculate the specular intensity
+    vec4 R = reflect(-L, N);
+    vec4 E = normalize(vec4(0, 0, 0, 1) - vertex_position_cameraspace);
+
+    float cosAlpha = clamp(dot(E, R), 0, 1);
+
+    float specular_factor = pow(cosAlpha, Ns);
+    
+    vec4 Is = Ls * Ks * specular_factor;
+
+    // Light distance effect
+    float light_power = 40.0f;
+    float d = length(light_position_cameraspace - vertex_position_cameraspace);
+    float attenuation = 1.0f / (1.0f + (d * d) / light_power);
+
+    Id *= attenuation;
+    Is *= attenuation;
+
+    // Spotlight effect
+    vec4 spotlight_dir_cameraspace = vec4(0, 0, -1, 0);
+    float spotlight_arc = dot(spotlight_dir_cameraspace, -L);
+
+    float spotlight_cutoff = cos(radians(10.0));
+
+    float spotlight_factor = 1.0f;
+    if (spotlight_arc < spotlight_cutoff)
+        spotlight_factor = 0.0f;
+    else
+        spotlight_factor = (spotlight_arc - spotlight_cutoff) / (1.0 - spotlight_cutoff);
+
+    vertex_color = Ia + (Id + Is) * spotlight_factor;
 }

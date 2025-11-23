@@ -66,9 +66,12 @@ GLuint textureSamplerWater;
 GLuint displacementTexture;
 GLuint displacementTextureSampler;
 
+// Rivers flow direction texture
+GLuint textureSamplerRiversDirection;
+
 // Terrain textures
 GLuint textureWorld, textureSlope, textureSoil, texturePeaks, textureLake, textureRivers;
-GLuint textureRock, textureGrass, textureDirt, textureSand, textureWater;
+GLuint textureRock, textureGrass, textureDirt, textureSand, textureWater, textureRiversDirection;
 
 // Terrain shader variables
 GLuint terrainShaderProgram, terrainMLocation, terrainVPLocation;
@@ -123,6 +126,8 @@ void createContext()
         displacementTexture        = loadBMP("assets/world_textures/gray.bmp");
         displacementTextureSampler = glGetUniformLocation(terrainShaderProgram, "displacementTextureSampler");
 
+		textureSamplerRiversDirection = glGetUniformLocation(terrainShaderProgram, "textureSamplerRiversDirection");
+
         // load BMP textures
 		textureWorld = loadBMP("assets/worldmap_gaea/worldmap_texture_NO-BLUE.bmp"); // General terrain texture
 
@@ -160,6 +165,8 @@ void createContext()
 		textureDirt  = loadBMP("assets/world_textures/dirt_diff_4k.bmp");
 		textureSand  = loadBMP("assets/world_textures/damp_sand_diff_4k.bmp");
 		textureWater = loadBMP("assets/world_textures/water.bmp");
+
+		textureRiversDirection = loadBMP("assets/worldmap_gaea/rivers_direction.bmp");
 
         // Load the terrain as a Drawable
         terrain = new Drawable("assets/worldmap_gaea/super_low_poly_worldmap.obj");
@@ -306,6 +313,10 @@ void mainLoop()
 			glActiveTexture(GL_TEXTURE11); glBindTexture(GL_TEXTURE_2D, displacementTexture);
 			glUniform1i(displacementTextureSampler, 11);
 
+			// Bind rivers flow direction
+			glActiveTexture(GL_TEXTURE12); glBindTexture(GL_TEXTURE_2D, textureRiversDirection);
+			glUniform1i(textureSamplerRiversDirection, 12);
+
             // Pass time to shader
             glUniform1f(timeUniform, (float) glfwGetTime() / 20.0);
 
@@ -384,8 +395,8 @@ void initialize()
     glfwPollEvents();
     glfwSetCursorPos(window, W_WIDTH / 2, W_HEIGHT / 2);
 
-    // Gray background color
-    glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+    // Sky color
+    glClearColor(0.6f, 0.7f, 1.0f, 0.0f);
 
     glfwSetKeyCallback(window, pollKeyboard);
 

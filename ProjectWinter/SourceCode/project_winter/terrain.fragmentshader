@@ -27,6 +27,9 @@ uniform float time;
 uniform sampler2D textureSamplerWater;
 uniform sampler2D displacementTextureSampler;
 
+// Rivers direction!!! Όχι μούφα κίνηση με height gradient από το Peaks texture...
+uniform sampler2D textureSamplerRiversDirection;
+
 // Cheap ALU-only hash functions for GLSL
 float hash(vec2 p)
 {
@@ -126,40 +129,45 @@ void main()
     { // RIVERS...
 
         float riverMask = texture(textureSamplerRivers, UV).r;
-        riverMask       = smoothstep(0.05, 0.4, riverMask);
+        riverMask       = smoothstep(0.05, 0.40, riverMask);
 
-        // HEIGHTMAP SAMPLING
-        float h   = texture(textureSamplerPeaks, UV).r;
-        float hx1 = texture(textureSamplerPeaks, UV + vec2(0.01, 0.0)).r;
-        float hx2 = texture(textureSamplerPeaks, UV - vec2(0.01, 0.0)).r;
-        float hy1 = texture(textureSamplerPeaks, UV + vec2(0.0,  0.01)).r;
-        float hy2 = texture(textureSamplerPeaks, UV - vec2(0.0,  0.01)).r;
+        // 1. Διάβασε τη διεύθυνση από το direction map
+        vec3 dirSample = texture(textureSamplerRiversDirection, UV).rgb;
 
-        // Central difference
-        vec2 grad = -vec2(hx1 - hx2, hy1 - hy2);
-        if (length(grad) < 0.0001)
-            grad = vec2(0.7, -0.4);
+        // Gaea συνήθως βάζει R,G σε [0,1] -> κάν' το [-1,1]
+        vec2 flowDir = dirSample.rg * 2.0 - 1.0;
 
-        vec2 flowDir = normalize(grad);
+        flowDir.y *= -1.0; // Flip Y axis
 
-        // River animation
+        // Αν για κάποιον λόγο είναι σχεδόν (0,0), βάλε fallback
+        if (length(flowDir) < 0.001)
+            flowDir = vec2(0.0, 1.0); // arbitrary “κάτω”
+
+        flowDir  = normalize(flowDir);
+
+
+        // 2. Κίνηση του νερού κατά μήκος της διεύθυνσης
         float riverTiling = 12.0;
-        float riverSpeed  = 1;
+        float riverSpeed  = 0.8;
 
         vec2 riverUV = UV * riverTiling + flowDir * time * riverSpeed;
 
-        // Add gentle noise drift
-        float n = texture(displacementTextureSampler, UV * 4.0 + time * 0.1).r;
-        riverUV += flowDir * (n * 0.02);
+        // 3. Λίγο displacement / wobble μέσα στη ροή
+        vec2 disp = texture(displacementTextureSampler,
+                            UV * 4.0 + flowDir * time * 0.2).rg - vec2(0.5);
+        riverUV += disp * 0.03;
 
-        // Ripple effect
-        float wobble = sin(time * 0.5 + UV.y * 20.0) * 0.003;
-        riverUV     += flowDir * wobble;
+        float wobble = sin(time * 0.5 + dot(UV, vec2(20.0))) * 0.003;
+        riverUV += flowDir * wobble;
 
+        // 4. Δειγματοληψία νερού & μίξη με rock στις όχθες
         vec3 riverWater = texture(textureSamplerWater, riverUV).rgb;
-        vec3 rockyRiver = mix(rock, riverWater, 0.65);
 
-        // Rivers should NOT overwrite lakes!
+        // Feathered edge: πιο πολύ νερό στο center, πιο πολύ rock στο edge
+        float edge = smoothstep(0.1, 0.8, riverMask);
+        vec3 rockyRiver = mix(rock, riverWater, edge);
+
+        // Μην πατάς πάνω στις λίμνες
         float riverBlend = riverMask * (1.0 - lake);
 
         finalColor = mix(finalColor, rockyRiver, riverBlend);
