@@ -15,6 +15,16 @@ out vec4 fragment_color;
 uniform sampler2D diffuseColorSampler;
 uniform sampler2D specularColorSampler;
 
+// Material Uniforms - Homework 4
+uniform vec4 materialKa;  // Ambient
+uniform vec4 materialKd;  // Diffuse
+uniform vec4 materialKs;  // Specular
+uniform float materialNs; // Shininess
+
+// ===< Homework 5 >=== //
+uniform vec3 lightColor;
+uniform float light_power;
+
 void main()
 {
     // default color
@@ -25,6 +35,12 @@ void main()
     vec4 Ld = vec4(1, 1, 1, 1);
     vec4 La = vec4(1, 1, 1, 1);
 
+    // Homework 5: make light properties as uniform variables and use the keyboard  
+    // keys to adjust them (light position, color and power).
+    /*Ls = vec4(lightColor, 1.0);
+    Ld = vec4(lightColor, 1.0);
+    La = vec4(lightColor, 1.0);*/
+
     // Task 2.2: model material properties; specular (Ks), diffuse (Kd), 
     // ambient (Ka) color and specular exponent (Ns) (gold material)
     /* Gold
@@ -33,20 +49,30 @@ void main()
         ambient   0.24725, 0.1995, 0.0745
         shininess 51.2
     */
-    vec4 Ks = vec4(0.628281, 0.555802, 0.366065, 1);
+    /*vec4 Ks = vec4(0.628281, 0.555802, 0.366065, 1);
     vec4 Kd = vec4(0.75164,  0.60648,  0.22648,  1);
     vec4 Ka = vec4(0.24725,  0.1995,   0.0745,   1);
-    float Ns = 51.2f; // Όσο μεγαλύτερο είναι τόσο πιο εντοπισμένη είναι η γιαλάδα
+    float Ns = 51.2f; // Όσο μεγαλύτερο είναι τόσο πιο εντοπισμένη είναι η γιαλάδα*/
+
+
 
     // Homework 4: make model materials as uniform variables and display multiple 
     // instances of the model with different materials
     // http://www.barradeau.com/nicoptere/dump/materials.html
 
+    // ===< Homework 4 >=== //
+    /*vec4 Ka  = materialKa;
+    vec4 Kd  = materialKd;
+    vec4 Ks  = materialKs;
+    float Ns = materialNs;*/
+
+
+
     // Task 6.5: assign material properties from the texture maps
-    Ks = texture(specularColorSampler, vertex_UV);
-    Kd = texture(diffuseColorSampler, vertex_UV);
-    Ka = vec4(0.1 * Kd.xyz, Kd.w);
-    Ns = 10;
+    vec4 Ks = texture(specularColorSampler, vertex_UV);
+    vec4 Kd = texture(diffuseColorSampler, vertex_UV);
+    vec4 Ka = vec4(0.1 * Kd.xyz, Kd.w);
+    float Ns = 10;
 
     // Task 2.3: model ambient intensity (Ia)
     vec4 Ia = La * Ka;
@@ -119,7 +145,7 @@ void main()
     fragment_color = Ia + (Id + Is) * spotlight_factor;*/
 
     // Homework 1: modify the code for the spotlight in order to create a “ring light”.
-    {
+    /*{
         vec4 spotlight_dir_cameraspace = vec4(0, 0, -1, 0);
         float spotlight_arc = dot(spotlight_dir_cameraspace, -L);
 
@@ -131,9 +157,5 @@ void main()
             spotlight_factor = 1.0f;
 
         fragment_color = Ia + (Id + Is) * spotlight_factor;
-    }
-
-    // Homework 5: make light properties as uniform variables and use the keyboard  
-    // keys to adjust them (light position, color and power).
-
+    }*/
 }

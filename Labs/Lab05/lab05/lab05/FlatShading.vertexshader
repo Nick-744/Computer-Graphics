@@ -80,9 +80,10 @@ void main()
 
     Id *= attenuation;
     Is *= attenuation;
+    vertex_color = Ia + Id + Is;
 
     // Spotlight effect
-    vec4 spotlight_dir_cameraspace = vec4(0, 0, -1, 0);
+    /*vec4 spotlight_dir_cameraspace = vec4(0, 0, -1, 0);
     float spotlight_arc = dot(spotlight_dir_cameraspace, -L);
 
     float spotlight_cutoff = cos(radians(10.0));
@@ -93,5 +94,5 @@ void main()
     else
         spotlight_factor = (spotlight_arc - spotlight_cutoff) / (1.0 - spotlight_cutoff);
 
-    vertex_color = Ia + (Id + Is) * spotlight_factor;
+    vertex_color = Ia + (Id + Is) * spotlight_factor;*/
 }

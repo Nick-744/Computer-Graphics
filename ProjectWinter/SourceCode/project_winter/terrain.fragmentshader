@@ -50,6 +50,7 @@ vec2 rotate(vec2 uv, float r)
 // ======================< Main function >====================== //
 void main()
 {
+
     // Gaea terrain masks
     float slope = texture(textureSamplerSlope, UV).r;
     float soil  = texture(textureSamplerSoil,  UV).r;
@@ -86,7 +87,7 @@ void main()
         vec3 base2 = mix(rock, base1, slope * 1.2);
 
         // Blend with Gaea terrain texture
-        finalColor = mix(base2, worldColor, 0.3);
+        finalColor = mix(base2, worldColor, 0.5);
 
     }
 
@@ -131,43 +132,27 @@ void main()
         float riverMask = texture(textureSamplerRivers, UV).r;
         riverMask       = smoothstep(0.05, 0.40, riverMask);
 
-        // 1. Διάβασε τη διεύθυνση από το direction map
         vec3 dirSample = texture(textureSamplerRiversDirection, UV).rgb;
 
-        // Gaea συνήθως βάζει R,G σε [0,1] -> κάν' το [-1,1]
-        vec2 flowDir = dirSample.rg * 2.0 - 1.0;
+        // Μετατροπή στο διάστημα [-1,1]
+        vec2 flowDir = normalize(dirSample.rg * 2.0 - 1.0);
 
-        flowDir.y *= -1.0; // Flip Y axis
-
-        // Αν για κάποιον λόγο είναι σχεδόν (0,0), βάλε fallback
-        if (length(flowDir) < 0.001)
-            flowDir = vec2(0.0, 1.0); // arbitrary “κάτω”
-
-        flowDir  = normalize(flowDir);
-
-
-        // 2. Κίνηση του νερού κατά μήκος της διεύθυνσης
         float riverTiling = 12.0;
-        float riverSpeed  = 0.8;
+        float riverSpeed  = 1.0;
 
         vec2 riverUV = UV * riverTiling + flowDir * time * riverSpeed;
 
-        // 3. Λίγο displacement / wobble μέσα στη ροή
-        vec2 disp = texture(displacementTextureSampler,
-                            UV * 4.0 + flowDir * time * 0.2).rg - vec2(0.5);
-        riverUV += disp * 0.03;
+        // Displacement & Wobble μέσα στη ροή
+        vec2 disp = texture(displacementTextureSampler, UV * 4.0 + flowDir * time * 0.2).rg - vec2(0.5);
+        riverUV  += disp * 0.05;
 
         float wobble = sin(time * 0.5 + dot(UV, vec2(20.0))) * 0.003;
-        riverUV += flowDir * wobble;
+        riverUV     += flowDir * wobble;
 
-        // 4. Δειγματοληψία νερού & μίξη με rock στις όχθες
         vec3 riverWater = texture(textureSamplerWater, riverUV).rgb;
+        vec3 rockyRiver = mix(rock, riverWater, 0.6);
 
-        // Feathered edge: πιο πολύ νερό στο center, πιο πολύ rock στο edge
-        float edge = smoothstep(0.1, 0.8, riverMask);
-        vec3 rockyRiver = mix(rock, riverWater, edge);
-
-        // Μην πατάς πάνω στις λίμνες
+        // Όχι ποτάμια εκεί που υπάρχει λίμνη!
         float riverBlend = riverMask * (1.0 - lake);
 
         finalColor = mix(finalColor, rockyRiver, riverBlend);
