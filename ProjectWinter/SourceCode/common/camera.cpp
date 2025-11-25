@@ -10,7 +10,7 @@ Camera::Camera(GLFWwindow* window) : window(window)
     horizontalAngle = 3.14f;
     verticalAngle   = 0.0f;
     FoV             = 45.0f;
-    speed           = 2.0f;
+    speed           = 1.0f;
     mouseSpeed      = 0.001f;
     fovSpeed        = 2.0f;
 }
@@ -78,6 +78,7 @@ void Camera::update()
         FoV -= fovSpeed;
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
         FoV += fovSpeed;
+    FoV = clamp(FoV, 1.0f, 45.0f);
 
     // Construct projection and view matrices
     projectionMatrix = perspective(radians(FoV), 4.0f / 3.0f, 0.01f, 100.0f);
