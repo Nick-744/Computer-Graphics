@@ -608,7 +608,7 @@ void renderMiniMap()
 
 	//enabling the texture - follow the aforementioned pipeline
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, lightController == 1 ? depthTexture : depthTexture2);
+	glBindTexture(GL_TEXTURE_2D, lightController == 1 ? depthTexture : depthTexture2); // HOMEWORK 1
 	glUniform1i(quadTextureSamplerLocation, 0);
 
 	// Drawing the quad
