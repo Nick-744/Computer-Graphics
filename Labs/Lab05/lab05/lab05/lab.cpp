@@ -106,7 +106,8 @@ struct ShaderInfo
 
 vector<ShaderInfo> shaderList;
 
-ShaderInfo setupShader(const char* vertexPath, const char* fragmentPath) {
+ShaderInfo setupShader(const char* vertexPath, const char* fragmentPath)
+{
     ShaderInfo s;
     s.programID = loadShaders(vertexPath, fragmentPath);
 

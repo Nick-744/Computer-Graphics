@@ -2,15 +2,21 @@
 
 in vec4 vertex_position_cameraspace;
 in vec4 vertex_normal_cameraspace;
-in vec4 light_position_cameraspace;
+in vec4 light_position_cameraspace1;
 in vec2 vertex_UV;
-in vec4 vertex_position_lightspace;
+in vec4 vertex_position_lightspace1;
+
+// ===< HOMEWORK 2 >=== //
+in vec4 light_position_cameraspace2;
+in vec4 vertex_position_lightspace2;
 
 
 
-uniform sampler2D shadowMapSampler;
+uniform sampler2D shadowMapSampler1;
 uniform sampler2D diffuseColorSampler;
 uniform sampler2D specularColorSampler;
+
+uniform sampler2D shadowMapSampler2; // HOMEWORK 2
 
 uniform int useTexture = 0;
 
@@ -22,7 +28,9 @@ struct Light
     vec4 Ls;
     vec3 lightPosition_worldspace;
 };
-uniform Light light;
+uniform Light light1;
+
+uniform Light light2; // HOMEWORK 2
 
 // materials
 struct Material
@@ -36,24 +44,34 @@ uniform Material mtl;
 
 out vec4 fragmentColor;
 
+uniform int ChampionOfLight; // HOMEWORK 4
 
 
-void phong(float visibility);
-float ShadowCalculation(vec4 fragPositionLightspace);
+
+vec4 phong(Light light, float visibility, vec4 light_position_cameraspace);
+float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler);
 
 void main()
-{       
-    // Task 4.3
-    float shadow = ShadowCalculation(vertex_position_lightspace);
+{
+    fragmentColor = vec4(0.0);
 
+    // Task 4.3
+    float shadow = ShadowCalculation(vertex_position_lightspace1, shadowMapSampler1);
     float visibility = 1.0f - shadow;
 
-    phong(visibility);
+    fragmentColor += 0.5 * phong(light1, visibility, light_position_cameraspace1);
+
+    // ===< HOMEWORK 2 >=== //
+    float shadow2 = ShadowCalculation(vertex_position_lightspace2, shadowMapSampler2);
+    float visibility2 = 1.0f - shadow2;
+
+    fragmentColor += 0.5 * phong(light2, visibility2, light_position_cameraspace2);
 }
 
 
 
-float ShadowCalculation(vec4 fragPositionLightspace) {
+float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler)
+{
     // Given the position of a fragment in lightspace coordinates
     // We sample the depth buffer to see whether or not the fragment is shadowed
     
@@ -102,7 +120,7 @@ float ShadowCalculation(vec4 fragPositionLightspace) {
 
 
 
-void phong(float visibility)
+vec4 phong(Light light, float visibility, vec4 light_position_cameraspace)
 {
     vec4 _Ks = mtl.Ks;
     vec4 _Kd = mtl.Kd;
@@ -121,8 +139,10 @@ void phong(float visibility)
     // model ambient intensity (Ia)
     vec4 Ia = light.La * _Ka;
 
+    if (ChampionOfLight == 1) return vec4(Ia * 10); // HOMEWORK 4
+
     // model diffuse intensity (Id)
-    vec4 N = normalize(vertex_normal_cameraspace); 
+    vec4 N = normalize(vertex_normal_cameraspace);
     vec4 L = normalize(light_position_cameraspace - vertex_position_cameraspace);
     float cosTheta = clamp(dot(N, L), 0, 1);
     vec4 Id = light.Ld * _Kd * cosTheta;
@@ -139,8 +159,8 @@ void phong(float visibility)
     // attenuating the light intensity does not make sense
 
     // final fragment color
-    fragmentColor = vec4(
+    return vec4(
         Ia + 
-        Id * visibility +   // Task 4.3 Use visibility
+        Id * visibility + // Task 4.3 Use visibility
         Is * visibility);
 }
