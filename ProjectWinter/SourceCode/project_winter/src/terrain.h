@@ -24,7 +24,7 @@ public:
 
 	Drawable* getTerrainMesh() { return terrain; }
 
-    mat4 getTerrainModelMatrix() { return scale(mat4(), vec3(10.0f)); }
+    mat4 getTerrainModelMatrix() { return scale(mat4(), vec3(200.0f)); }
 
 private:
     // Shader Program

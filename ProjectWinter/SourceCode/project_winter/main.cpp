@@ -38,8 +38,8 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 #define W_HEIGHT 720
 #define TITLE "Project Winter"
 
-#define SHADOW_WIDTH 4096
-#define SHADOW_HEIGHT 4096
+#define SHADOW_WIDTH 8192
+#define SHADOW_HEIGHT 8192
 
 
 
@@ -65,6 +65,11 @@ GLuint ChampionOfLight;
 
 GLuint shaderProgram, depthProgram;
 Drawable* sphere; // Light model helper
+
+Drawable* cabinModel;
+vec3 cabinPosition    = vec3(7.0f, 59.2f, -0.5f);
+mat4 cabinModelMatrix = translate(mat4(), cabinPosition) * rotate(mat4(), 3.14f, vec3(0, 1, 0));
+
 GLuint depthFBO1, depthTexture1;
 GLuint depthFBO2, depthTexture2;
 
@@ -75,7 +80,6 @@ GLuint modelMatrixLocation;
 GLuint KaLocation, KdLocation, KsLocation, NsLocation;
 
 GLuint LaLocation1, LdLocation1, LsLocation1, light1PositionLocation;
-
 GLuint LaLocation2, LdLocation2, LsLocation2, light2PositionLocation;
 
 GLuint lightPowerLocation;
@@ -220,6 +224,8 @@ void createContext()
 	// Task 1.2 Load earth.obj using drawable 
 	sphere = new Drawable("assets/earth.obj");
 
+	cabinModel = new Drawable("assets/cabin.obj");
+
 
 
 	// ---------------------------------------------------------------------------- //
@@ -354,8 +360,13 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
 
 	// ---- rendering the scene ---- //
 
+	// For cabin
+	glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &cabinModelMatrix[0][0]);
+	cabinModel->bind();
+	cabinModel->draw();
+
 	// For sphere
-	mat4 sphereModelMatrix = translate(mat4(), vec3(0.0f, 7.0f, 0.0f)) * scale(mat4(), vec3(0.5f));
+	mat4 sphereModelMatrix = translate(mat4(), vec3(0.0f, 60.0f, 0.0f)) * scale(mat4(), vec3(0.5f));
 	glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &sphereModelMatrix[0][0]);
 	sphere->bind();
 	sphere->draw();
@@ -390,7 +401,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glUniformMatrix4fv(viewMatrixLocation,       1, GL_FALSE, &viewMatrix[0][0]);
 	glUniformMatrix4fv(projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
 
-	glUniform1i(ChampionOfLight, false); // Κανονικά αντικείμενα - Κάνε υπολογισμούς Phong!
+	glUniform1i(ChampionOfLight, 0); // Κανονικά αντικείμενα - Κάνε υπολογισμούς Phong!
 
 
 
@@ -438,11 +449,16 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Task 1.2 - Draw the sphere on the scene
 	// Use a scaling of 0.5 across all dimensions and translate it to (-3, 1, -3)
-	mat4 sphereModelMatrix = translate(mat4(), vec3(0.0f, 7.0f, 0.0f)) * scale(mat4(), vec3(0.5f));
+	mat4 sphereModelMatrix = translate(mat4(), vec3(0.0f, 60.0f, 0.0f)) * scale(mat4(), vec3(0.5f));
 	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &sphereModelMatrix[0][0]);
 
 	sphere->bind();
 	sphere->draw();
+
+	// Draw cabin
+	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &cabinModelMatrix[0][0]);
+	cabinModel->bind();
+	cabinModel->draw();
 
 
 
@@ -469,7 +485,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	sphere->bind(); sphere->draw();
 
-	glUniform1d(ChampionOfLight, 0);
+	glUniform1i(ChampionOfLight, 0);
 }
 
 
@@ -542,6 +558,30 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		if (polygonMode[0] == GL_LINE) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		if (polygonMode[0] == GL_FILL) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	}
+
+	// Move cabin with arrow keys + PageUp/PageDown
+	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)
+	{
+		const float step = 0.5f; // movement step size
+
+		bool moved = false;
+
+		if      (key == GLFW_KEY_KP_8)   { cabinPosition.z -= step; moved = true; } // forward (-Z)
+		else if (key == GLFW_KEY_KP_5)   { cabinPosition.z += step; moved = true; } // back (+Z)
+		else if (key == GLFW_KEY_KP_4)   { cabinPosition.x -= step; moved = true; } // left
+		else if (key == GLFW_KEY_KP_6)   { cabinPosition.x += step; moved = true; } // right
+		else if (key == GLFW_KEY_KP_ADD) { cabinPosition.y += step; moved = true; } // up
+		else if (key == GLFW_KEY_MINUS)  { cabinPosition.y -= step; moved = true; } // down
+
+		if (moved)
+		{
+			// Rebuild model matrix (add scale/rotation here if you want)
+			cabinModelMatrix = translate(mat4(), cabinPosition) * rotate(mat4(), 3.14f, vec3(0, 1, 0));
+
+			printf("Cabin position: (%.2f, %.2f, %.2f)\n",
+				cabinPosition.x, cabinPosition.y, cabinPosition.z);
+		}
+	}*/
 }
 
 
@@ -617,7 +657,7 @@ void initialize()
 		vec4{ 1, 1, 1, 1 },
 		vec4{ 1, 1, 1, 1 },
 		vec4{ 1, 1, 1, 1 },
-		vec3{ 0, 15, 0 }
+		vec3{ 0, 70, -5 }
 	);
 
 	light2 = new Light(

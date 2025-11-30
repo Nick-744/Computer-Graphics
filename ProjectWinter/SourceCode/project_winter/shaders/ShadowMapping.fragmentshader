@@ -244,7 +244,7 @@ vec3 computeTerrainTexture(vec2 UV)
     vec3 rock;
 
     // Tile scale
-    float tileScale = 50.0f;
+    float tileScale = 200.0f;
     vec2  tileLocal = fract(UV * tileScale); // 0..1 inside tile
 
     { // ROCK, GRASS, DIRT... (Land)
@@ -272,7 +272,7 @@ vec3 computeTerrainTexture(vec2 UV)
 
     { // WATERRR... (Lakes)
 
-        float waterTiling = 20.0; // How many times the water texture repeats across the terrain
+        float waterTiling = 100.0; // How many times the water texture repeats across the terrain
         vec2 baseUV       = UV * waterTiling;
 
         // Scroll speed for the water
