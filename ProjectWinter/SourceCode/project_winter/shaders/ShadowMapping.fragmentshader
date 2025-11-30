@@ -1,0 +1,345 @@
+#version 330 core
+
+// ============< TERRAIN TEXTURE CREATOR >============ //
+
+// Precomputed terrain base color!!!
+vec3 terrainBaseColor = vec3(0.0);
+uniform int isTerrain;
+
+// Main terrain texture
+uniform sampler2D textureSamplerWorld;
+
+// Gaea terrain masks
+uniform sampler2D textureSamplerSlope;
+uniform sampler2D textureSamplerSoil;
+uniform sampler2D textureSamplerPeaks;
+uniform sampler2D textureSamplerLake;
+uniform sampler2D textureSamplerRivers;
+
+// High-resolution material textures
+uniform sampler2D textureSamplerRock;
+uniform sampler2D textureSamplerGrass;
+uniform sampler2D textureSamplerDirt;
+uniform sampler2D textureSamplerSand;
+
+// Moving water texture + displacement
+uniform float time;
+uniform sampler2D textureSamplerWater;
+uniform sampler2D displacementTextureSampler;
+
+// Rivers direction!!! Όχι μούφα κίνηση με height gradient από το Peaks texture...
+uniform sampler2D textureSamplerRiversDirection;
+
+// ============< END TERRAIN TEXTURE CREATOR >============ //
+
+in vec4 vertex_position_cameraspace;
+in vec4 vertex_normal_cameraspace;
+in vec4 light_position_cameraspace1;
+in vec2 vertex_UV;
+in vec4 vertex_position_lightspace1;
+
+uniform sampler2D shadowMapSampler1;
+uniform sampler2D diffuseColorSampler;
+uniform sampler2D specularColorSampler;
+
+uniform int useTexture = 0;
+
+// light properties
+struct Light
+{
+    vec4 La;
+    vec4 Ld;
+    vec4 Ls;
+    vec3 lightPosition_worldspace;
+};
+uniform Light light1;
+
+// Light2
+uniform Light light2;
+
+in vec4 light_position_cameraspace2;
+in vec4 vertex_position_lightspace2;
+
+uniform sampler2D shadowMapSampler2;
+
+// materials
+struct Material
+{
+    vec4 Ka; 
+    vec4 Kd;
+    vec4 Ks;
+    float Ns; 
+};
+uniform Material mtl;
+
+out vec4 fragmentColor;
+
+uniform int ChampionOfLight;
+
+
+
+vec4 phong(Light light, float visibility, vec4 light_position_cameraspace);
+float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler);
+vec3 computeTerrainTexture(vec2 UV);
+
+void main()
+{
+    fragmentColor = vec4(0.0);
+
+    // Compute terrain texture ONCE per fragment!!!
+    if (isTerrain == 1) terrainBaseColor = computeTerrainTexture(vertex_UV);
+
+    // ===< light 1 >=== //
+    float shadow = ShadowCalculation(vertex_position_lightspace1, shadowMapSampler1);
+    float visibility = 1.0f - shadow;
+
+    fragmentColor += phong(light1, visibility, light_position_cameraspace1);
+
+    // ===< light 2 >=== //
+    float shadow2 = ShadowCalculation(vertex_position_lightspace2, shadowMapSampler2);
+    float visibility2 = 1.0f - shadow2;
+
+    //fragmentColor += 0.5 * phong(light2, visibility2, light_position_cameraspace2);
+}
+
+
+
+float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler)
+{
+    // Given the position of a fragment in lightspace coordinates
+    // We sample the depth buffer to see whether or not the fragment is shadowed
+    
+    float shadow;
+
+    // Task 4.3
+    // Perspective devide to bring coordinates in range[-1, 1]
+    vec3 projCoords = vertex_position_lightspace.xyz / vertex_position_lightspace.w;
+
+    // Since the depth map values are in range[0, 1]
+    projCoords = 0.5f * projCoords + 0.5f;
+
+    // Sampling the closest point in this position from the depth map
+    // REMINDER: Since we are in lightspace coordinates,
+    //           the z parameter is the depth from the camera
+    float closestDepth = texture(shadowMapSampler, projCoords.xy).r;
+
+    // Then we get the depth of the current fragment
+    float currentDepth = projCoords.z;
+
+    // If the current fragment is farther than the closest point, the fragment is shadowed
+    shadow = (currentDepth > closestDepth) ? 1.0f : 0.0f;
+
+    // Task 4.4
+    // Correcting the quantization problem
+    float bias = 0.005;
+    shadow = (currentDepth > closestDepth + bias) ? 1.0f : 0.0f;
+
+    // Task 4.6 Make the shadow edges more realistic
+    shadow = 0.0;
+    vec2 depthMap_dimensions = textureSize(shadowMapSampler, 0);
+    vec2 texelSize = 1.0 / depthMap_dimensions;
+    for(int x = -1; x <= 1; x++ )
+        for(int y = -1; y <= 1; y++ )
+        {
+            float pcfDepth = texture(shadowMapSampler, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+        }
+    shadow /= 9.0;
+
+    // Task 4.5
+    if(projCoords.z > 1) shadow = 0.0;
+
+    return shadow;
+}
+
+
+
+vec4 phong(Light light, float visibility, vec4 light_position_cameraspace)
+{
+    vec4 _Ks = mtl.Ks;
+    vec4 _Kd = mtl.Kd;
+    vec4 _Ka = mtl.Ka;
+    float _Ns = mtl.Ns;
+
+    if (isTerrain == 1)
+    {
+        _Kd = vec4(terrainBaseColor, 1.0);
+        _Ka = vec4(0.5 * terrainBaseColor, 1.0);
+        _Ks = vec4(0.05 * _Kd.rgb, _Kd.a);
+        _Ns = 16.0;
+    }
+    else if (useTexture == 1) // use texture for materials
+    {
+        _Ks = vec4(texture(specularColorSampler, vertex_UV).rgb, 1.0);
+        _Kd = vec4(texture(diffuseColorSampler, vertex_UV).rgb, 1.0);
+        _Ka = vec4(0.05 * _Kd.rgb, _Kd.a);
+        _Ns = 10;
+    }
+    
+    // model ambient intensity (Ia)
+    vec4 Ia = light.La * _Ka;
+
+    if (ChampionOfLight == 1) return vec4(Ia * 10); // Helper objects
+
+    // model diffuse intensity (Id)
+    vec4 N = normalize(vertex_normal_cameraspace);
+    vec4 L = normalize(light_position_cameraspace - vertex_position_cameraspace);
+    float cosTheta = clamp(dot(N, L), 0, 1);
+    vec4 Id = light.Ld * _Kd * cosTheta;
+
+    // model specular intensity (Is)
+    vec4 R = reflect(-L, N);
+    vec4 E = normalize(vec4(0, 0, 0, 1) - vertex_position_cameraspace);
+    float cosAlpha = clamp(dot(E, R), 0, 1);
+    float specular_factor = pow(cosAlpha, _Ns);
+    vec4 Is = light.Ls * _Ks * specular_factor;
+
+    // here we would normally model the light attenuation effect
+    // but since this is a directional light source that is infinitely far away
+    // attenuating the light intensity does not make sense
+
+    // final fragment color
+    return vec4(
+        Ia + 
+        Id * visibility + // Task 4.3 Use visibility
+        Is * visibility
+    );
+}
+
+
+
+// ============< TERRAIN TEXTURE CREATOR >============ //
+
+// Cheap ALU-only hash functions for GLSL
+float hash(vec2 p)
+{
+    p = fract(p * 0.3183099 + vec2(0.71, 0.113));
+    return fract(37.0 * p.x * p.y);
+}
+
+vec2 rotate(vec2 uv, float r)
+{
+    int k = int(floor(r * 4.0));
+
+    if (k == 0)      return uv;
+    else if (k == 1) return vec2(-uv.y,  uv.x);
+    else if (k == 2) return vec2(-uv.x, -uv.y);
+    else             return vec2( uv.y, -uv.x);
+}
+
+vec3 computeTerrainTexture(vec2 UV)
+{
+
+    // Gaea terrain masks
+    float slope = texture(textureSamplerSlope, UV).r;
+    float soil  = texture(textureSamplerSoil,  UV).r;
+
+    float lake = texture(textureSamplerLake, UV).r;
+    lake       = smoothstep(0.2, 0.8, lake);
+
+
+
+    vec3 worldColor = texture(textureSamplerWorld, UV).rgb;
+    vec3 finalColor; // Final output color
+    vec3 rock;
+
+    // Tile scale
+    float tileScale = 50.0f;
+    vec2  tileLocal = fract(UV * tileScale); // 0..1 inside tile
+
+    { // ROCK, GRASS, DIRT... (Land)
+
+        vec2  tile       = floor(UV * tileScale);
+        float tileRandom = hash(tile);
+
+        tileLocal = tileLocal - 0.5; // Center Pivot
+        tileLocal = rotate(tileLocal, tileRandom);
+        tileLocal = tileLocal + 0.5;
+
+        // Sample materials using tile-local UVs!
+        rock       = texture(textureSamplerRock,  tileLocal).rgb;
+        vec3 grass = texture(textureSamplerGrass, tileLocal).rgb;
+        vec3 dirt  = texture(textureSamplerDirt,  tileLocal).rgb;
+
+        // Blending logic
+        vec3 base1 = mix(dirt, grass, soil);
+        vec3 base2 = mix(rock, base1, slope * 1.2);
+
+        // Blend with Gaea terrain texture
+        finalColor = mix(base2, worldColor, 0.5);
+
+    }
+
+    { // WATERRR... (Lakes)
+
+        float waterTiling = 20.0; // How many times the water texture repeats across the terrain
+        vec2 baseUV       = UV * waterTiling;
+
+        // Scroll speed for the water
+        vec2 waterScroll = vec2(time * 0.03, time * 0.02);
+        vec2 waterUV     = baseUV + waterScroll;
+
+        // Wave pattern depending on position + time
+        float waveSpeed     = 1.0;
+        float waveFrequency = 15.0;
+        float waveStrength  = 0.02;
+
+        float wave = sin(baseUV.x * waveFrequency + time * waveSpeed) *
+                     cos(baseUV.y * waveFrequency + time * waveSpeed);
+
+        // Distort UV slightly by the wave
+        waterUV += vec2(wave, wave) * waveStrength;
+
+        vec3 movingWater = texture(textureSamplerWater, waterUV).rgb;
+
+        // Displacement texture for more detail (WATER)
+        vec3 displacementTexture = texture(displacementTextureSampler, UV + 0.9*sin(time)).rgb;
+        vec3 surfaceTexture      = mix(movingWater, displacementTexture, 0.2);
+        vec3 displacedWater      = texture(textureSamplerWater, waterUV + length(surfaceTexture)*0.04).rgb;
+
+        // ... AND SAND!
+        vec3 sand      = texture(textureSamplerSand, tileLocal).rgb;
+        vec3 sandWater = mix(sand, displacedWater, 0.6).rgb;
+
+        // Blend only where lake mask is > 0
+        finalColor = mix(finalColor, sandWater, lake);
+
+    }
+
+    { // RIVERS...
+
+        float riverMask = texture(textureSamplerRivers, UV).r;
+        riverMask       = smoothstep(0.05, 0.40, riverMask);
+
+        vec3 dirSample = texture(textureSamplerRiversDirection, UV).rgb;
+
+        // Μετατροπή στο διάστημα [-1,1]
+        vec2 flowDir = normalize(dirSample.rg * 2.0 - 1.0);
+
+        float riverTiling = 12.0;
+        float riverSpeed  = 1.0;
+
+        vec2 riverUV = UV * riverTiling + flowDir * time * riverSpeed;
+
+        // Displacement & Wobble μέσα στη ροή
+        vec2 disp = texture(displacementTextureSampler, UV * 4.0 + flowDir * time * 0.2).rg - vec2(0.5);
+        riverUV  += disp * 0.05;
+
+        float wobble = sin(time * 0.5 + dot(UV, vec2(20.0))) * 0.003;
+        riverUV     += flowDir * wobble;
+
+        vec3 riverWater = texture(textureSamplerWater, riverUV).rgb;
+        vec3 rockyRiver = mix(rock, riverWater, 0.6);
+
+        // Όχι ποτάμια εκεί που υπάρχει λίμνη!
+        float riverBlend = riverMask * (1.0 - lake);
+
+        finalColor = mix(finalColor, rockyRiver, riverBlend);
+
+    }
+
+    // Output
+    return finalColor;
+}
+
+// ============< END TERRAIN TEXTURE CREATOR >============ //

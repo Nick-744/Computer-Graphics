@@ -1,0 +1,58 @@
+#version 330 core
+
+layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 1) in vec3 vertexNormal_modelspace;
+layout(location = 2) in vec2 vertexUV;
+
+
+
+// Phong 
+// light properties
+struct Light
+{
+    vec4 La;
+    vec4 Ld;
+    vec4 Ls;
+    vec3 lightPosition_worldspace;
+};
+uniform Light light1;
+
+uniform Light light2;
+
+uniform mat4 P;
+uniform mat4 V;
+uniform mat4 M;
+uniform mat4 light1VP;
+
+uniform mat4 light2VP; // HOMEWORK 2
+
+out vec4 vertex_position_cameraspace;
+out vec4 vertex_normal_cameraspace;
+out vec4 light_position_cameraspace1;
+out vec2 vertex_UV;
+out vec4 vertex_position_lightspace1;
+
+// ===< HOMEWORK 2 >=== //
+out vec4 light_position_cameraspace2;
+out vec4 vertex_position_lightspace2;
+
+
+
+void main()
+{
+    // Output position of the vertex
+    gl_Position =  P * V * M * vec4(vertexPosition_modelspace, 1);
+    
+    // FS
+    vertex_position_cameraspace = V * M * vec4(vertexPosition_modelspace, 1);
+    vertex_normal_cameraspace   = V * M * vec4(vertexNormal_modelspace, 0);
+    light_position_cameraspace1 = V * vec4(light1.lightPosition_worldspace, 1);
+    vertex_UV = vertexUV;
+
+    // Task 4.2
+    vertex_position_lightspace1 = light1VP * M * vec4(vertexPosition_modelspace, 1);
+
+    // ===< HOMEWORK 2 >=== //
+    light_position_cameraspace2 = V * vec4(light2.lightPosition_worldspace, 1);
+    vertex_position_lightspace2 = light2VP * M * vec4(vertexPosition_modelspace, 1);
+}

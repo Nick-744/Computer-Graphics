@@ -32,16 +32,14 @@
 
 // Joystick element (axis, button or slider)
 //
-typedef struct _GLFWjoyobjectWin32
-{
+typedef struct _GLFWjoyobjectWin32 {
     int                     offset;
     int                     type;
 } _GLFWjoyobjectWin32;
 
 // Win32-specific per-joystick data
 //
-typedef struct _GLFWjoystickWin32
-{
+typedef struct _GLFWjoystickWin32 {
     GLFWbool                present;
     float*                  axes;
     int                     axisCount;

@@ -76,18 +76,18 @@
 #define ERROR_INVALID_VERSION_ARB 0x2095
 #define ERROR_INVALID_PROFILE_ARB 0x2096
 
-typedef BOOL (WINAPI * PFNWGLSWAPINTERVALEXTPROC)(int);
-typedef BOOL (WINAPI * PFNWGLGETPIXELFORMATATTRIBIVARBPROC)(HDC,int,int,UINT,const int*,int*);
+typedef BOOL(WINAPI * PFNWGLSWAPINTERVALEXTPROC)(int);
+typedef BOOL(WINAPI * PFNWGLGETPIXELFORMATATTRIBIVARBPROC)(HDC, int, int, UINT, const int*, int*);
 typedef const char* (WINAPI * PFNWGLGETEXTENSIONSSTRINGEXTPROC)(void);
 typedef const char* (WINAPI * PFNWGLGETEXTENSIONSSTRINGARBPROC)(HDC);
-typedef HGLRC (WINAPI * PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC,HGLRC,const int*);
+typedef HGLRC(WINAPI * PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC, HGLRC, const int*);
 
-typedef HGLRC (WINAPI * WGLCREATECONTEXT_T)(HDC);
-typedef BOOL (WINAPI * WGLDELETECONTEXT_T)(HGLRC);
-typedef PROC (WINAPI * WGLGETPROCADDRESS_T)(LPCSTR);
-typedef HDC (WINAPI * WGLGETCURRENTDC_T)(void);
-typedef BOOL (WINAPI * WGLMAKECURRENT_T)(HDC,HGLRC);
-typedef BOOL (WINAPI * WGLSHARELISTS_T)(HGLRC,HGLRC);
+typedef HGLRC(WINAPI * WGLCREATECONTEXT_T)(HDC);
+typedef BOOL(WINAPI * WGLDELETECONTEXT_T)(HGLRC);
+typedef PROC(WINAPI * WGLGETPROCADDRESS_T)(LPCSTR);
+typedef HDC(WINAPI * WGLGETCURRENTDC_T)(void);
+typedef BOOL(WINAPI * WGLMAKECURRENT_T)(HDC, HGLRC);
+typedef BOOL(WINAPI * WGLSHARELISTS_T)(HGLRC, HGLRC);
 
 // opengl32.dll function pointer typedefs
 #define wglCreateContext _glfw.wgl.CreateContext
@@ -107,18 +107,15 @@ typedef BOOL (WINAPI * WGLSHARELISTS_T)(HGLRC,HGLRC);
 
 // WGL-specific per-context data
 //
-typedef struct _GLFWcontextWGL
-{
+typedef struct _GLFWcontextWGL {
     HDC       dc;
     HGLRC     handle;
     int       interval;
-
 } _GLFWcontextWGL;
 
 // WGL-specific global data
 //
-typedef struct _GLFWlibraryWGL
-{
+typedef struct _GLFWlibraryWGL {
     HINSTANCE                           instance;
     WGLCREATECONTEXT_T                  CreateContext;
     WGLDELETECONTEXT_T                  DeleteContext;
@@ -144,7 +141,6 @@ typedef struct _GLFWlibraryWGL
     GLFWbool                            EXT_create_context_es2_profile;
     GLFWbool                            ARB_create_context_robustness;
     GLFWbool                            ARB_context_flush_control;
-
 } _GLFWlibraryWGL;
 
 

@@ -29,25 +29,25 @@
 #define _glfw3_egl_context_h_
 
 #if defined(_GLFW_USE_EGLPLATFORM_H)
- #include <EGL/eglplatform.h>
+#include <EGL/eglplatform.h>
 #elif defined(_GLFW_WIN32)
- #define EGLAPIENTRY __stdcall
+#define EGLAPIENTRY __stdcall
 typedef HDC EGLNativeDisplayType;
 typedef HWND EGLNativeWindowType;
 #elif defined(_GLFW_X11)
- #define EGLAPIENTRY
+#define EGLAPIENTRY
 typedef Display* EGLNativeDisplayType;
 typedef Window EGLNativeWindowType;
 #elif defined(_GLFW_WAYLAND)
- #define EGLAPIENTRY
+#define EGLAPIENTRY
 typedef struct wl_display* EGLNativeDisplayType;
 typedef struct wl_egl_window* EGLNativeWindowType;
 #elif defined(_GLFW_MIR)
- #define EGLAPIENTRY
+#define EGLAPIENTRY
 typedef MirEGLNativeDisplayType EGLNativeDisplayType;
 typedef MirEGLNativeWindowType EGLNativeWindowType;
 #else
- #error "No supported EGL platform selected"
+#error "No supported EGL platform selected"
 #endif
 
 #define EGL_SUCCESS	0x3000
@@ -116,22 +116,22 @@ typedef void* EGLDisplay;
 typedef void* EGLSurface;
 
 // EGL function pointer typedefs
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLGETCONFIGATTRIBPROC)(EGLDisplay,EGLConfig,EGLint,EGLint*);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLGETCONFIGSPROC)(EGLDisplay,EGLConfig*,EGLint,EGLint*);
-typedef EGLDisplay (EGLAPIENTRY * PFNEGLGETDISPLAYPROC)(EGLNativeDisplayType);
-typedef EGLint (EGLAPIENTRY * PFNEGLGETERRORPROC)(void);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLINITIALIZEPROC)(EGLDisplay,EGLint*,EGLint*);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLTERMINATEPROC)(EGLDisplay);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLBINDAPIPROC)(EGLenum);
-typedef EGLContext (EGLAPIENTRY * PFNEGLCREATECONTEXTPROC)(EGLDisplay,EGLConfig,EGLContext,const EGLint*);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLDESTROYSURFACEPROC)(EGLDisplay,EGLSurface);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLDESTROYCONTEXTPROC)(EGLDisplay,EGLContext);
-typedef EGLSurface (EGLAPIENTRY * PFNEGLCREATEWINDOWSURFACEPROC)(EGLDisplay,EGLConfig,EGLNativeWindowType,const EGLint*);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLMAKECURRENTPROC)(EGLDisplay,EGLSurface,EGLSurface,EGLContext);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLSWAPBUFFERSPROC)(EGLDisplay,EGLSurface);
-typedef EGLBoolean (EGLAPIENTRY * PFNEGLSWAPINTERVALPROC)(EGLDisplay,EGLint);
-typedef const char* (EGLAPIENTRY * PFNEGLQUERYSTRINGPROC)(EGLDisplay,EGLint);
-typedef GLFWglproc (EGLAPIENTRY * PFNEGLGETPROCADDRESSPROC)(const char*);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLGETCONFIGATTRIBPROC)(EGLDisplay, EGLConfig, EGLint, EGLint*);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLGETCONFIGSPROC)(EGLDisplay, EGLConfig*, EGLint, EGLint*);
+typedef EGLDisplay(EGLAPIENTRY * PFNEGLGETDISPLAYPROC)(EGLNativeDisplayType);
+typedef EGLint(EGLAPIENTRY * PFNEGLGETERRORPROC)(void);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLINITIALIZEPROC)(EGLDisplay, EGLint*, EGLint*);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLTERMINATEPROC)(EGLDisplay);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLBINDAPIPROC)(EGLenum);
+typedef EGLContext(EGLAPIENTRY * PFNEGLCREATECONTEXTPROC)(EGLDisplay, EGLConfig, EGLContext, const EGLint*);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLDESTROYSURFACEPROC)(EGLDisplay, EGLSurface);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLDESTROYCONTEXTPROC)(EGLDisplay, EGLContext);
+typedef EGLSurface(EGLAPIENTRY * PFNEGLCREATEWINDOWSURFACEPROC)(EGLDisplay, EGLConfig, EGLNativeWindowType, const EGLint*);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLMAKECURRENTPROC)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLSWAPBUFFERSPROC)(EGLDisplay, EGLSurface);
+typedef EGLBoolean(EGLAPIENTRY * PFNEGLSWAPINTERVALPROC)(EGLDisplay, EGLint);
+typedef const char* (EGLAPIENTRY * PFNEGLQUERYSTRINGPROC)(EGLDisplay, EGLint);
+typedef GLFWglproc(EGLAPIENTRY * PFNEGLGETPROCADDRESSPROC)(const char*);
 #define eglGetConfigAttrib _glfw.egl.GetConfigAttrib
 #define eglGetConfigs _glfw.egl.GetConfigs
 #define eglGetDisplay _glfw.egl.GetDisplay
@@ -155,20 +155,17 @@ typedef GLFWglproc (EGLAPIENTRY * PFNEGLGETPROCADDRESSPROC)(const char*);
 
 // EGL-specific per-context data
 //
-typedef struct _GLFWcontextEGL
-{
-   EGLConfig        config;
-   EGLContext       handle;
-   EGLSurface       surface;
+typedef struct _GLFWcontextEGL {
+    EGLConfig        config;
+    EGLContext       handle;
+    EGLSurface       surface;
 
-   void*            client;
-
+    void*            client;
 } _GLFWcontextEGL;
 
 // EGL-specific global data
 //
-typedef struct _GLFWlibraryEGL
-{
+typedef struct _GLFWlibraryEGL {
     EGLDisplay      display;
     EGLint          major, minor;
     GLFWbool        prefix;
@@ -195,7 +192,6 @@ typedef struct _GLFWlibraryEGL
     PFNEGLSWAPINTERVALPROC          SwapInterval;
     PFNEGLQUERYSTRINGPROC           QueryString;
     PFNEGLGETPROCADDRESSPROC        GetProcAddress;
-
 } _GLFWlibraryEGL;
 
 

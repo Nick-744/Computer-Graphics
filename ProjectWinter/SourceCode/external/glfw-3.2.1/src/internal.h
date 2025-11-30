@@ -30,7 +30,7 @@
 
 
 #if defined(_GLFW_USE_CONFIG_H)
- #include "glfw_config.h"
+#include "glfw_config.h"
 #endif
 
 #if defined(GLFW_INCLUDE_GLCOREARB) || \
@@ -42,7 +42,7 @@
     defined(GLFW_INCLUDE_GLU)       || \
     defined(GLFW_INCLUDE_VULKAN)    || \
     defined(GLFW_DLL)
- #error "You must not define any header option macros when compiling GLFW"
+#error "You must not define any header option macros when compiling GLFW"
 #endif
 
 #define GLFW_INCLUDE_NONE
@@ -59,12 +59,12 @@ typedef struct _GLFWlibrary     _GLFWlibrary;
 typedef struct _GLFWmonitor     _GLFWmonitor;
 typedef struct _GLFWcursor      _GLFWcursor;
 
-typedef void (* _GLFWmakecontextcurrentfun)(_GLFWwindow*);
-typedef void (* _GLFWswapbuffersfun)(_GLFWwindow*);
-typedef void (* _GLFWswapintervalfun)(int);
-typedef int (* _GLFWextensionsupportedfun)(const char*);
-typedef GLFWglproc (* _GLFWgetprocaddressfun)(const char*);
-typedef void (* _GLFWdestroycontextfun)(_GLFWwindow*);
+typedef void(*_GLFWmakecontextcurrentfun)(_GLFWwindow*);
+typedef void(*_GLFWswapbuffersfun)(_GLFWwindow*);
+typedef void(*_GLFWswapintervalfun)(int);
+typedef int(*_GLFWextensionsupportedfun)(const char*);
+typedef GLFWglproc(*_GLFWgetprocaddressfun)(const char*);
+typedef void(*_GLFWdestroycontextfun)(_GLFWwindow*);
 
 #define GL_VERSION 0x1f02
 #define GL_NONE	0
@@ -92,8 +92,8 @@ typedef unsigned char GLubyte;
 
 typedef void (APIENTRY * PFNGLCLEARPROC)(GLbitfield);
 typedef const GLubyte* (APIENTRY * PFNGLGETSTRINGPROC)(GLenum);
-typedef void (APIENTRY * PFNGLGETINTEGERVPROC)(GLenum,GLint*);
-typedef const GLubyte* (APIENTRY * PFNGLGETSTRINGIPROC)(GLenum,GLuint);
+typedef void (APIENTRY * PFNGLGETINTEGERVPROC)(GLenum, GLint*);
+typedef const GLubyte* (APIENTRY * PFNGLGETSTRINGIPROC)(GLenum, GLuint);
 
 #define VK_NULL_HANDLE 0
 
@@ -103,8 +103,7 @@ typedef uint64_t VkSurfaceKHR;
 typedef uint32_t VkFlags;
 typedef uint32_t VkBool32;
 
-typedef enum VkStructureType
-{
+typedef enum VkStructureType {
     VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR = 1000004000,
     VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR = 1000005000,
     VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR = 1000006000,
@@ -113,8 +112,7 @@ typedef enum VkStructureType
     VK_STRUCTURE_TYPE_MAX_ENUM = 0x7FFFFFFF
 } VkStructureType;
 
-typedef enum VkResult
-{
+typedef enum VkResult {
     VK_SUCCESS = 0,
     VK_NOT_READY = 1,
     VK_TIMEOUT = 2,
@@ -143,8 +141,7 @@ typedef enum VkResult
 
 typedef struct VkAllocationCallbacks VkAllocationCallbacks;
 
-typedef struct VkExtensionProperties
-{
+typedef struct VkExtensionProperties {
     char            extensionName[256];
     uint32_t        specVersion;
 } VkExtensionProperties;
@@ -152,27 +149,27 @@ typedef struct VkExtensionProperties
 typedef void (APIENTRY * PFN_vkVoidFunction)(void);
 
 #if defined(_GLFW_VULKAN_STATIC)
-  PFN_vkVoidFunction vkGetInstanceProcAddr(VkInstance,const char*);
-  VkResult vkEnumerateInstanceExtensionProperties(const char*,uint32_t*,VkExtensionProperties*);
+PFN_vkVoidFunction vkGetInstanceProcAddr(VkInstance, const char*);
+VkResult vkEnumerateInstanceExtensionProperties(const char*, uint32_t*, VkExtensionProperties*);
 #else
-  typedef PFN_vkVoidFunction (APIENTRY * PFN_vkGetInstanceProcAddr)(VkInstance,const char*);
-  typedef VkResult (APIENTRY * PFN_vkEnumerateInstanceExtensionProperties)(const char*,uint32_t*,VkExtensionProperties*);
-  #define vkEnumerateInstanceExtensionProperties _glfw.vk.EnumerateInstanceExtensionProperties
-  #define vkGetInstanceProcAddr _glfw.vk.GetInstanceProcAddr
+typedef PFN_vkVoidFunction(APIENTRY * PFN_vkGetInstanceProcAddr)(VkInstance, const char*);
+typedef VkResult(APIENTRY * PFN_vkEnumerateInstanceExtensionProperties)(const char*, uint32_t*, VkExtensionProperties*);
+#define vkEnumerateInstanceExtensionProperties _glfw.vk.EnumerateInstanceExtensionProperties
+#define vkGetInstanceProcAddr _glfw.vk.GetInstanceProcAddr
 #endif
 
 #if defined(_GLFW_COCOA)
- #include "cocoa_platform.h"
+#include "cocoa_platform.h"
 #elif defined(_GLFW_WIN32)
- #include "win32_platform.h"
+#include "win32_platform.h"
 #elif defined(_GLFW_X11)
- #include "x11_platform.h"
+#include "x11_platform.h"
 #elif defined(_GLFW_WAYLAND)
- #include "wl_platform.h"
+#include "wl_platform.h"
 #elif defined(_GLFW_MIR)
- #include "mir_platform.h"
+#include "mir_platform.h"
 #else
- #error "No supported window creation API selected"
+#error "No supported window creation API selected"
 #endif
 
 
@@ -187,27 +184,27 @@ typedef void (APIENTRY * PFN_vkVoidFunction)(void);
  *  each platform and is called by the shared code of the public API It mirrors
  *  the public API except it uses objects instead of handles.
  */
-/*! @defgroup event Event interface
- *  @brief The interface used by the platform-specific code to report events.
- *
- *  The event API is used by the platform-specific code to notify the shared
- *  code of events that can be translated into state changes and/or callback
- *  calls.
- */
-/*! @defgroup utility Utility functions
- *  @brief Various utility functions for internal use.
- *
- *  These functions are shared code and may be used by any part of GLFW
- *  Each platform may add its own utility functions, but those must only be
- *  called by the platform-specific code
- */
+ /*! @defgroup event Event interface
+  *  @brief The interface used by the platform-specific code to report events.
+  *
+  *  The event API is used by the platform-specific code to notify the shared
+  *  code of events that can be translated into state changes and/or callback
+  *  calls.
+  */
+  /*! @defgroup utility Utility functions
+   *  @brief Various utility functions for internal use.
+   *
+   *  These functions are shared code and may be used by any part of GLFW
+   *  Each platform may add its own utility functions, but those must only be
+   *  called by the platform-specific code
+   */
 
 
-//========================================================================
-// Helper macros
-//========================================================================
+   //========================================================================
+   // Helper macros
+   //========================================================================
 
-// Constructs a version number string from the public header macros
+   // Constructs a version number string from the public header macros
 #define _GLFW_CONCAT_VERSION(m, n, r) #m "." #n "." #r
 #define _GLFW_MAKE_VERSION(m, n, r) _GLFW_CONCAT_VERSION(m, n, r)
 #define _GLFW_VERSION_NUMBER _GLFW_MAKE_VERSION(GLFW_VERSION_MAJOR, \
@@ -248,8 +245,7 @@ typedef void (APIENTRY * PFN_vkVoidFunction)(void);
  *  to the framebuffer.  This is used to pass window creation parameters from
  *  shared code to the platform API.
  */
-struct _GLFWwndconfig
-{
+struct _GLFWwndconfig {
     int           width;
     int           height;
     const char*   title;
@@ -268,8 +264,7 @@ struct _GLFWwndconfig
  *  to the framebuffer.  This is used to pass context creation parameters from
  *  shared code to the platform API.
  */
-struct _GLFWctxconfig
-{
+struct _GLFWctxconfig {
     int           client;
     int           source;
     int           major;
@@ -291,8 +286,7 @@ struct _GLFWctxconfig
  *  It is used to pass framebuffer parameters from shared code to the platform
  *  API and also to enumerate and select available framebuffer configs.
  */
-struct _GLFWfbconfig
-{
+struct _GLFWfbconfig {
     int         redBits;
     int         greenBits;
     int         blueBits;
@@ -313,8 +307,7 @@ struct _GLFWfbconfig
 
 /*! @brief Context structure.
  */
-struct _GLFWcontext
-{
+struct _GLFWcontext {
     int                 client;
     int                 source;
     int                 major, minor, revision;
@@ -342,8 +335,7 @@ struct _GLFWcontext
 
 /*! @brief Window and context structure.
  */
-struct _GLFWwindow
-{
+struct _GLFWwindow {
     struct _GLFWwindow* next;
 
     // Window settings and state
@@ -395,8 +387,7 @@ struct _GLFWwindow
 
 /*! @brief Monitor structure.
  */
-struct _GLFWmonitor
-{
+struct _GLFWmonitor {
     char*           name;
 
     // Physical dimensions in millimeters.
@@ -418,8 +409,7 @@ struct _GLFWmonitor
 
 /*! @brief Cursor structure
  */
-struct _GLFWcursor
-{
+struct _GLFWcursor {
     _GLFWcursor*    next;
 
     // This is defined in the window API's platform.h
@@ -428,8 +418,7 @@ struct _GLFWcursor
 
 /*! @brief Library global data.
  */
-struct _GLFWlibrary
-{
+struct _GLFWlibrary {
     struct {
         _GLFWfbconfig   framebuffer;
         _GLFWwndconfig  window;

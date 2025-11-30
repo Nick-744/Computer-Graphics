@@ -50,10 +50,8 @@ static GLFWerrorfun _glfwErrorCallback = NULL;
 
 // Returns a generic string representation of the specified error
 //
-static const char* getErrorString(int error)
-{
-    switch (error)
-    {
+static const char* getErrorString(int error) {
+    switch (error) {
         case GLFW_NOT_INITIALIZED:
             return "The GLFW library is not initialized";
         case GLFW_NO_CURRENT_CONTEXT:
@@ -84,15 +82,12 @@ static const char* getErrorString(int error)
 //////                         GLFW event API                       //////
 //////////////////////////////////////////////////////////////////////////
 
-void _glfwInputError(int error, const char* format, ...)
-{
-    if (_glfwErrorCallback)
-    {
+void _glfwInputError(int error, const char* format, ...) {
+    if (_glfwErrorCallback) {
         char buffer[8192];
         const char* description;
 
-        if (format)
-        {
+        if (format) {
             int count;
             va_list vl;
 
@@ -104,8 +99,7 @@ void _glfwInputError(int error, const char* format, ...)
                 buffer[sizeof(buffer) - 1] = '\0';
 
             description = buffer;
-        }
-        else
+        } else
             description = getErrorString(error);
 
         _glfwErrorCallback(error, description);
@@ -117,15 +111,13 @@ void _glfwInputError(int error, const char* format, ...)
 //////                        GLFW public API                       //////
 //////////////////////////////////////////////////////////////////////////
 
-GLFWAPI int glfwInit(void)
-{
+GLFWAPI int glfwInit(void) {
     if (_glfwInitialized)
         return GLFW_TRUE;
 
     memset(&_glfw, 0, sizeof(_glfw));
 
-    if (!_glfwPlatformInit())
-    {
+    if (!_glfwPlatformInit()) {
         _glfwPlatformTerminate();
         return GLFW_FALSE;
     }
@@ -141,8 +133,7 @@ GLFWAPI int glfwInit(void)
     return GLFW_TRUE;
 }
 
-GLFWAPI void glfwTerminate(void)
-{
+GLFWAPI void glfwTerminate(void) {
     int i;
 
     if (!_glfwInitialized)
@@ -156,8 +147,7 @@ GLFWAPI void glfwTerminate(void)
     while (_glfw.cursorListHead)
         glfwDestroyCursor((GLFWcursor*) _glfw.cursorListHead);
 
-    for (i = 0;  i < _glfw.monitorCount;  i++)
-    {
+    for (i = 0; i < _glfw.monitorCount; i++) {
         _GLFWmonitor* monitor = _glfw.monitors[i];
         if (monitor->originalRamp.size)
             _glfwPlatformSetGammaRamp(monitor, &monitor->originalRamp);
@@ -175,8 +165,7 @@ GLFWAPI void glfwTerminate(void)
     _glfwInitialized = GLFW_FALSE;
 }
 
-GLFWAPI void glfwGetVersion(int* major, int* minor, int* rev)
-{
+GLFWAPI void glfwGetVersion(int* major, int* minor, int* rev) {
     if (major != NULL)
         *major = GLFW_VERSION_MAJOR;
 
@@ -187,14 +176,11 @@ GLFWAPI void glfwGetVersion(int* major, int* minor, int* rev)
         *rev = GLFW_VERSION_REVISION;
 }
 
-GLFWAPI const char* glfwGetVersionString(void)
-{
+GLFWAPI const char* glfwGetVersionString(void) {
     return _glfwPlatformGetVersionString();
 }
 
-GLFWAPI GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun)
-{
+GLFWAPI GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun) {
     _GLFW_SWAP_POINTERS(_glfwErrorCallback, cbfun);
     return cbfun;
 }
-

@@ -1,6 +1,6 @@
 ###############################################################################
 cmake_minimum_required(VERSION 3.0)
-project(VVR_OGL_LABORATORY_ProjectWinter)
+project(PROJECT_WINTER)
 
 ###############################################################################
 
@@ -96,10 +96,14 @@ add_definitions(
   -D_CRT_SECURE_NO_WARNINGS
   )
 
+
 ###############################################################################
 # Project Winter
 add_executable(project_winter
-  project_winter/lab.cpp
+  project_winter/main.cpp
+
+  project_winter/src/terrain.cpp
+  project_winter/src/terrain.h
 
   common/util.cpp
   common/util.h
@@ -111,12 +115,16 @@ add_executable(project_winter
   common/model.h
   common/texture.cpp
   common/texture.h
+  common/light.cpp
+  common/light.h
 
-  project_winter/clouds.fragmentshader
-  project_winter/clouds.vertexshader
+  project_winter/shaders/ShadowMapping.fragmentshader
+  project_winter/shaders/ShadowMapping.vertexshader
+  project_winter/shaders/Depth.fragmentshader
+  project_winter/shaders/Depth.vertexshader
 
-  project_winter/terrain.fragmentshader
-  project_winter/terrain.vertexshader
+  project_winter/shaders/clouds.fragmentshader
+  project_winter/shaders/clouds.vertexshader
   )
 target_link_libraries(project_winter
   ${ALL_LIBS}
@@ -141,10 +149,14 @@ SOURCE_GROUP(obj REGULAR_EXPRESSION ".*/.*obj$" )
 # copy
 if (NOT ${CMAKE_GENERATOR} MATCHES "Xcode" )
 
+
+
   add_custom_command(
     TARGET project_winter POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/project_winter${CMAKE_EXECUTABLE_SUFFIX}" "${CMAKE_CURRENT_SOURCE_DIR}/project_winter/"
     )
+    
+
 
 elseif (${CMAKE_GENERATOR} MATCHES "Xcode" )
 

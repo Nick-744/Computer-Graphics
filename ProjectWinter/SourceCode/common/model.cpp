@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <sstream>
 #include <map>
 #include <tinyxml2.h>
@@ -114,7 +114,7 @@ void loadVTP(
     indices.clear();
     const char* method = "PolygonalMesh::loadVtpFile()";
     XMLDocument vtp;
-	auto res = vtp.LoadFile(path.c_str());
+    auto res = vtp.LoadFile(path.c_str());
     assert(res == 0);
 
     XMLElement* root = vtp.FirstChildElement("VTKFile");
@@ -252,12 +252,30 @@ void loadOBJWithTiny(
                     1 - attrib.texcoords[2 * index.texcoord_index + 1]};
                 uvs.push_back(uv);
             }
-            if (attrib.normals.size() != 0) {
-                vec3 normal = {
-                    attrib.normals[3 * index.normal_index + 0],
-                    attrib.normals[3 * index.normal_index + 1],
-                    attrib.normals[3 * index.normal_index + 2]};
-                normals.push_back(normal);
+            /* 
+             * 30/11/2025 – Fixed “vector subscript out of range” after adding normals
+             * to my Gaea terrain model. The solution below is based on ChatGPT’s guidance!
+             */
+            if (!attrib.normals.empty() && index.normal_index >= 0) {
+                // Μετατροπή σε size_t για ασφάλεια
+                size_t ni = static_cast<size_t>(index.normal_index) * 3;
+
+                if (ni + 2 < attrib.normals.size()) {
+                    vec3 normal = {
+                        attrib.normals[ni + 0],
+                        attrib.normals[ni + 1],
+                        attrib.normals[ni + 2]
+                    };
+                    normals.push_back(normal);
+                }
+                else {
+                    // Fallback αν κάτι πάει στραβά με τα indices
+                    normals.push_back(vec3(0.0f, 1.0f, 0.0f)); // ή ό,τι θέλεις ως default
+                }
+            }
+            else {
+                // Δεν υπάρχει normal για αυτό το vertex -> κάποιο default / υπολογισμός
+                normals.push_back(vec3(0.0f, 1.0f, 0.0f)); // placeholder
             }
 
             vertices.push_back(vertex);
