@@ -24,6 +24,7 @@
 // My src files
 #include "src/terrain.h"
 #include "src/clouds.h"
+#include "src/forest.h"
 
 using namespace std;
 using namespace glm;
@@ -71,6 +72,9 @@ Drawable* cabinModel;
 vec3 cabinPosition    = vec3(7.0f, 59.2f, -0.5f);
 mat4 cabinModelMatrix = translate(mat4(), cabinPosition) * rotate(mat4(), 3.14f, vec3(0, 1, 0));
 
+vec3 tempPosition = vec3(0.0f, 59.2f, 0.0f);
+mat4 tempModelMatrix = translate(mat4(), tempPosition);
+
 GLuint depthFBO1, depthTexture1;
 GLuint depthFBO2, depthTexture2;
 
@@ -103,6 +107,9 @@ TerrainRenderer* terrainSystem;
 // Cloud system
 CloudRenderer* cloudSystem;
 
+// Forest system
+Forest* forestSystem;
+
 // Create sample materials
 const Material polishedSilver
 {
@@ -126,6 +133,14 @@ const Material ruby
 	vec4{ 0.61424,  0.04136,  0.04136,  0.55 },
 	vec4{ 0.727811, 0.626959, 0.626959, 0.55 },
 	76.8
+};
+
+const Material wood
+{
+	vec4{ 0.20f, 0.12f, 0.05f, 1.0f },
+	vec4{ 0.40f, 0.25f, 0.10f, 1.0f },
+	vec4{ 0.10f, 0.05f, 0.02f, 1.0f },
+	20.0f
 };
 
 
@@ -225,6 +240,10 @@ void createContext()
 
 	// Clouds
 	cloudSystem = new CloudRenderer();
+
+	// Forest
+	forestSystem = new Forest(shaderProgram);
+	forestSystem->setPosition(vec3(48.0f, 59.2f, 42.5f));
 
 	// Loading a model
 
@@ -337,7 +356,13 @@ void free()
 	glDeleteProgram(depthProgram);
 
 	terrainSystem->~TerrainRenderer();
+	delete terrainSystem;
+
 	cloudSystem->~CloudRenderer();
+	delete cloudSystem;
+
+	forestSystem->~Forest();
+	delete forestSystem;
 
 	glfwTerminate();
 }
@@ -368,22 +393,18 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
 
 	// ---- rendering the scene ---- //
 
-	// For cabin
+	// Cabin
 	glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &cabinModelMatrix[0][0]);
-	cabinModel->bind();
-	cabinModel->draw();
-
-	// For sphere
-	mat4 sphereModelMatrix = translate(mat4(), vec3(0.0f, 60.0f, 0.0f)) * scale(mat4(), vec3(0.5f));
-	glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &sphereModelMatrix[0][0]);
-	sphere->bind();
-	sphere->draw();
+	cabinModel->bind(); cabinModel->draw();
 
 	// Terrain
 	mat4 terrainModelMatrix = terrainSystem->getTerrainModelMatrix();
 	glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &terrainModelMatrix[0][0]);
 	terrainSystem->getTerrainMesh()->bind();
 	terrainSystem->getTerrainMesh()->draw();
+
+	// Forest
+	forestSystem->drawOnlyObjects(shadowModelLocation);
 
 
 
@@ -449,51 +470,22 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 
-	// Remove the texture from model2 and use material instead
+	// Draw cabin
+
+	// Remove the texture from terrain and use material instead!
 	// ** Use bool variable to tell the shader not to use a texture
 	// ** Look at if statement in the fragment shader
-	uploadMaterial(polishedSilver);
-	glUniform1i(useTextureLocation, 0); // Tell shader not to use texture!
+	uploadMaterial(wood); glUniform1i(useTextureLocation, 0);
 
-	// Task 1.2 - Draw the sphere on the scene
-	// Use a scaling of 0.5 across all dimensions and translate it to (-3, 1, -3)
-	mat4 sphereModelMatrix = translate(mat4(), vec3(0.0f, 60.0f, 0.0f)) * scale(mat4(), vec3(0.5f));
-	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &sphereModelMatrix[0][0]);
-
-	sphere->bind();
-	sphere->draw();
-
-	// Draw cabin
 	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &cabinModelMatrix[0][0]);
-	cabinModel->bind();
-	cabinModel->draw();
+	cabinModel->bind(); cabinModel->draw();
 
 
 
-	// Light sphere model (visualization helper)
-	glUniform1i(ChampionOfLight, 1); // Render with only ambient component!
+	// Draw forest
+	forestSystem->draw();
 
-	mat4 temp = scale(mat4(), vec3(0.1f));
 
-	// Light sphere 1
-	mat4 light1SphereModel = translate(mat4(), light1->lightPosition_worldspace) * temp;
-	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &light1SphereModel[0][0]);
-
-	uploadMaterial(gold);
-	glUniform1i(useTextureLocation, 0);
-
-	sphere->bind(); sphere->draw();
-
-	// Light sphere 2
-	mat4 light2SphereModel = translate(mat4(), light2->lightPosition_worldspace) * temp;
-	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &light2SphereModel[0][0]);
-
-	uploadMaterial(ruby);
-	glUniform1i(useTextureLocation, 0);
-
-	sphere->bind(); sphere->draw();
-
-	glUniform1i(ChampionOfLight, 0);
 
 	// ======< CLOUDS >====== //
 	GLboolean cull = glIsEnabled(GL_CULL_FACE);
@@ -582,20 +574,44 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 
 		bool moved = false;
 
-		if      (key == GLFW_KEY_KP_8)   { cabinPosition.z -= step; moved = true; } // forward (-Z)
-		else if (key == GLFW_KEY_KP_5)   { cabinPosition.z += step; moved = true; } // back (+Z)
-		else if (key == GLFW_KEY_KP_4)   { cabinPosition.x -= step; moved = true; } // left
-		else if (key == GLFW_KEY_KP_6)   { cabinPosition.x += step; moved = true; } // right
-		else if (key == GLFW_KEY_KP_ADD) { cabinPosition.y += step; moved = true; } // up
-		else if (key == GLFW_KEY_MINUS)  { cabinPosition.y -= step; moved = true; } // down
+		if      (key == GLFW_KEY_KP_8)
+		{
+			tempPosition.z -= step; moved = true;
+			forestSystem->setPosition(tempPosition);
+		} // forward (-Z)
+		else if (key == GLFW_KEY_KP_5)
+		{
+			tempPosition.z += step; moved = true;
+			forestSystem->setPosition(tempPosition);
+		} // back (+Z)
+		else if (key == GLFW_KEY_KP_4)
+		{
+			tempPosition.x -= step; moved = true;
+			forestSystem->setPosition(tempPosition);
+		} // left
+		else if (key == GLFW_KEY_KP_6)
+		{
+			tempPosition.x += step; moved = true;
+			forestSystem->setPosition(tempPosition);
+		} // right
+		else if (key == GLFW_KEY_KP_ADD)
+		{
+			tempPosition.y += step; moved = true;
+			forestSystem->setPosition(tempPosition);
+		} // up
+		else if (key == GLFW_KEY_MINUS)
+		{
+			tempPosition.y -= step; moved = true;
+			forestSystem->setPosition(tempPosition);
+		} // down
 
 		if (moved)
 		{
 			// Rebuild model matrix (add scale/rotation here if you want)
-			cabinModelMatrix = translate(mat4(), cabinPosition) * rotate(mat4(), 3.14f, vec3(0, 1, 0));
+			tempModelMatrix = translate(mat4(), tempPosition);
 
-			printf("Cabin position: (%.2f, %.2f, %.2f)\n",
-				cabinPosition.x, cabinPosition.y, cabinPosition.z);
+			printf("Position: (%.2f, %.2f, %.2f)\n",
+				tempPosition.x, tempPosition.y, tempPosition.z);
 		}
 	}*/
 }
