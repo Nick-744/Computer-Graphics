@@ -18,8 +18,8 @@ Light::Light(GLFWwindow* window,
     lightPosition_worldspace = init_position;
 
     // setting near and far plane affects the detail of the shadow
-    nearPlane = 1.0;
-    farPlane  = 45.0;
+    nearPlane = 0.1;
+    farPlane  = 200.0;
 
     direction = normalize(targetPosition - lightPosition_worldspace);
 

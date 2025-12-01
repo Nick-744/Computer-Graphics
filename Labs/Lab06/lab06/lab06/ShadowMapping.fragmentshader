@@ -2,12 +2,12 @@
 
 in vec4 vertex_position_cameraspace;
 in vec4 vertex_normal_cameraspace;
-in vec4 light_position_cameraspace1;
+in vec4 light_direction_cameraspace1;
 in vec2 vertex_UV;
 in vec4 vertex_position_lightspace1;
 
 // ===< HOMEWORK 2 >=== //
-in vec4 light_position_cameraspace2;
+in vec4 light_direction_cameraspace2;
 in vec4 vertex_position_lightspace2;
 
 
@@ -48,7 +48,7 @@ uniform int ChampionOfLight; // HOMEWORK 4
 
 
 
-vec4 phong(Light light, float visibility, vec4 light_position_cameraspace);
+vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace);
 float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler);
 
 void main()
@@ -59,13 +59,13 @@ void main()
     float shadow = ShadowCalculation(vertex_position_lightspace1, shadowMapSampler1);
     float visibility = 1.0f - shadow;
 
-    fragmentColor += 0.5 * phong(light1, visibility, light_position_cameraspace1);
+    fragmentColor += 0.5 * phong(light1, visibility, light_direction_cameraspace1);
 
     // ===< HOMEWORK 2 >=== //
     float shadow2 = ShadowCalculation(vertex_position_lightspace2, shadowMapSampler2);
     float visibility2 = 1.0f - shadow2;
 
-    fragmentColor += 0.5 * phong(light2, visibility2, light_position_cameraspace2);
+    fragmentColor += 0.5 * phong(light2, visibility2, light_direction_cameraspace2);
 }
 
 
@@ -120,7 +120,7 @@ float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSamp
 
 
 
-vec4 phong(Light light, float visibility, vec4 light_position_cameraspace)
+vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
 {
     vec4 _Ks = mtl.Ks;
     vec4 _Kd = mtl.Kd;
@@ -143,7 +143,7 @@ vec4 phong(Light light, float visibility, vec4 light_position_cameraspace)
 
     // model diffuse intensity (Id)
     vec4 N = normalize(vertex_normal_cameraspace);
-    vec4 L = normalize(light_position_cameraspace - vertex_position_cameraspace);
+    vec4 L = normalize(light_direction_cameraspace);
     float cosTheta = clamp(dot(N, L), 0, 1);
     vec4 Id = light.Ld * _Kd * cosTheta;
 

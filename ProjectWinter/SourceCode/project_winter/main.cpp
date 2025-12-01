@@ -23,6 +23,7 @@
 
 // My src files
 #include "src/terrain.h"
+#include "src/clouds.h"
 
 using namespace std;
 using namespace glm;
@@ -98,6 +99,9 @@ GLuint shadowModelLocation;
 
 // Terrain system
 TerrainRenderer* terrainSystem;
+
+// Cloud system
+CloudRenderer* cloudSystem;
 
 // Create sample materials
 const Material polishedSilver
@@ -206,7 +210,7 @@ void createContext()
 	depthMapSampler1 = glGetUniformLocation(shaderProgram, "shadowMapSampler1");
 	light1VPLocation = glGetUniformLocation(shaderProgram, "light1VP");
 
-	// ===< HOMEWORK 2 >=== //
+	// For light2
 	depthMapSampler2 = glGetUniformLocation(shaderProgram, "shadowMapSampler2");
 	light2VPLocation = glGetUniformLocation(shaderProgram, "light2VP");
 
@@ -218,6 +222,9 @@ void createContext()
 
 	// Initialize the terrain system
 	terrainSystem = new TerrainRenderer(shaderProgram);
+
+	// Clouds
+	cloudSystem = new CloudRenderer();
 
 	// Loading a model
 
@@ -330,6 +337,7 @@ void free()
 	glDeleteProgram(depthProgram);
 
 	terrainSystem->~TerrainRenderer();
+	cloudSystem->~CloudRenderer();
 
 	glfwTerminate();
 }
@@ -486,6 +494,15 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	sphere->bind(); sphere->draw();
 
 	glUniform1i(ChampionOfLight, 0);
+
+	// ======< CLOUDS >====== //
+	GLboolean cull = glIsEnabled(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE);
+
+	// UPDATED CALL: Pass light1 position (or whichever light you want lighting the clouds)
+	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime, light1->lightPosition_worldspace);
+
+	if (cull) glEnable(GL_CULL_FACE);
 }
 
 
@@ -654,10 +671,10 @@ void initialize()
 	// Creating a custom light 
 	light1 = new Light(
 		window,
-		vec4{ 1, 1, 1, 1 },
-		vec4{ 1, 1, 1, 1 },
-		vec4{ 1, 1, 1, 1 },
-		vec3{ 0, 70, -5 }
+		vec4{ 0.8, 0.8, 1, 1 },
+		vec4{ 0.8, 0.8, 1, 1 },
+		vec4{ 0.8, 0.8, 1, 1 },
+		vec3{ 0, 200, 20 }
 	);
 
 	light2 = new Light(

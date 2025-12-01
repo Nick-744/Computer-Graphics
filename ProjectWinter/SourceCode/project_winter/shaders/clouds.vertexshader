@@ -1,13 +1,41 @@
 #version 330 core
 
-layout(location = 0) in vec3 position;
+layout(location = 0) in vec3 centerOffset; // Position relative to cloud center
 layout(location = 1) in vec2 uv;
 
-uniform mat4 MVP;
+uniform mat4 VP;
+uniform mat4 M;
+uniform vec3 CameraRight; // World Space Camera Right
+uniform vec3 CameraUp;    // World Space Camera Up
+uniform float time;
 
 out vec2 UV;
+out vec3 FragPos;      // World position for lighting
+out float VerticalPos; // For darkening the bottom of the cloud
 
-void main() {
+void main()
+{
     UV = uv;
-    gl_Position = MVP * vec4(position, 1.0);
+
+    // Calculate world position of the particle center
+    vec4 worldCenter = M * vec4(centerOffset, 1.0);
+
+    // Map UV (0..1) to (-1..1) for offset calculation
+    vec2 offset = (uv - 0.5) * 2.0;
+
+    // BILLBOARDING:
+    // Expand the vertex relative to the camera's Right/Up vectors.
+    // We scale the particle size here
+    float particleSize = 18.0;
+    
+    vec3 vertexPos_world = worldCenter.xyz 
+                         + CameraRight * offset.x * particleSize 
+                         + CameraUp * offset.y * particleSize;
+
+    FragPos = vertexPos_world;
+    
+    // Pass normalized height (0 to 1) relative to the puff for shading
+    VerticalPos = uv.y; 
+
+    gl_Position = VP * vec4(vertexPos_world, 1.0);
 }
