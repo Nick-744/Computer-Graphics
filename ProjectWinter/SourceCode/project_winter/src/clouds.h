@@ -13,12 +13,12 @@ public:
     CloudRenderer();
     ~CloudRenderer();
 
-    void draw(const mat4& view, const mat4& proj, float time, const vec3& lightPos);
+    void draw(const mat4& view, const mat4& proj, float time);
 
 private:
     struct CloudInstance
     {
-        vec3 position;
+        vec3 startPosition;
         vec3 scale;
     };
 
@@ -26,16 +26,15 @@ private:
     GLuint vao, vbo, ebo;
     GLsizei indexCount;
 
-    GLuint cloudBaseTex;
-    GLuint cloudDetailTex;
+    GLuint cloudBaseTexture;
+    GLuint cloudDetailTexture;
 
     // Uniform Locations
     GLint vpLocation;
     GLint modelLocation;
-    GLint cameraRightLocation;
-    GLint cameraUpLocation;
+    GLint cameraRightLocation; // NEEDED: To make clouds face camera
+    GLint cameraUpLocation;    // NEEDED: To make clouds face camera
     GLint timeLocation;
-    GLint lightPosLocation; // Volumetric lighting
     GLint cloudBaseLocation;
     GLint cloudDetailLocation;
 

@@ -1,7 +1,6 @@
 ﻿#version 330 core
 
 in vec2 UV;
-in vec3 FragPos;
 in float VerticalPos;
 
 out vec4 color;
@@ -9,7 +8,6 @@ out vec4 color;
 uniform sampler2D cloudBase;
 uniform sampler2D cloudDetail;
 uniform float time;
-uniform vec3 lightPos; // World Space Light Position
 
 void main()
 {
@@ -17,47 +15,29 @@ void main()
     vec2 baseUV   = UV + vec2(time * 0.005, time * 0.002);
     vec2 detailUV = UV * 3.0 + vec2(time * 0.01, -time * 0.005);
     
-    float baseNoise   = texture(cloudBase, baseUV).r;
-    float detailNoise = texture(cloudDetail, detailUV).r;
-    
     // Combine noise for density
-    float noise = baseNoise * 0.6 + detailNoise * 0.4;
+    float baseNoise   = texture(cloudBase,   baseUV).r;
+    float detailNoise = texture(cloudDetail, detailUV).r;
+    float noise       = baseNoise * 0.6 + detailNoise * 0.4;
     
-    // Soft Circular Shape (Particle Puff)
+    // Circular Puff Shape
     vec2 centered    = UV - 0.5;
     float dist       = length(centered);
     float alphaShape = 1.0 - smoothstep(0.0, 0.5, dist);
-    
-    // Erode edges using noise to make it look fluffy
-    alphaShape *= noise;
+    alphaShape      *= noise; // Fluffy edges
     
     // Discard transparent parts early
     if (alphaShape < 0.1) discard;
 
-    // --- Volumetric Lighting Simulation --- //
+    // FAKE LIGHTING (Gradient)
+    // Bottom (VerticalPos 0) = Grey Shadow
+    // Top    (VerticalPos 1) = White Sun
     
-    // Darker Bottoms (Fake Ambient Occlusion)
-    // VerticalPos comes from vertex shader (0 = bottom, 1 = top)
-    float bottomDarkness = smoothstep(-0.2, 1.0, VerticalPos); 
+    vec3 shadowColor = vec3(0.7, 0.7, 0.8); // Grey-Blue
+    vec3 sunColor    = vec3(1.0, 1.0, 1.0); // White
     
-    // Main Diffuse Lighting
-    vec3 lightDir = normalize(lightPos - FragPos);
-    // Since billboards always face camera, we approximate normal as facing light slightly
-    float diffuse = max(dot(vec3(0,1,0), lightDir), 0.0) * 0.5 + 0.5;
+    // Smooth mix based on height
+    vec3 finalColor = mix(shadowColor, sunColor, VerticalPos);
 
-    // Combine Lighting Colors
-    vec3 ambientColor = vec3(0.7, 0.7, 0.85); // Blue-ish grey shadow
-    vec3 sunColor     = vec3(1.0, 1.0, 0.95); // Bright white-yellow sun
-    
-    // Mix based on height and density
-    vec3 finalColor = mix(ambientColor, sunColor, bottomDarkness * diffuse);
-    
-    // Soft Edge Alpha
-    // Make the alpha softer at the edges
-    float alpha = smoothstep(0.1, 0.4, alphaShape);
-    
-    // Make overall cloud slightly translucent
-    alpha *= 0.85;
-
-    color = vec4(finalColor, alpha);
+    color = vec4(finalColor, alphaShape * 0.85);
 }

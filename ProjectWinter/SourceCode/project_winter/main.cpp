@@ -499,8 +499,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	GLboolean cull = glIsEnabled(GL_CULL_FACE);
 	glDisable(GL_CULL_FACE);
 
-	// UPDATED CALL: Pass light1 position (or whichever light you want lighting the clouds)
-	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime, light1->lightPosition_worldspace);
+	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime);
 
 	if (cull) glEnable(GL_CULL_FACE);
 }
