@@ -8,7 +8,8 @@ using namespace glm;
 MassSpringDamper::MassSpringDamper(
     vec3 pos, vec3 vel, float length, float mass,
     vec3 anchor, float stiffness, float damping, float restLength)
-    : a(anchor), k(stiffness), b(damping), l0(restLength) {
+    : a(anchor), k(stiffness), b(damping), l0(restLength)
+{
     blob = new Drawable("models/cube.obj");
     spring = new Drawable("models/spring.obj");
 

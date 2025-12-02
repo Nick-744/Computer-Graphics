@@ -81,6 +81,9 @@ Light light{
 
 Cube* cube;
 Sphere* sphere;
+
+Sphere* sphere2; Sphere* sphere3; // HOMEWORK 2
+
 Box* box;
 MassSpringDamper* msd;
 
@@ -110,10 +113,14 @@ void createContext() {
     // Task 1a: change the parameters of the cube
     cube = new Cube(vec3(4, 5, 4), vec3(0, 0, 0), vec3(1, 0, 1), 0.5, 1);
     // Task 2a: change the initial velocity and position, mass and radius
-    sphere = new Sphere(vec3(4, 4, 4), vec3(1, 1, 1), 0.4, 10);
+    sphere = new Sphere(vec3(4, 4, 4), vec3(0, 5, 0), 0.4, 10);
     // Task 3a: change the initial parameters of the system
     msd = new MassSpringDamper(vec3(4, 0, 4), vec3(0, 0, 0), 0.5, 1,
                                vec3(4, 4, 4), 50, 10, 2);
+
+	// ===< HOMEWORK 2 >=== //
+	sphere2 = new Sphere(vec3(5, 5, 4), vec3(-2, -1, 0), 0.4, 10);
+	sphere3 = new Sphere(vec3(3, 5, 4), vec3( 2, -1, 0), 0.4, 10);
 }
 
 void free() {
@@ -134,6 +141,7 @@ void mainLoop() {
         // calculate dt
         float currentTime = glfwGetTime();
         float dt = currentTime - t;
+		//float dt = 0.01f; // Για να παρατηρήσουμε καλύτερα την αστάθεια λόγω σφαλμάτων!
 
         // Task 2e: change dt to 0.001f and observe the total energy, then change
         // the numerical integration method to Runge - Kutta 4th order (in RigidBody.cpp)
@@ -176,36 +184,46 @@ void mainLoop() {
         // Task 2: simulation of a sphere (collision and forces)
         
         // Task 2b: define the velocity of the sphere after the collision
+        /*
         handleBoxSphereCollision(*box, *sphere);
 
         // Task 2c: model the force due to gravity
-        sphere->forcing = [&](float t, const vector<float>& y)->vector<float> {
+        sphere->forcing = [&](float t, const vector<float>& y)->vector<float>
+        {
             vector<float> f(6, 0.0f);
-            f[1] = 0;
+            f[1] = -sphere->m * g; // Αρνητικό y!
             return f;
         };
         sphere->update(t, dt);
         glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &sphere->modelMatrix[0][0]);
         sphere->draw();
 
-        // Task 2d: calculate the total energy and comment on the previous
-        // results
-        /*/
+        // Task 2d: calculate the total energy and comment on the previous results
         float KE = sphere->calcKinecticEnergy();
-        float PE = ...
-        float T = KE + PE;
-        if (T > maxEnergy) {
+		float PE = sphere->m * g * sphere->x.y;
+        float T  = KE + PE;
+        if (T > maxEnergy)
+        {
+            // Παρατηρούμε ότι η ολική ενέργεια αυξάνεται!
+			// Σφάλμα από: collision response & numerical integration
+            
+            // Αναλυτικότερα, κόβοντας την 2η παράγωγο στον Taylor, έχουμε θετικό σφάλμα!
+            // Δηλαδή, δεν χάνεται ενέργεια λόγο της βαρύτητας...
             cout << "Total Energy: " << T << endl;
             maxEnergy = T;
         }
-        //*/
+        */
 
         // Task 3: model a mass-spring-damper system
-        /*/
         // Task 3b: model the forces due to gravity, damper and spring
-        msd->forcing = [&](float t, const vector<float>& y)->vector<float> {
+        /*
+        msd->forcing = [&](float t, const vector<float>& y)->vector<float>
+        {
             vector<float> f(6, 0.0f);
-            f[1] = 0;
+            f[1] = -(msd->m * g)
+                  + (msd->k * (msd->a.y - msd->x.y - msd->l0))
+                  - (msd->b * msd->v.y);
+			// Βαρύτητα + Hooke's Law + απόσβεση
             return f;
         };
         msd->update(t, dt);
@@ -213,21 +231,66 @@ void mainLoop() {
         msd->draw(0); // draw spring = 0
         glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &msd->blobModelMatrix[0][0]);
         msd->draw(1); // draw blob = 0
-        //*/
+        */
+
+        {   // ===< HOMEWORK 2 >=== //
+
+            // Collision setup!
+            handleSphereSphereCollision(*sphere,  *sphere2);
+            handleSphereSphereCollision(*sphere,  *sphere3);
+            handleSphereSphereCollision(*sphere2, *sphere3);
+
+            handleBoxSphereCollision(*box, *sphere);
+            handleBoxSphereCollision(*box, *sphere2);
+            handleBoxSphereCollision(*box, *sphere3);
+
+			// Βαρύτητα και για τις 3 σφαίρες!
+            sphere->forcing = [&](float t, const vector<float>& y)->vector<float>
+            {
+                vector<float> f(6, 0.0f);
+                f[1] = -sphere->m * g;
+                return f;
+            };
+
+            sphere2->forcing = [&](float t, const vector<float>& y)->vector<float>
+            {
+                vector<float> f(6, 0.0f);
+                f[1] = -sphere->m * g;
+                return f;
+            };
+
+            sphere3->forcing = [&](float t, const vector<float>& y)->vector<float>
+            {
+                vector<float> f(6, 0.0f);
+                f[1] = -sphere->m * g;
+                return f;
+            };
+
+            // ΖΩΓΡΑΦΙΚΗΗΗ!
+            sphere->update(t, dt);
+            glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &sphere->modelMatrix[0][0]);
+            sphere->draw();
+
+            sphere2->update(t, dt);
+            glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &sphere2->modelMatrix[0][0]);
+            sphere2->draw();
+
+            sphere3->update(t, dt);
+            glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &sphere3->modelMatrix[0][0]);
+            sphere3->draw();
+        }
 
         t += dt;
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-    } while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS &&
-             glfwWindowShouldClose(window) == 0);
+    }
+    while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(window) == 0);
 }
 
 void initialize() {
     // Initialize GLFW
-    if (!glfwInit()) {
-        throw runtime_error("Failed to initialize GLFW\n");
-    }
+    if (!glfwInit()) throw runtime_error("Failed to initialize GLFW\n");
 
     glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -237,7 +300,8 @@ void initialize() {
 
     // Open a window and create its OpenGL context
     window = glfwCreateWindow(W_WIDTH, W_HEIGHT, TITLE, NULL, NULL);
-    if (window == NULL) {
+    if (window == NULL)
+    {
         glfwTerminate();
         throw runtime_error(string(string("Failed to open GLFW window.") +
                             " If you have an Intel GPU, they are not 3.3 compatible." +
@@ -249,7 +313,8 @@ void initialize() {
     glewExperimental = GL_TRUE;
 
     // Initialize GLEW
-    if (glewInit() != GLEW_OK) {
+    if (glewInit() != GLEW_OK)
+    {
         glfwTerminate();
         throw runtime_error("Failed to initialize GLEW\n");
     }
@@ -287,14 +352,16 @@ void initialize() {
     camera = new Camera(window);
 }
 
-void uploadMaterial(const Material& mtl) {
+void uploadMaterial(const Material& mtl)
+{
     glUniform4f(KaLocation, mtl.Ka.r, mtl.Ka.g, mtl.Ka.b, mtl.Ka.a);
     glUniform4f(KdLocation, mtl.Kd.r, mtl.Kd.g, mtl.Kd.b, mtl.Kd.a);
     glUniform4f(KsLocation, mtl.Ks.r, mtl.Ks.g, mtl.Ks.b, mtl.Ks.a);
     glUniform1f(NsLocation, mtl.Ns);
 }
 
-void uploadLight(const Light& light) {
+void uploadLight(const Light& light)
+{
     glUniform4f(LaLocation, light.La.r, light.La.g, light.La.b, light.La.a);
     glUniform4f(LdLocation, light.Ld.r, light.Ld.g, light.Ld.b, light.Ld.a);
     glUniform4f(LsLocation, light.Ls.r, light.Ls.g, light.Ls.b, light.Ls.a);
@@ -303,13 +370,17 @@ void uploadLight(const Light& light) {
     glUniform1f(lightPowerLocation, light.power);
 }
 
-int main(void) {
-    try {
+int main(void)
+{
+    try
+    {
         initialize();
         createContext();
         mainLoop();
         free();
-    } catch (exception& ex) {
+    }
+    catch (exception& ex)
+    {
         cout << ex.what() << endl;
         getchar();
         free();

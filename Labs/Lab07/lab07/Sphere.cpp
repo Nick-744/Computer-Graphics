@@ -23,9 +23,7 @@ Sphere::Sphere(vec3 pos, vec3 vel, float radius, float mass)
     I_inv = inverse(I);
 }
 
-Sphere::~Sphere() {
-    delete sphere;
-}
+Sphere::~Sphere() { delete sphere; }
 
 void Sphere::draw(unsigned int drawable) {
     sphere->bind();
