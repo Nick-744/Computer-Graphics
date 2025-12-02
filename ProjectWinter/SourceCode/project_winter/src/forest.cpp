@@ -9,7 +9,9 @@ using namespace std;
 Forest::Forest(GLuint shaderProgram)
 {
     // Initialize Position
-    position = vec3(0.0f, 0.0f, 0.0f);
+    position      = vec3(0.0f, 0.0f, 0.0f);
+    rotationAngle = 0.0f;
+    scaleFactor   = 4.5f;
     updateModelMatrix();
 
     // Load Models
@@ -41,9 +43,17 @@ void Forest::setPosition(vec3 pos)
     updateModelMatrix();
 }
 
+void Forest::setRotation(float angle)
+{
+	rotationAngle = angle;
+	updateModelMatrix();
+}
+
 void Forest::updateModelMatrix()
 {
-    modelMatrix = translate(mat4(), position) * scale(mat4(), vec3(4.5));
+    modelMatrix = translate(mat4(), position)
+                * rotate(mat4(), rotationAngle, vec3(0, 1, 0))
+                * scale(mat4(), vec3(scaleFactor));
 }
 
 void Forest::draw()

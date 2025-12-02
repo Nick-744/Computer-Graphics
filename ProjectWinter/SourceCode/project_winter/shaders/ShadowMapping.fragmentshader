@@ -181,7 +181,7 @@ vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
     {   
         // === REMOVE WHITE BACKGROUND === //
         vec4 texColor = texture(diffuseColorSampler, vertex_UV);
-        if (texColor.r > 0.4 && texColor.g > 0.4 && texColor.b > 0.4) { discard; }
+        if (texColor.r > 0.35 && texColor.g > 0.6 && texColor.b > 0.35) { discard; }
 
         _Ks = vec4(texture(specularColorSampler, vertex_UV).rgb, 1.0);
         _Kd = vec4(texture(diffuseColorSampler, vertex_UV).rgb, 1.0);

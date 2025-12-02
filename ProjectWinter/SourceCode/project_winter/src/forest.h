@@ -17,6 +17,7 @@ public:
 	void drawOnlyObjects(GLuint shadowModelLocation); // For depth pass!
 
     void setPosition(vec3 pos);
+	void setRotation(float angle);
 
 private:
     // Meshes
@@ -29,6 +30,8 @@ private:
 
     // Position data
     vec3 position;
+	float rotationAngle;
+	float scaleFactor;
     mat4 modelMatrix;
 
     // Shader Uniform Locations (cached for performance)

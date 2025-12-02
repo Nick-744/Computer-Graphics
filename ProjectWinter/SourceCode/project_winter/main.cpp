@@ -72,8 +72,10 @@ Drawable* cabinModel;
 vec3 cabinPosition    = vec3(7.0f, 59.2f, -0.5f);
 mat4 cabinModelMatrix = translate(mat4(), cabinPosition) * rotate(mat4(), 3.14f, vec3(0, 1, 0));
 
-vec3 tempPosition = vec3(0.0f, 59.2f, 0.0f);
-mat4 tempModelMatrix = translate(mat4(), tempPosition);
+// For testing new models positioning!
+vec3 tempPosition       = vec3(0.0f, 59.2f, 0.0f);
+float tempRotationAngle = 0.0f;
+mat4 tempModelMatrix    = translate(mat4(), tempPosition) * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
 
 GLuint depthFBO1, depthTexture1;
 GLuint depthFBO2, depthTexture2;
@@ -109,32 +111,9 @@ CloudRenderer* cloudSystem;
 
 // Forest system
 Forest* forestSystem;
+Forest* forestSystem2;
 
 // Create sample materials
-const Material polishedSilver
-{
-	vec4{ 0.23125,  0.23125,  0.23125,  1 },
-	vec4{ 0.2775,   0.2775,   0.2775,   1 },
-	vec4{ 0.773911, 0.773911, 0.773911, 1 },
-	89.6f
-};
-
-const Material gold
-{
-	vec4{ 0.24725,  0.1995,   0.0745,   1 },
-	vec4{ 0.75164,  0.60648,  0.22648,  1 },
-	vec4{ 0.628281, 0.555802, 0.366065, 1 },
-	51.2f
-};
-
-const Material ruby
-{
-	vec4{ 0.1745,   0.01175,  0.01175,  0.55 },
-	vec4{ 0.61424,  0.04136,  0.04136,  0.55 },
-	vec4{ 0.727811, 0.626959, 0.626959, 0.55 },
-	76.8
-};
-
 const Material wood
 {
 	vec4{ 0.20f, 0.12f, 0.05f, 1.0f },
@@ -241,9 +220,13 @@ void createContext()
 	// Clouds
 	cloudSystem = new CloudRenderer();
 
-	// Forest
+	// Forests
 	forestSystem = new Forest(shaderProgram);
-	forestSystem->setPosition(vec3(48.0f, 59.2f, 42.5f));
+	forestSystem->setPosition(vec3(26.5f, 60.2f, 30.5f));
+	forestSystem->setRotation(-0.5f);
+
+	forestSystem2 = new Forest(shaderProgram);
+	forestSystem2->setPosition(vec3(- 66.5f, 60.7f, 43.0f));
 
 	// Loading a model
 
@@ -363,6 +346,8 @@ void free()
 
 	forestSystem->~Forest();
 	delete forestSystem;
+	forestSystem2->~Forest();
+	delete forestSystem2;
 
 	glfwTerminate();
 }
@@ -403,8 +388,9 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
 	terrainSystem->getTerrainMesh()->bind();
 	terrainSystem->getTerrainMesh()->draw();
 
-	// Forest
+	// Forests
 	forestSystem->drawOnlyObjects(shadowModelLocation);
+	forestSystem2->drawOnlyObjects(shadowModelLocation);
 
 
 
@@ -482,8 +468,9 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 
-	// Draw forest
+	// Draw forests
 	forestSystem->draw();
+	forestSystem2->draw();
 
 
 
@@ -567,51 +554,30 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		if (polygonMode[0] == GL_FILL) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	}
 
-	// Move cabin with arrow keys + PageUp/PageDown
+	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)
 	{
 		const float step = 0.5f; // movement step size
 
 		bool moved = false;
 
-		if      (key == GLFW_KEY_KP_8)
-		{
-			tempPosition.z -= step; moved = true;
-			forestSystem->setPosition(tempPosition);
-		} // forward (-Z)
-		else if (key == GLFW_KEY_KP_5)
-		{
-			tempPosition.z += step; moved = true;
-			forestSystem->setPosition(tempPosition);
-		} // back (+Z)
-		else if (key == GLFW_KEY_KP_4)
-		{
-			tempPosition.x -= step; moved = true;
-			forestSystem->setPosition(tempPosition);
-		} // left
-		else if (key == GLFW_KEY_KP_6)
-		{
-			tempPosition.x += step; moved = true;
-			forestSystem->setPosition(tempPosition);
-		} // right
-		else if (key == GLFW_KEY_KP_ADD)
-		{
-			tempPosition.y += step; moved = true;
-			forestSystem->setPosition(tempPosition);
-		} // up
-		else if (key == GLFW_KEY_MINUS)
-		{
-			tempPosition.y -= step; moved = true;
-			forestSystem->setPosition(tempPosition);
-		} // down
+		if      (key == GLFW_KEY_KP_8) { tempPosition.z -= step; moved = true; } // forward (-Z)
+		else if (key == GLFW_KEY_KP_5) { tempPosition.z += step; moved = true; } // back (+Z)
+		else if (key == GLFW_KEY_KP_4) { tempPosition.x -= step; moved = true; } // left
+		else if (key == GLFW_KEY_KP_6) { tempPosition.x += step; moved = true; } // right
+
+		else if (key == GLFW_KEY_KP_ADD)      { tempPosition.y += step; moved = true; } // up
+		else if (key == GLFW_KEY_KP_SUBTRACT) {tempPosition.y -= step; moved = true; } // down
+
+		else if (key == GLFW_KEY_KP_7) { tempRotationAngle += 0.1f; moved = true; }
+		else if (key == GLFW_KEY_KP_9) { tempRotationAngle -= 0.1f; moved = true; }
 
 		if (moved)
 		{
-			// Rebuild model matrix (add scale/rotation here if you want)
-			tempModelMatrix = translate(mat4(), tempPosition);
 
 			printf("Position: (%.2f, %.2f, %.2f)\n",
 				tempPosition.x, tempPosition.y, tempPosition.z);
+			printf("Rotation angle: %.2f radians\n", tempRotationAngle);
 		}
 	}*/
 }
