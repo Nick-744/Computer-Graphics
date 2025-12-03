@@ -25,6 +25,7 @@
 #include "src/terrain.h"
 #include "src/clouds.h"
 #include "src/forest.h"
+#include "src/meadow.h"
 
 using namespace std;
 using namespace glm;
@@ -103,6 +104,8 @@ GLuint light2VPLocation;
 GLuint shadowViewProjectionLocation;
 GLuint shadowModelLocation;
 
+
+
 // Terrain system
 TerrainRenderer* terrainSystem;
 
@@ -112,6 +115,11 @@ CloudRenderer* cloudSystem;
 // Forest system
 Forest* forestSystem;
 Forest* forestSystem2;
+
+// Meadow system
+Meadow* meadowSystem;
+
+
 
 // Create sample materials
 const Material wood
@@ -228,6 +236,9 @@ void createContext()
 	forestSystem2 = new Forest(shaderProgram);
 	forestSystem2->setPosition(vec3(- 66.5f, 60.7f, 43.0f));
 
+	// Meadow
+	meadowSystem = new Meadow(shaderProgram);
+
 	// Loading a model
 
 	// Task 1.2 Load earth.obj using drawable 
@@ -338,16 +349,14 @@ void free()
 	glDeleteProgram(shaderProgram);
 	glDeleteProgram(depthProgram);
 
-	terrainSystem->~TerrainRenderer();
 	delete terrainSystem;
 
-	cloudSystem->~CloudRenderer();
 	delete cloudSystem;
 
-	forestSystem->~Forest();
 	delete forestSystem;
-	forestSystem2->~Forest();
 	delete forestSystem2;
+
+	delete meadowSystem;
 
 	glfwTerminate();
 }
@@ -471,6 +480,11 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw forests
 	forestSystem->draw();
 	forestSystem2->draw();
+
+
+
+	// Draw meadow
+	meadowSystem->draw(viewMatrix, projectionMatrix);
 
 
 

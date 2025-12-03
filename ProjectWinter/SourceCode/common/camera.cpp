@@ -11,7 +11,7 @@ Camera::Camera(GLFWwindow* window) : window(window) {
     FoV             = 45.0f;
     speed           = 5.0f;
     mouseSpeed      = 0.001f;
-    fovSpeed        = 2.0f;
+    fovSpeed        = 100.0f;
 }
 
 void Camera::update()
@@ -67,16 +67,22 @@ void Camera::update()
     // Strafe left
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) position -= right * deltaTime * speed;
 
-    // Task 5.6: handle zoom in/out effects
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+    // Task 5.6: handle ZOOM EFFECT!
+    float targetFoV = 45.0f; // Default Base FoV
+    
+    // If UP is held, ZOOOOOOOOM IN!
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) targetFoV = 10.0f;
+
+    // Smoothly move current FoV towards the Target...
+    if (FoV < targetFoV)
     {
-        if (radians(FoV) > 0.1 + radians(fovSpeed))
-        FoV -= fovSpeed;
+        FoV += fovSpeed * deltaTime;
+        if (FoV > targetFoV) FoV = targetFoV; // Clamp
     }
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+    else if (FoV > targetFoV)
     {
-        if (radians(FoV) < 3.14 - radians(fovSpeed))
-        FoV += fovSpeed;
+        FoV -= fovSpeed * deltaTime;
+        if (FoV < targetFoV) FoV = targetFoV; // Clamp
     }
 
     // Task 5.7: construct projection and view matrices
