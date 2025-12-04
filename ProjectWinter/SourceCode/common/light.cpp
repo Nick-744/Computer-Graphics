@@ -19,7 +19,7 @@ Light::Light(GLFWwindow* window,
 
     // setting near and far plane affects the detail of the shadow
     nearPlane = 200.0f;
-    farPlane  = 700.0f;
+    farPlane  = 800.0f;
 
     float shadowBoxSize = 150.0f;
 

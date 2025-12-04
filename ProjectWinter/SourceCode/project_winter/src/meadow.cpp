@@ -13,6 +13,8 @@ using namespace glm;
 extern GLuint depthTextureSamplerLocation;
 extern GLuint depthUseTransparentTexLocation;
 
+vec3 normalCorrectLighting = vec3(1.0f, 1.0f, 1.0f); // SPECIAL NORMAL for lighting...
+
 // Random helper: returns float between 0.0 and 1.0
 float rnd() { return (float) rand() / (float) RAND_MAX; }
 
@@ -92,8 +94,7 @@ void Meadow::loadAndGenerateMesh(const char* filepath)
             vec3 vTopLeft     = center + vec3(-dx, h, -dz);
             vec3 vTopRight    = center + vec3(dx, h, dz);
 
-            // Calculate Normal
-            vec3 normal = vec3(-sin(angle), 0, cos(angle));
+            vec3 normal = normalCorrectLighting;
 
             // Push 2 Triangles (1 Quad)
 
@@ -150,7 +151,7 @@ void Meadow::loadAndGenerateTrees(const char* filepath)
 
         vec3 center = vec3(x, y, z);
 
-		// Trees are larger than grass!
+        // Trees are larger than grass!
         float scale = 6.0f + rnd() * 2.0f;
 
         float randomRotation = rnd() * 2.0f * PI;
@@ -158,7 +159,7 @@ void Meadow::loadAndGenerateTrees(const char* filepath)
         float w = 0.5f * scale;
         float h = 1.0f * scale;
 
-		// Cross arrangement (only 2 planes for trees...)
+        // Cross arrangement (only 2 planes for trees...)
         for (int i = 0; i < 2; i++)
         {
             float angle = randomRotation + (float)i * (PI / 2.0f);
@@ -170,7 +171,8 @@ void Meadow::loadAndGenerateTrees(const char* filepath)
             vec3 vBottomRight = center + vec3(dx, 0, dz);
             vec3 vTopLeft     = center + vec3(-dx, h, -dz);
             vec3 vTopRight    = center + vec3(dx, h, dz);
-            vec3 normal       = vec3(-sin(angle), 0, cos(angle));
+            
+            vec3 normal = normalCorrectLighting;
 
             vertices.push_back({ vBottomLeft,  vec2(0, 0), normal });
             vertices.push_back({ vBottomRight, vec2(1, 0), normal });
