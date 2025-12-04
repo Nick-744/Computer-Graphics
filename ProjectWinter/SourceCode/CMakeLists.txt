@@ -110,6 +110,8 @@ add_executable(project_winter
   project_winter/src/forest.h
   project_winter/src/meadow.cpp
   project_winter/src/meadow.h
+  project_winter/src/cabin.cpp
+  project_winter/src/cabin.h
 
   common/util.cpp
   common/util.h

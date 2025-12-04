@@ -71,7 +71,7 @@ void Camera::update()
     float targetFoV = 45.0f; // Default Base FoV
     
     // If UP is held, ZOOOOOOOOM IN!
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) targetFoV = 10.0f;
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) targetFoV = 10.0f;
 
     // Smoothly move current FoV towards the Target...
     if (FoV < targetFoV)

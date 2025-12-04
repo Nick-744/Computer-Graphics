@@ -26,6 +26,7 @@
 #include "src/clouds.h"
 #include "src/forest.h"
 #include "src/meadow.h"
+#include "src/cabin.h"
 
 using namespace std;
 using namespace glm;
@@ -59,6 +60,8 @@ struct Material
 GLFWwindow* window;
 Camera* camera;
 
+float lastFrameTime = 0.0f;
+
 Light* light1;
 Light* light2;
 int lightController = 1;         // 1 -> light & 2 -> light2
@@ -69,12 +72,8 @@ GLuint ChampionOfLight;
 GLuint shaderProgram, depthProgram;
 Drawable* sphere; // Light model helper
 
-Drawable* cabinModel;
-vec3 cabinPosition    = vec3(7.0f, 59.2f, -0.5f);
-mat4 cabinModelMatrix = translate(mat4(), cabinPosition) * rotate(mat4(), 3.14f, vec3(0, 1, 0));
-
 // For testing new models positioning!
-vec3 tempPosition       = vec3(0.0f, 59.2f, 0.0f);
+vec3 tempPosition       = vec3(-0.37f, 0.0f, 2.85f);
 float tempRotationAngle = 0.0f;
 mat4 tempModelMatrix    = translate(mat4(), tempPosition) * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
 
@@ -118,6 +117,9 @@ Forest* forestSystem2;
 
 // Meadow system
 Meadow* meadowSystem;
+
+// Cabin model
+Cabin* cabinModel;
 
 
 
@@ -239,12 +241,13 @@ void createContext()
 	// Meadow
 	meadowSystem = new Meadow(shaderProgram);
 
+	// Cabin
+	cabinModel = new Cabin(shaderProgram);
+
 	// Loading a model
 
 	// Task 1.2 Load earth.obj using drawable 
-	sphere = new Drawable("assets/earth.obj");
-
-	cabinModel = new Drawable("assets/cabin.obj");
+	//sphere = new Drawable("assets/earth.obj");
 
 
 
@@ -388,8 +391,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
 	// ---- rendering the scene ---- //
 
 	// Cabin
-	glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &cabinModelMatrix[0][0]);
-	cabinModel->bind(); cabinModel->draw();
+	cabinModel->drawOnlyObjects(shadowModelLocation);
 
 	// Terrain
 	mat4 terrainModelMatrix = terrainSystem->getTerrainModelMatrix();
@@ -472,8 +474,8 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// ** Look at if statement in the fragment shader
 	uploadMaterial(wood); glUniform1i(useTextureLocation, 0);
 
-	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &cabinModelMatrix[0][0]);
-	cabinModel->bind(); cabinModel->draw();
+	// Draw the cabin
+	cabinModel->draw();
 
 
 
@@ -513,17 +515,9 @@ void mainLoop()
 
 	do
 	{
-		if      (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) lightController = 1;
-		else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) lightController = 2;
-
-		// Print which light is selected (ONCE)!
-		if (lightController != previousLightController)
-		{
-			if      (lightController == 1) printf("Light 1 selected\n");
-			else if (lightController == 2) printf("Light 2 selected\n");
-
-			previousLightController = lightController;
-		}
+		float currentFrameTime = glfwGetTime();
+		float deltaTime = currentFrameTime - lastFrameTime;
+		lastFrameTime = currentFrameTime;
 
 		if (lightController == 1) light1->update();
 		else                      light2->update();
@@ -535,6 +529,8 @@ void mainLoop()
 		mat4 light2_proj = light2->projectionMatrix;
 		mat4 light2_view = light2->viewMatrix;
 		depth_pass(light2_view, light2_proj, depthFBO2);
+
+		cabinModel->update(deltaTime); // Door animation update!
 
 		// Getting camera information
 		camera->update();
@@ -567,6 +563,9 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		if (polygonMode[0] == GL_LINE) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		if (polygonMode[0] == GL_FILL) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	}
+
+	// ---< Player interactions >--- //
+	if (key == GLFW_KEY_E && action == GLFW_PRESS) { cabinModel->toggleDoor(); }
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)
@@ -677,7 +676,7 @@ void initialize()
 		vec4{ 1, 1, 1, 1 },
 		vec4{ 1, 1, 1, 1 },
 		vec4{ 1, 1, 1, 1 },
-		vec3{ 0, 15, 0 }
+		vec3{ 7.0f, 60.0f, -0.5f }
 	);
 }
 
