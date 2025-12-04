@@ -6,6 +6,9 @@
 
 using namespace std;
 
+extern GLuint depthTextureSamplerLocation;
+extern GLuint depthUseTransparentTexLocation;
+
 Forest::Forest(GLuint shaderProgram)
 {
     // Initialize Position
@@ -77,7 +80,7 @@ void Forest::draw()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, leavesTexture);
     glUniform1i(diffuseColorSampler, 0);
-    glUniform1i(useTransparentTex,  1);
+    glUniform1i(useTransparentTex, 1);
 
     leavesMesh->bind(); leavesMesh->draw();
 
@@ -97,8 +100,17 @@ void Forest::drawOnlyObjects(GLuint shadowModelLocation)
     // IMPORTANT: Disable culling for shadows too, otherwise 
     // light hitting the back of a leaf won't cast a shadow!
     glDisable(GL_CULL_FACE);
+    
+    // Bind Texture - leaves have transparency!
+    // So the shadow casted should consider that!
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, leavesTexture);
+    glUniform1i(depthTextureSamplerLocation, 0);
+    glUniform1i(depthUseTransparentTexLocation, 1);
 
     leavesMesh->bind(); leavesMesh->draw();
 
     glEnable(GL_CULL_FACE);
+
+    glUniform1i(depthUseTransparentTexLocation, 0);
 }

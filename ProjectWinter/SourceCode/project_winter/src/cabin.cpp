@@ -148,12 +148,12 @@ void Cabin::draw()
     glUniform1i(useTextureLocation, 0); // Disable Texture usage
     
     // Glass Material properties
-    glUniform4f(KaLocation, 0.0f, 0.0f, 0.0f, 0.3f);
-    glUniform4f(KdLocation, 0.588f, 0.588f, 0.588f, 0.3f);
-    glUniform4f(KsLocation, 0.9f, 0.9f, 0.9f, 0.3f);
-    glUniform1f(NsLocation, 96.0f);
+    glUniform4f(KaLocation, 0.0f,   0.0f,   0.0f,   0.0f);
+    glUniform4f(KdLocation, 0.588f, 0.588f, 0.588f, 0.0f);
+    glUniform4f(KsLocation, 0.9f,   0.9f,   0.9f,   0.0f);
+    glUniform1f(NsLocation, 20.0f);
 
-    windowsMesh->bind(); windowsMesh->draw();
+    //windowsMesh->bind(); windowsMesh->draw();
 }
 
 void Cabin::drawOnlyObjects(GLuint shadowModelLocation)
@@ -170,7 +170,7 @@ void Cabin::drawOnlyObjects(GLuint shadowModelLocation)
     roofMesh->bind();        roofMesh->draw();
     supportStrMesh->bind();  supportStrMesh->draw();
     doorWinMesh->bind();     doorWinMesh->draw();
-    windowsMesh->bind();     windowsMesh->draw();
+    //windowsMesh->bind();     windowsMesh->draw();
 
     // --- DRAW DOOR SHADOWS --- //
     mat4 doorMatrix = getDoorMatrix();

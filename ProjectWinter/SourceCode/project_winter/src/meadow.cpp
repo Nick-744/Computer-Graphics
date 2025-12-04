@@ -9,6 +9,10 @@
 using namespace std;
 using namespace glm;
 
+// Get the global location variables from main.cpp
+extern GLuint depthTextureSamplerLocation;
+extern GLuint depthUseTransparentTexLocation;
+
 // Random helper: returns float between 0.0 and 1.0
 float rnd() { return (float) rand() / (float) RAND_MAX; }
 
@@ -209,9 +213,6 @@ Meadow::~Meadow()
 
 void Meadow::draw(const mat4& view, const mat4& proj)
 {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     // Disable Culling so the flat quads are visible from both sides
     glDisable(GL_CULL_FACE);
 
@@ -247,5 +248,50 @@ void Meadow::draw(const mat4& view, const mat4& proj)
     glBindVertexArray(0);
     glUniform1i(useTransparentTexLocation, 0);
     glEnable(GL_CULL_FACE);
-    glDisable(GL_BLEND);
+}
+
+void Meadow::drawOnlyObjects(GLuint shadowModelLocation)
+{
+    // The positions of grass/trees are already "baked" into the VBOs in world space!
+    mat4 model = mat4();
+    glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &model[0][0]);
+
+    // Disable Culling - Shadows must be cast from both sides of the 2D quad!
+    glDisable(GL_CULL_FACE);
+
+    // Enable Transparency Check in Depth Shader
+    glUniform1i(depthUseTransparentTexLocation, 1);
+
+    // --- DRAW GRASS --- //
+    if (vertexCount > 0)
+    {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, grassTexture);
+
+        // Use the global location for the Depth Shader sampler
+        glUniform1i(depthTextureSamplerLocation, 0);
+
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+    }
+
+    // --- DRAW TREES --- //
+    if (treeVertexCount > 0)
+    {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, treeTexture);
+
+        // Texture unit 0 is still active
+        glUniform1i(depthTextureSamplerLocation, 0);
+
+        glBindVertexArray(treeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, treeVertexCount);
+    }
+
+    // Cleanup
+    glBindVertexArray(0);
+    glEnable(GL_CULL_FACE);
+
+    // Turn off transparency check...
+    glUniform1i(depthUseTransparentTexLocation, 0);
 }

@@ -21,6 +21,7 @@ public:
     ~Meadow();
 
     void draw(const mat4& view, const mat4& proj);
+    void drawOnlyObjects(GLuint shadowModelLocation);
 
 private:
     GLuint shaderProgram;

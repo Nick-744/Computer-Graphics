@@ -17,7 +17,7 @@ using namespace glm;
 const float AREA_WIDTH  = 1000.0f; // Total width (X axis)
 const float AREA_LENGTH = 1000.0f; // Total length (Z axis) for looping
 const float MIN_Y       = 250.0f;  // Lowest cloud height
-const float MAX_Y       = 400.0f;  // Highest cloud height
+const float MAX_Y       = 350.0f;  // Highest cloud height
 const float CLOUD_SPEED = 50.0f;   // How fast they move!
 const int   AVG_COUNT   = 30;      // Target number of clouds
 // ==========================================

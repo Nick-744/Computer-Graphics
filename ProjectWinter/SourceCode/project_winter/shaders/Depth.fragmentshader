@@ -1,7 +1,20 @@
 #version 330 core
 
+in vec2 UV;
+
+uniform sampler2D textureSampler;
+uniform int useTransparentTex;
+
 void main()
 {
+    if (useTransparentTex == 1) // Cast proper shadows!
+    {
+        vec4 texColor = texture(textureSampler, UV);
+
+        if (texColor.r > 0.35 && texColor.g > 0.6 && texColor.b > 0.35) 
+            discard;
+    }
+
     // Not really needed, OpenGL does it anyway
     gl_FragDepth = gl_FragCoord.z;
 }

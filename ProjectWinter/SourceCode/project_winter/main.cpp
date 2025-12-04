@@ -103,6 +103,9 @@ GLuint light2VPLocation;
 GLuint shadowViewProjectionLocation;
 GLuint shadowModelLocation;
 
+GLuint depthTextureSamplerLocation;
+GLuint depthUseTransparentTexLocation;
+
 
 
 // Terrain system
@@ -132,12 +135,12 @@ Drawable* quad;
 
 
 // Create sample materials
-const Material wood
+const Material gold
 {
-	vec4{ 0.20f, 0.12f, 0.05f, 1.0f },
-	vec4{ 0.40f, 0.25f, 0.10f, 1.0f },
-	vec4{ 0.10f, 0.05f, 0.02f, 1.0f },
-	20.0f
+	vec4{ 0.24725,  0.1995,   0.0745,   1 },
+	vec4{ 0.75164,  0.60648,  0.22648,  1 },
+	vec4{ 0.628281, 0.555802, 0.366065, 1 },
+	51.2f
 };
 
 
@@ -233,6 +236,9 @@ void createContext()
 	shadowViewProjectionLocation = glGetUniformLocation(depthProgram, "VP");
 	shadowModelLocation          = glGetUniformLocation(depthProgram, "M");
 
+	depthTextureSamplerLocation    = glGetUniformLocation(depthProgram, "textureSampler");
+	depthUseTransparentTexLocation = glGetUniformLocation(depthProgram, "useTransparentTex");
+
 	// --- promptProgram ---
 	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
 
@@ -241,8 +247,8 @@ void createContext()
 	// Initialize the terrain system
 	terrainSystem = new TerrainRenderer(shaderProgram);
 
-	// Clouds
-	cloudSystem = new CloudRenderer();
+	// Cabin
+	cabinModel = new Cabin(shaderProgram);
 
 	// Forests
 	forestSystem = new Forest(shaderProgram);
@@ -255,13 +261,13 @@ void createContext()
 	// Meadow
 	meadowSystem = new Meadow(shaderProgram);
 
-	// Cabin
-	cabinModel = new Cabin(shaderProgram);
+	// Clouds
+	cloudSystem = new CloudRenderer();
 
 	// Loading a model
 
 	// Task 1.2 Load earth.obj using drawable 
-	//sphere = new Drawable("assets/earth.obj");
+	sphere = new Drawable("assets/earth.obj");
 
 
 
@@ -433,19 +439,21 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
 
 	// ---- rendering the scene ---- //
 
-	// Cabin
-	cabinModel->drawOnlyObjects(shadowModelLocation);
-
 	// Terrain
 	mat4 terrainModelMatrix = terrainSystem->getTerrainModelMatrix();
 	glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &terrainModelMatrix[0][0]);
 	terrainSystem->getTerrainMesh()->bind();
 	terrainSystem->getTerrainMesh()->draw();
 
+	// Cabin
+	cabinModel->drawOnlyObjects(shadowModelLocation);
+
 	// Forests
 	forestSystem->drawOnlyObjects(shadowModelLocation);
 	forestSystem2->drawOnlyObjects(shadowModelLocation);
 
+	// Meadow
+	meadowSystem->drawOnlyObjects(shadowModelLocation);
 
 
 	// binding the default framebuffer again
@@ -508,28 +516,34 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	float currentTime = (float) glfwGetTime() / 20.0f;
 	terrainSystem->draw(viewMatrix, projectionMatrix, currentTime);
 
-
-
-	// Draw cabin
-
 	// Remove the texture from terrain and use material instead!
 	// ** Use bool variable to tell the shader not to use a texture
 	// ** Look at if statement in the fragment shader
-	uploadMaterial(wood); glUniform1i(useTextureLocation, 0);
+	//uploadMaterial(gold); glUniform1i(useTextureLocation, 0); // Not used anymore!
 
 	// Draw the cabin
 	cabinModel->draw();
-
-
 
 	// Draw forests
 	forestSystem->draw();
 	forestSystem2->draw();
 
-
-
 	// Draw meadow
 	meadowSystem->draw(viewMatrix, projectionMatrix);
+
+
+
+	// Sun
+	glUniform1i(ChampionOfLight, 1);
+
+	mat4 light1SphereModel = translate(mat4(), light1->lightPosition_worldspace) * scale(mat4(), vec3(4.0f));
+	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &light1SphereModel[0][0]);
+
+	uploadMaterial(gold);
+	glUniform1i(useTextureLocation, 0);
+	sphere->bind(); sphere->draw();
+
+	glUniform1d(ChampionOfLight, 0); // End of sun rendering
 
 
 
@@ -737,7 +751,7 @@ void initialize()
 		vec4{ 0.8, 0.8, 1, 1 },
 		vec4{ 0.8, 0.8, 1, 1 },
 		vec4{ 0.8, 0.8, 1, 1 },
-		vec3{ 0, 200, 20 }
+		vec3{ 0, 400, -200 }
 	);
 
 	light2 = new Light(
