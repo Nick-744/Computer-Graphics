@@ -133,6 +133,8 @@ add_executable(project_winter
 
   project_winter/shaders/clouds.fragmentshader
   project_winter/shaders/clouds.vertexshader
+  project_winter/shaders/prompt.fragmentshader
+  project_winter/shaders/prompt.vertexshader
   )
 target_link_libraries(project_winter
   ${ALL_LIBS}

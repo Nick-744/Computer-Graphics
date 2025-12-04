@@ -123,6 +123,14 @@ Cabin* cabinModel;
 
 
 
+// For prompt rendering
+GLuint promptProgram;
+GLuint quadTextureSamplerLocation;
+GLuint promptTexture;
+Drawable* quad;
+
+
+
 // Create sample materials
 const Material wood
 {
@@ -177,6 +185,9 @@ void createContext()
 	// You need to load and use the Depth.vertexshader, Depth.fragmentshader
 	depthProgram = loadShaders("shaders/Depth.vertexshader", "shaders/Depth.fragmentshader");
 
+	// Prompt program for texture rendering on a quad (2D)
+	promptProgram = loadShaders("shaders/prompt.vertexshader", "shaders/prompt.fragmentshader");
+
 	// NOTE: Don't forget to delete the shader programs on the free() function
 
 
@@ -222,6 +233,9 @@ void createContext()
 	shadowViewProjectionLocation = glGetUniformLocation(depthProgram, "VP");
 	shadowModelLocation          = glGetUniformLocation(depthProgram, "M");
 
+	// --- promptProgram ---
+	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
+
 
 
 	// Initialize the terrain system
@@ -248,6 +262,34 @@ void createContext()
 
 	// Task 1.2 Load earth.obj using drawable 
 	//sphere = new Drawable("assets/earth.obj");
+
+
+
+	// Creating a 2D quad to visualize the prompt!
+	// create geometry and vao for screen-space quad
+	vector<vec3> quadVertices = {
+		// Triangle 1
+		vec3(-0.15f, -0.2f, 0.0f),
+		vec3( 0.15f, -0.2f, 0.0f),
+		vec3( 0.15f,  0.2f, 0.0f),
+
+		// Triangle 2
+		vec3( 0.15f,  0.2f, 0.0f),
+		vec3(-0.15f,  0.2f, 0.0f),
+		vec3(-0.15f, -0.2f, 0.0f)
+	};
+
+	vector<vec2> quadUVs = {
+	  vec2(0.0, 0.0),
+	  vec2(1.0, 0.0),
+	  vec2(1.0, 1.0),
+	  vec2(1.0, 1.0),
+	  vec2(0.0, 1.0),
+	  vec2(0.0, 0.0)
+	};
+
+	quad          = new Drawable(quadVertices, quadUVs);
+	promptTexture = loadBMP("assets/prompt_text.bmp");
 
 
 
@@ -351,6 +393,7 @@ void free()
 	// Delete Shader Programs
 	glDeleteProgram(shaderProgram);
 	glDeleteProgram(depthProgram);
+	glDeleteProgram(promptProgram);
 
 	delete terrainSystem;
 
@@ -501,6 +544,22 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 
+void renderPrompt()
+{
+	// using the correct shaders to visualize the depth texture on the quad
+	glUseProgram(promptProgram);
+
+	//enabling the texture - follow the aforementioned pipeline
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, promptTexture);
+	glUniform1i(quadTextureSamplerLocation, 0);
+
+	// Drawing the quad
+	quad->bind(); quad->draw();
+}
+
+
+
 void mainLoop()
 {
 	light1->update();
@@ -541,6 +600,10 @@ void mainLoop()
 
 		lighting_pass(viewMatrix, projectionMatrix); // Render the scene from camera's perspective
 
+		// Render the prompt quad (when the camera is near the cabin door)
+		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.5f)
+			renderPrompt();
+
 
 
 		glfwSwapBuffers(window);
@@ -565,7 +628,13 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 
 	// ---< Player interactions >--- //
-	if (key == GLFW_KEY_E && action == GLFW_PRESS) { cabinModel->toggleDoor(); }
+	if (key == GLFW_KEY_E && action == GLFW_PRESS)
+	{
+		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.5f)
+		{
+			cabinModel->toggleDoor();
+		}
+	}
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)

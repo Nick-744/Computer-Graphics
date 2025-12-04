@@ -20,6 +20,9 @@ public:
     void update(float deltaTime);
     void toggleDoor();
 
+    // For player interaction distance check!
+    vec3 getHingeWorldPosition() { return vec3(8.15f, 61.03f, - 3.06f); }
+
 private:
     // --- MESHS --- //
     Drawable* baseMesh;

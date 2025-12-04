@@ -1,0 +1,16 @@
+#version 330 core
+
+in vec2 uv;
+
+uniform sampler2D textureSampler;
+out vec4 frag_colour;
+
+void main ()
+{
+    frag_colour = vec4(1.0f);
+
+    vec4 color = texture(textureSampler, uv);
+    if(color.r > 0.92 && color.g < 0.12 && color.b <0.15) discard;
+
+    frag_colour = vec4(color.rrr, 1.0f); // Ώστε το MiniMap να είναι grayscale!
+}

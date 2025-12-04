@@ -9,17 +9,17 @@
 using namespace std;
 using namespace glm;
 
-// Random helper for size variation
-float rnd() { return (float)rand() / (float)RAND_MAX; }
+// Random helper: returns float between 0.0 and 1.0
+float rnd() { return (float) rand() / (float) RAND_MAX; }
 
 Meadow::Meadow(GLuint shaderProgram)
 {
     this->shaderProgram = shaderProgram;
 
-    modelMatrixLocation = glGetUniformLocation(shaderProgram, "M");
-    useTextureLocation = glGetUniformLocation(shaderProgram, "useTexture");
+    modelMatrixLocation       = glGetUniformLocation(shaderProgram, "M");
+    useTextureLocation        = glGetUniformLocation(shaderProgram, "useTexture");
     useTransparentTexLocation = glGetUniformLocation(shaderProgram, "useTransparentTex");
-    diffuseColorSampler = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
+    diffuseColorSampler       = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
 
     grassTexture = loadBMP("assets/vegetation/grass.bmp");
 
@@ -28,7 +28,7 @@ Meadow::Meadow(GLuint shaderProgram)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     // LOAD FROM FILE
-    loadAndGenerateMesh("assets/grass_positions.txt");
+    loadAndGenerateMesh("assets/grass_positions_final.txt");
 }
 
 void Meadow::loadAndGenerateMesh(const char* filepath)
@@ -36,46 +36,71 @@ void Meadow::loadAndGenerateMesh(const char* filepath)
     vector<GrassVertex> vertices;
     ifstream file(filepath);
 
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         printf("ERROR: Could not open grass positions: %s\n", filepath);
-        printf("Did you run the Python script bake_grass.py?\n");
         return;
     }
 
     string line;
-    while (getline(file, line)) {
+    const float PI = 3.14159265359f;
+
+    while (getline(file, line))
+    {
         stringstream ss(line);
         float x, y, z;
         if (!(ss >> x >> y >> z)) continue;
 
         vec3 center = vec3(x, y, z);
-        float scale = 1.0f + rnd() * 0.5f;
 
-        // --- Build "X" Geometry ---
-        float w = 0.5f * scale;
-        float h = 1.0f * scale;
+        // Random Size (Scale 0.7 to 1.5)
+        float scale = 0.7f + rnd() * 0.8f;
 
-        vec3 n1 = vec3(0, 0, 1);
-        vec3 v1 = center + vec3(-w, 0, 0); vec3 v2 = center + vec3(w, 0, 0);
-        vec3 v3 = center + vec3(w, h, 0); vec3 v4 = center + vec3(-w, h, 0);
+        // Random Rotation on Y (0 to 360 degrees in radians)
+        float randomRotation = rnd() * 2.0f * PI;
 
-        vertices.push_back({ v1, vec2(0, 0), n1 }); vertices.push_back({ v2, vec2(1, 0), n1 });
-        vertices.push_back({ v3, vec2(1, 1), n1 }); vertices.push_back({ v1, vec2(0, 0), n1 });
-        vertices.push_back({ v3, vec2(1, 1), n1 }); vertices.push_back({ v4, vec2(0, 1), n1 });
+        float w = 0.5f * scale; // Half width relative to center
+        float h = 1.0f * scale; // Height
 
-        vec3 n2 = vec3(1, 0, 0);
-        vec3 v5 = center + vec3(0, 0, -w); vec3 v6 = center + vec3(0, 0, w);
-        vec3 v7 = center + vec3(0, h, w); vec3 v8 = center + vec3(0, h, -w);
+        // Cross arrangement of 3 quads (60 degrees / PI/3 apart)
+        for (int i = 0; i < 3; i++)
+        {
+            // Calculate angle for this specific blade (base rotation + 60 degree steps)
+            float angle = randomRotation + (float)i * (PI / 3.0f);
 
-        vertices.push_back({ v5, vec2(0, 0), n2 }); vertices.push_back({ v6, vec2(1, 0), n2 });
-        vertices.push_back({ v7, vec2(1, 1), n2 }); vertices.push_back({ v5, vec2(0, 0), n2 });
-        vertices.push_back({ v7, vec2(1, 1), n2 }); vertices.push_back({ v8, vec2(0, 1), n2 });
+            // Calculate offsets based on rotation
+            float dx = cos(angle) * w;
+            float dz = sin(angle) * w;
+
+            // Define the 4 corners relative to the center
+            vec3 vBottomLeft  = center + vec3(-dx, 0, -dz);
+            vec3 vBottomRight = center + vec3(dx, 0, dz);
+            vec3 vTopLeft     = center + vec3(-dx, h, -dz);
+            vec3 vTopRight    = center + vec3(dx, h, dz);
+
+            // Calculate Normal (Perpendicular to the blade face)
+            // Normal direction is (-sin, 0, cos)
+            vec3 normal = vec3(-sin(angle), 0, cos(angle));
+
+            // Push 2 Triangles (1 Quad)
+
+            // Triangle 1 (Bottom-Left -> Bottom-Right -> Top-Right)
+            vertices.push_back({ vBottomLeft,  vec2(0, 0), normal });
+            vertices.push_back({ vBottomRight, vec2(1, 0), normal });
+            vertices.push_back({ vTopRight,    vec2(1, 1), normal });
+
+            // Triangle 2 (Bottom-Left -> Top-Right -> Top-Left)
+            vertices.push_back({ vBottomLeft, vec2(0, 0), normal });
+            vertices.push_back({ vTopRight,   vec2(1, 1), normal });
+            vertices.push_back({ vTopLeft,    vec2(0, 1), normal });
+        }
     }
 
     file.close();
 
     vertexCount = (GLsizei)vertices.size();
-    printf("Loaded %d grass tufts from file.\n", vertexCount / 12);
+    // Adjusted printf division by 18 (3 quads * 2 tris * 3 verts)
+    printf("Loaded %d grass tufts from file.\n", vertexCount / 18);
 
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
@@ -89,7 +114,8 @@ void Meadow::loadAndGenerateMesh(const char* filepath)
     glBindVertexArray(0);
 }
 
-Meadow::~Meadow() {
+Meadow::~Meadow()
+{
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
     glDeleteTextures(1, &grassTexture);
@@ -101,6 +127,8 @@ void Meadow::draw(const mat4& view, const mat4& proj)
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Disable Culling so the flat quads are visible from both sides
     glDisable(GL_CULL_FACE);
 
     mat4 model = mat4(1.0f);
