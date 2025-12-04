@@ -24,9 +24,6 @@ public:
 
 private:
     GLuint shaderProgram;
-    GLuint vao, vbo;
-    GLsizei vertexCount;
-    GLuint grassTexture;
 
     // Uniform Locations
     GLint modelMatrixLocation;
@@ -34,8 +31,21 @@ private:
     GLint useTransparentTexLocation;
     GLint diffuseColorSampler;
 
+    // Grass Data
+    GLuint grassTexture;
+    GLuint vao;
+    GLuint vbo;
+    GLsizei vertexCount;
+
+    // Tree Data
+    GLuint treeTexture;
+    GLuint treeVAO;
+    GLuint treeVBO;
+    GLsizei treeVertexCount;
+
     // Helper to load baked positions
     void loadAndGenerateMesh(const char* filepath);
+    void loadAndGenerateTrees(const char* filepath);
 };
 
 #endif

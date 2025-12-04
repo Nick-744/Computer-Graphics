@@ -14,10 +14,10 @@ RIVER_MAP = "../project_winter/assets/worldmap_gaea/rivers_texture.bmp"
 
 # Terrain Logic
 TERRAIN_SCALE = 200.0
-GRASS_COUNT   = 1000
+GRASS_COUNT   = 3000
 
 MIN_HEIGHT = 75.0
-MAX_HEIGHT = 85.0
+MAX_HEIGHT = 90.0
 
 EXPAND_WATER_PIXELS = 20
 WATER_THRESHOLD     = 0.1

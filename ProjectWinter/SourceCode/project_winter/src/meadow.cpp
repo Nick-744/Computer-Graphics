@@ -21,16 +21,26 @@ Meadow::Meadow(GLuint shaderProgram)
     useTransparentTexLocation = glGetUniformLocation(shaderProgram, "useTransparentTex");
     diffuseColorSampler       = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
 
+    // --- SETUP GRASS --- //
     grassTexture = loadBMP("assets/vegetation/grass.bmp");
 
     glBindTexture(GL_TEXTURE_2D, grassTexture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    // LOAD FROM FILE
     loadAndGenerateMesh("assets/grass_positions_final.txt");
+
+    // --- SETUP TREES --- //
+    treeTexture = loadBMP("assets/vegetation/tree.bmp");
+
+    glBindTexture(GL_TEXTURE_2D, treeTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    loadAndGenerateTrees("assets/trees_positions_final.txt");
 }
 
+// ---< Grass Loader >--- //
 void Meadow::loadAndGenerateMesh(const char* filepath)
 {
     vector<GrassVertex> vertices;
@@ -78,18 +88,17 @@ void Meadow::loadAndGenerateMesh(const char* filepath)
             vec3 vTopLeft     = center + vec3(-dx, h, -dz);
             vec3 vTopRight    = center + vec3(dx, h, dz);
 
-            // Calculate Normal (Perpendicular to the blade face)
-            // Normal direction is (-sin, 0, cos)
+            // Calculate Normal
             vec3 normal = vec3(-sin(angle), 0, cos(angle));
 
             // Push 2 Triangles (1 Quad)
 
-            // Triangle 1 (Bottom-Left -> Bottom-Right -> Top-Right)
+            // Triangle 1
             vertices.push_back({ vBottomLeft,  vec2(0, 0), normal });
             vertices.push_back({ vBottomRight, vec2(1, 0), normal });
             vertices.push_back({ vTopRight,    vec2(1, 1), normal });
 
-            // Triangle 2 (Bottom-Left -> Top-Right -> Top-Left)
+            // Triangle 2
             vertices.push_back({ vBottomLeft, vec2(0, 0), normal });
             vertices.push_back({ vTopRight,   vec2(1, 1), normal });
             vertices.push_back({ vTopLeft,    vec2(0, 1), normal });
@@ -114,37 +123,128 @@ void Meadow::loadAndGenerateMesh(const char* filepath)
     glBindVertexArray(0);
 }
 
+// ---< Tree Loader >--- //
+void Meadow::loadAndGenerateTrees(const char* filepath)
+{
+    vector<GrassVertex> vertices;
+    ifstream file(filepath);
+
+    if (!file.is_open())
+    {
+        printf("ERROR: Could not open tree positions: %s\n", filepath);
+        return;
+    }
+
+    string line;
+    const float PI = 3.14159265359f;
+
+    while (getline(file, line))
+    {
+        stringstream ss(line);
+        float x, y, z;
+        if (!(ss >> x >> y >> z)) continue;
+
+        vec3 center = vec3(x, y, z);
+
+		// Trees are larger than grass!
+        float scale = 6.0f + rnd() * 2.0f;
+
+        float randomRotation = rnd() * 2.0f * PI;
+
+        float w = 0.5f * scale;
+        float h = 1.0f * scale;
+
+		// Cross arrangement (only 2 planes for trees...)
+        for (int i = 0; i < 2; i++)
+        {
+            float angle = randomRotation + (float)i * (PI / 2.0f);
+
+            float dx = cos(angle) * w;
+            float dz = sin(angle) * w;
+
+            vec3 vBottomLeft  = center + vec3(-dx, 0, -dz);
+            vec3 vBottomRight = center + vec3(dx, 0, dz);
+            vec3 vTopLeft     = center + vec3(-dx, h, -dz);
+            vec3 vTopRight    = center + vec3(dx, h, dz);
+            vec3 normal       = vec3(-sin(angle), 0, cos(angle));
+
+            vertices.push_back({ vBottomLeft,  vec2(0, 0), normal });
+            vertices.push_back({ vBottomRight, vec2(1, 0), normal });
+            vertices.push_back({ vTopRight,    vec2(1, 1), normal });
+
+            vertices.push_back({ vBottomLeft, vec2(0, 0), normal });
+            vertices.push_back({ vTopRight,   vec2(1, 1), normal });
+            vertices.push_back({ vTopLeft,    vec2(0, 1), normal });
+        }
+    }
+
+    file.close();
+
+    treeVertexCount = (GLsizei)vertices.size();
+    printf("Loaded %d trees.\n", treeVertexCount / 18);
+
+    // Generate separate VAO/VBO for trees
+    glGenVertexArrays(1, &treeVAO);
+    glGenBuffers(1, &treeVBO);
+    glBindVertexArray(treeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, treeVBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GrassVertex), vertices.data(), GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0); glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GrassVertex), (void*)0);
+    glEnableVertexAttribArray(1); glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GrassVertex), (void*)offsetof(GrassVertex, normal));
+    glEnableVertexAttribArray(2); glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GrassVertex), (void*)offsetof(GrassVertex, uv));
+    glBindVertexArray(0);
+}
+
 Meadow::~Meadow()
 {
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
     glDeleteTextures(1, &grassTexture);
+
+    glDeleteVertexArrays(1, &treeVAO);
+    glDeleteBuffers(1, &treeVBO);
+    glDeleteTextures(1, &treeTexture);
 }
 
 void Meadow::draw(const mat4& view, const mat4& proj)
 {
-    if (vertexCount == 0) return;
-
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Disable Culling so the flat quads are visible from both sides
     glDisable(GL_CULL_FACE);
 
-    mat4 model = mat4(1.0f);
+    mat4 model = mat4();
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &model[0][0]);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, grassTexture);
-    glUniform1i(diffuseColorSampler, 0);
 
     glUniform1i(useTextureLocation, 1);
     glUniform1i(useTransparentTexLocation, 1);
 
-    glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, vertexCount);
-    glBindVertexArray(0);
+    // --- DRAW GRASS --- //
+    if (vertexCount > 0)
+    {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, grassTexture);
+        glUniform1i(diffuseColorSampler, 0);
 
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+    }
+
+    // --- DRAW TREES --- //
+    if (treeVertexCount > 0)
+    {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, treeTexture);
+        glUniform1i(diffuseColorSampler, 0);
+
+        glBindVertexArray(treeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, treeVertexCount);
+    }
+
+    // Reset / Cleanup
+    glBindVertexArray(0);
     glUniform1i(useTransparentTexLocation, 0);
     glEnable(GL_CULL_FACE);
     glDisable(GL_BLEND);
