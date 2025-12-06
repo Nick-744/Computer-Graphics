@@ -175,7 +175,7 @@ float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSamp
 
     // Task 4.4
     // Correcting the quantization problem
-    float bias = 0.005;
+    float bias = 0.0003;
     shadow = (currentDepth > closestDepth + bias) ? 1.0f : 0.0f;
 
     // Task 4.6 Make the shadow edges more realistic
@@ -207,16 +207,16 @@ vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
 
     if (isTerrain == 1)
     {
-        _Ks = vec4(0.0);
+        _Ks = 0.3 * vec4(texture(textureSamplerLake, vertex_UV).r);
         _Kd = vec4(terrainBaseColor, 1.0);
         _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
-        _Ns = 1;
+        _Ns = 200; // Sharp highlights
     }
     else if (useTexture == 1) // use texture for materials
     {
         _Ks = vec4(texture(specularColorSampler, vertex_UV).rgb, 1.0);
         _Kd = vec4(texture(diffuseColorSampler,  vertex_UV).rgb, 1.0);
-        _Ka = vec4(0.1 * _Kd.rgb, _Kd.a);
+        _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
         _Ns = 10;
     }
     
@@ -228,7 +228,7 @@ vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
 
         _Ks = vec4(texture(specularColorSampler, vertex_UV).rgb, 1.0);
         _Kd = vec4(texture(diffuseColorSampler,  vertex_UV).rgb, 1.0);
-        _Ka = vec4(0.1 * _Kd.rgb, _Kd.a);
+        _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
         _Ns = 10;
     }
     

@@ -18,10 +18,10 @@ Light::Light(GLFWwindow* window,
     lightPosition_worldspace = init_position;
 
     // setting near and far plane affects the detail of the shadow
-    nearPlane = 1.0f;
-    farPlane  = 450.0f;
+    nearPlane = 400.0f;
+    farPlane  = 1000.0f;
 
-    float shadowBoxSize = 100.0f;
+    float shadowBoxSize = 80.0f;
 
     projectionMatrix = ortho(
         -shadowBoxSize, shadowBoxSize,
