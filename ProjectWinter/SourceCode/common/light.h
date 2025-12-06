@@ -4,6 +4,7 @@ class Light {
 public:
 
     GLFWwindow* window;
+
     // Light parameters
     glm::mat4 viewMatrix;
     glm::mat4 projectionMatrix;

@@ -27,6 +27,7 @@
 #include "src/forest.h"
 #include "src/meadow.h"
 #include "src/cabin.h"
+#include "src/snowSource.h"
 
 using namespace std;
 using namespace glm;
@@ -45,6 +46,8 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 #define SHADOW_WIDTH 8192
 #define SHADOW_HEIGHT 8192
 
+#define SNOW_BUFFER_SIZE 4096
+
 
 
 // Creating a structure to store the material parameters of an object
@@ -62,25 +65,19 @@ Camera* camera;
 
 float lastFrameTime = 0.0f;
 
+// Lights
 Light* light1;
-Light* light2;
-int lightController = 1;         // 1 -> light & 2 -> light2
-int previousLightController = 0; // Print ONCE the selected light...
+Light* light2; // Not in use!
 
-GLuint ChampionOfLight;
+GLuint ChampionOfLight; // Render with only ambient component!
+Drawable* sphere;       // Light model helper
 
-GLuint shaderProgram, depthProgram;
-Drawable* sphere; // Light model helper
-
-// For testing new models positioning!
-vec3 tempPosition       = vec3(-0.37f, 0.0f, 2.85f);
-float tempRotationAngle = 0.0f;
-mat4 tempModelMatrix    = translate(mat4(), tempPosition) * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
+GLuint shaderProgram, depthProgram; // Shader programs
 
 GLuint depthFBO1, depthTexture1;
 GLuint depthFBO2, depthTexture2;
 
-// locations for shaderProgram
+// Locations for shaderProgram
 GLuint viewMatrixLocation;
 GLuint projectionMatrixLocation;
 GLuint modelMatrixLocation;
@@ -94,12 +91,10 @@ GLuint diffuseColorSampler;
 GLuint specularColorSampler;
 GLuint useTextureLocation;
 
-GLuint depthMapSampler1;
-GLuint light1VPLocation;
-GLuint depthMapSampler2;
-GLuint light2VPLocation;
+GLuint depthMapSampler1; GLuint light1VPLocation;
+GLuint depthMapSampler2; GLuint light2VPLocation;
 
-// locations for depthProgram
+// Locations for depthProgram
 GLuint shadowViewProjectionLocation;
 GLuint shadowModelLocation;
 
@@ -108,11 +103,13 @@ GLuint depthUseTransparentTexLocation;
 
 
 
+// =====< Systems >===== //
+
 // Terrain system
 TerrainRenderer* terrainSystem;
 
-// Cloud system
-CloudRenderer* cloudSystem;
+// Cabin model
+Cabin* cabinModel;
 
 // Forest system
 Forest* forestSystem;
@@ -121,13 +118,20 @@ Forest* forestSystem2;
 // Meadow system
 Meadow* meadowSystem;
 
-// Cabin model
-Cabin* cabinModel;
+// Cloud system
+CloudRenderer* cloudSystem;
+
+// Snow system
+SnowSource* snowSource;
+GLuint snowDepthFBO;
+GLuint snowDepthTexture;
+GLuint snowMaskTexture;
+float snowAmount = 0.0f; bool isSnowing = false;
 
 
 
-// For prompt rendering
-GLuint promptProgram;
+// Prompt rendering
+GLuint promptProgram; // Shader program
 GLuint quadTextureSamplerLocation;
 GLuint promptTexture;
 Drawable* quad;
@@ -142,6 +146,12 @@ const Material gold
 	vec4{ 0.628281, 0.555802, 0.366065, 1 },
 	51.2f
 };
+
+// For testing new models positioning!
+vec3 tempPosition       = vec3(-0.37f, 0.0f, 2.85f);
+float tempRotationAngle = 0.0f;
+mat4 tempModelMatrix    = translate(mat4(), tempPosition)
+                        * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
 
 
 
@@ -196,7 +206,7 @@ void createContext()
 
 
 	// Get pointers to uniforms
-	// --- shaderProgram ---
+	// --- shaderProgram --- //
 	projectionMatrixLocation = glGetUniformLocation(shaderProgram, "P");
 	viewMatrixLocation       = glGetUniformLocation(shaderProgram, "V");
 	modelMatrixLocation      = glGetUniformLocation(shaderProgram, "M");
@@ -232,15 +242,17 @@ void createContext()
 	depthMapSampler2 = glGetUniformLocation(shaderProgram, "shadowMapSampler2");
 	light2VPLocation = glGetUniformLocation(shaderProgram, "light2VP");
 
-	// --- depthProgram ---
+	// --- depthProgram --- //
 	shadowViewProjectionLocation = glGetUniformLocation(depthProgram, "VP");
 	shadowModelLocation          = glGetUniformLocation(depthProgram, "M");
 
 	depthTextureSamplerLocation    = glGetUniformLocation(depthProgram, "textureSampler");
 	depthUseTransparentTexLocation = glGetUniformLocation(depthProgram, "useTransparentTex");
 
-	// --- promptProgram ---
+	// --- promptProgram --- //
 	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
+
+	snowMaskTexture = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
 
 
 
@@ -308,8 +320,6 @@ void createContext()
 	// **Don't forget to bind the default framebuffer at the end of initialization
 	glBindFramebuffer(GL_FRAMEBUFFER, depthFBO1);
 
-
-
 	// We need a texture to store the depth image
 	glGenTextures(1, &depthTexture1);
 	glBindTexture(GL_TEXTURE_2D, depthTexture1);
@@ -324,6 +334,7 @@ void createContext()
 		GL_FLOAT,
 		NULL // Δεν έχουμε εικόνα ακόμα, θα δημιουργηθεί αργότερα!
 	);
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -331,6 +342,7 @@ void createContext()
 	// Step 1 : (Don't forget to comment out the respective lines above
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
 	// Set color to set out of border 
 	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -344,8 +356,7 @@ void createContext()
 
 	// Since the depth buffer is only for the generation of the depth texture, 
 	// there is no need to have a color output
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
+	glDrawBuffer(GL_NONE); glReadBuffer(GL_NONE);
 
 
 
@@ -376,8 +387,38 @@ void createContext()
 	// Αν δεν εκτελεστεί, οι περιοχές εκτός του shadow map εμφανίζονται σκοτεινές (σκιά) για το light2!
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture2, 0);
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
+	glDrawBuffer(GL_NONE); glReadBuffer(GL_NONE);
+
+
+
+	// ---< SNOW DEPTH BUFFER >--- //
+	glGenFramebuffers(1, &snowDepthFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, snowDepthFBO);
+
+	glGenTextures(1, &snowDepthTexture);
+	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_DEPTH_COMPONENT,
+		SNOW_BUFFER_SIZE,
+		SNOW_BUFFER_SIZE,
+		0,
+		GL_DEPTH_COMPONENT,
+		GL_FLOAT,
+		NULL
+	);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_BORDER);
+
+	float snowBorder[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, snowBorder);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, snowDepthTexture, 0);
+	glDrawBuffer(GL_NONE); glReadBuffer(GL_NONE);
 
 
 
@@ -403,12 +444,14 @@ void free()
 
 	delete terrainSystem;
 
-	delete cloudSystem;
+	delete cabinModel;
 
 	delete forestSystem;
-	delete forestSystem2;
+	delete forestSystem2;	
 
 	delete meadowSystem;
+
+	delete cloudSystem;
 
 	glfwTerminate();
 }
@@ -454,6 +497,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
 
 	// Meadow
 	meadowSystem->drawOnlyObjects(shadowModelLocation);
+
 
 
 	// binding the default framebuffer again
@@ -508,6 +552,26 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 
+	// ===< SNOW SYSTEM UPLOADS >=== //
+	GLuint snowAmountLoc = glGetUniformLocation(shaderProgram, "snowAmount");
+	glUniform1f(snowAmountLoc, snowAmount);
+
+	glActiveTexture(GL_TEXTURE25);
+	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
+	GLuint snowMapLoc = glGetUniformLocation(shaderProgram, "snowMapSampler");
+	glUniform1i(snowMapLoc, 25);
+
+	glActiveTexture(GL_TEXTURE26);
+	glBindTexture(GL_TEXTURE_2D, snowMaskTexture);
+	GLuint snowMaskLoc = glGetUniformLocation(shaderProgram, "snowMaskSampler");
+	glUniform1i(snowMaskLoc, 26);
+
+	mat4 snowVP           = snowSource->snowVP();
+	GLuint snowVPLocation = glGetUniformLocation(shaderProgram, "snowVP");
+	glUniformMatrix4fv(snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
+
+
+
 	// ----------------------------------------------------------------- //
 	// --------------------- Drawing scene objects --------------------- //	
 	// ----------------------------------------------------------------- //
@@ -529,7 +593,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	forestSystem2->draw();
 
 	// Draw meadow
-	meadowSystem->draw(viewMatrix, projectionMatrix);
+	meadowSystem->draw();
 
 
 
@@ -581,29 +645,38 @@ void mainLoop()
 	mat4 light1_view = light1->viewMatrix;
 	depth_pass(light1_view, light1_proj, depthFBO1); // Create the depth buffer
 
-	light2->update();
+	/*light2->update();
 	mat4 light2_proj = light2->projectionMatrix;
 	mat4 light2_view = light2->viewMatrix;
-	depth_pass(light2_view, light2_proj, depthFBO2);
+	depth_pass(light2_view, light2_proj, depthFBO2);*/
 
 	do
 	{
 		float currentFrameTime = glfwGetTime();
-		float deltaTime = currentFrameTime - lastFrameTime;
+		float deltaTime        = currentFrameTime - lastFrameTime;
 		lastFrameTime = currentFrameTime;
 
-		if (lightController == 1) light1->update();
-		else                      light2->update();
 
+
+		// Light Depth Pass
+		light1->update();
 		mat4 light1_proj = light1->projectionMatrix;
 		mat4 light1_view = light1->viewMatrix;
 		depth_pass(light1_view, light1_proj, depthFBO1); // Create the depth buffer
 
-		mat4 light2_proj = light2->projectionMatrix;
+		/*mat4 light2_proj = light2->projectionMatrix;
 		mat4 light2_view = light2->viewMatrix;
-		depth_pass(light2_view, light2_proj, depthFBO2);
+		depth_pass(light2_view, light2_proj, depthFBO2);*/
 
-		cabinModel->update(deltaTime); // Door animation update!
+		// Snow Depth Pass
+		snowSource->update();
+		mat4 snow_proj = snowSource->projectionMatrix;
+		mat4 snow_view = snowSource->viewMatrix;
+		depth_pass(snow_view, snow_proj, snowDepthFBO);
+
+		if (isSnowing) snowAmount += 0.1f * deltaTime;
+		else           snowAmount -= 0.1f * deltaTime;
+		snowAmount = clamp(snowAmount, 0.0f, 1.0f);
 
 		// Getting camera information
 		camera->update();
@@ -612,13 +685,18 @@ void mainLoop()
 
 
 
-		lighting_pass(viewMatrix, projectionMatrix); // Render the scene from camera's perspective
+		// Render the scene from camera's perspective
+		lighting_pass(viewMatrix, projectionMatrix);
 
+
+
+		// Door animation update!
+		cabinModel->update(deltaTime);
 		// Render the prompt quad (when the camera is near the cabin door)
 		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.5f)
 			renderPrompt();
 
-
+		
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -645,10 +723,10 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_E && action == GLFW_PRESS)
 	{
 		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.5f)
-		{
 			cabinModel->toggleDoor();
-		}
 	}
+
+	if (key == GLFW_KEY_Z && action == GLFW_PRESS) isSnowing = !isSnowing;
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)
@@ -761,6 +839,9 @@ void initialize()
 		vec4{ 1, 1, 1, 1 },
 		vec3{ 7.0f, 60.0f, -0.5f }
 	);
+
+	// ===< SNOW SOURCE INIT >=== //
+	snowSource = new SnowSource(vec3(0.0f, 300.0f, 0.0f));
 }
 
 

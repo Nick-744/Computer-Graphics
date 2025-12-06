@@ -113,6 +113,9 @@ add_executable(project_winter
   project_winter/src/cabin.cpp
   project_winter/src/cabin.h
 
+  project_winter/src/snowSource.cpp
+  project_winter/src/snowSource.h
+
   common/util.cpp
   common/util.h
   common/shader.cpp

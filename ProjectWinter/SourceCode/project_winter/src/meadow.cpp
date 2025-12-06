@@ -213,7 +213,7 @@ Meadow::~Meadow()
     glDeleteTextures(1, &treeTexture);
 }
 
-void Meadow::draw(const mat4& view, const mat4& proj)
+void Meadow::draw()
 {
     // Disable Culling so the flat quads are visible from both sides
     glDisable(GL_CULL_FACE);

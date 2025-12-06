@@ -35,8 +35,9 @@ Light::Light(GLFWwindow* window,
     lightSpeed = 0.1f;
 }
 
-void Light::update()
+void Light::update() // I assume that my light source will remain static...
 {
+    /*
 	// Move across z-axis (World space)
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
         lightPosition_worldspace += lightSpeed * vec3(0.0, 0.0, 1.0);
@@ -54,12 +55,11 @@ void Light::update()
         lightPosition_worldspace += lightSpeed * vec3(0.0, 1.0, 0.0);
     if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
         lightPosition_worldspace -= lightSpeed * vec3(0.0, 1.0, 0.0);
+    */
 
     // We have the direction of the light and the point where the light is looking at
     // We will use this information to calculate the "up" vector, 
     // just like we did with the camera
-
-    direction = normalize(targetPosition - lightPosition_worldspace);
 
 
 
@@ -73,7 +73,7 @@ void Light::update()
     float horizontalAngle;
     if      (z > 0.0) horizontalAngle = atan(x/z);
     else if (z < 0.0) horizontalAngle = atan(x/z) + 3.1415f;
-    else    horizontalAngle = 3.1415f / 2.0f;
+    else              horizontalAngle = 3.1415f / 2.0f;
 
     // Right vector
     vec3 right(
