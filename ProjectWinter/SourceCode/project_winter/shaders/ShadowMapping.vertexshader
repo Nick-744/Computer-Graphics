@@ -16,14 +16,13 @@ struct Light
     vec3 lightPosition_worldspace;
 };
 uniform Light light1;
-
 uniform Light light2;
 
 uniform mat4 P;
 uniform mat4 V;
 uniform mat4 M;
-uniform mat4 light1VP;
 
+uniform mat4 light1VP;
 uniform mat4 light2VP; // HOMEWORK 2
 
 out vec4 vertex_position_cameraspace;
@@ -35,6 +34,10 @@ out vec4 vertex_position_lightspace1;
 // ===< HOMEWORK 2 >=== //
 out vec4 light_direction_cameraspace2;
 out vec4 vertex_position_lightspace2;
+
+// ===< SNOW >=== //
+uniform mat4 snowVP;
+out vec4 vertex_position_snowspace;
 
 
 
@@ -55,4 +58,7 @@ void main()
     // ===< HOMEWORK 2 >=== //
     light_direction_cameraspace2 = V * vec4(light2.lightPosition_worldspace, 0);
     vertex_position_lightspace2  = light2VP * M * vec4(vertexPosition_modelspace, 1);
+
+    // ===< SNOW >=== //
+    vertex_position_snowspace = snowVP * M * vec4(vertexPosition_modelspace, 1);
 }

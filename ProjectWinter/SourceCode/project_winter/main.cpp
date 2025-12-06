@@ -121,12 +121,20 @@ Meadow* meadowSystem;
 // Cloud system
 CloudRenderer* cloudSystem;
 
-// Snow system
+// ===< Snow System Start >=== //
 SnowSource* snowSource;
+
 GLuint snowDepthFBO;
 GLuint snowDepthTexture;
+
+// Locations for snow in shaderProgram
+GLuint snowAmountLocation;
+GLuint snowMapLocation;
+GLuint snowVPLocation;
 GLuint snowMaskTexture;
+
 float snowAmount = 0.0f; bool isSnowing = false;
+// ===< Snow System End >=== //
 
 
 
@@ -252,7 +260,11 @@ void createContext()
 	// --- promptProgram --- //
 	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
 
-	snowMaskTexture = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
+	// --- Snow --- //
+	snowAmountLocation = glGetUniformLocation(shaderProgram, "snowAmount");
+	snowMapLocation    = glGetUniformLocation(shaderProgram, "snowMapSampler");
+	snowVPLocation     = glGetUniformLocation(shaderProgram, "snowVP");
+	snowMaskTexture    = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
 
 
 
@@ -553,21 +565,17 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 	// ===< SNOW SYSTEM UPLOADS >=== //
-	GLuint snowAmountLoc = glGetUniformLocation(shaderProgram, "snowAmount");
-	glUniform1f(snowAmountLoc, snowAmount);
+	glUniform1f(snowAmountLocation, snowAmount);
 
 	glActiveTexture(GL_TEXTURE25);
 	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
-	GLuint snowMapLoc = glGetUniformLocation(shaderProgram, "snowMapSampler");
-	glUniform1i(snowMapLoc, 25);
+	glUniform1i(snowMapLocation, 25);
 
 	glActiveTexture(GL_TEXTURE26);
 	glBindTexture(GL_TEXTURE_2D, snowMaskTexture);
-	GLuint snowMaskLoc = glGetUniformLocation(shaderProgram, "snowMaskSampler");
-	glUniform1i(snowMaskLoc, 26);
+	glUniform1i(snowMaskTexture, 26);
 
-	mat4 snowVP           = snowSource->snowVP();
-	GLuint snowVPLocation = glGetUniformLocation(shaderProgram, "snowVP");
+	mat4 snowVP = snowSource->snowVP();
 	glUniformMatrix4fv(snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
 
 

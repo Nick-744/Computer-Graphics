@@ -7,10 +7,10 @@ SnowSource::SnowSource(glm::vec3 init_position)
 {
     snowSourcePosition_worldspace = init_position;
 
-    nearPlane = 200.0f;
-    farPlane  = 600.0f;
+    nearPlane = 1.0f;
+    farPlane  = 300.0f;
         
-    float snowAreaSize = 200.0f;
+    float snowAreaSize = 505.0f;
 
     projectionMatrix = ortho(
         -snowAreaSize, snowAreaSize,
