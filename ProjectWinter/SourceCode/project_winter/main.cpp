@@ -28,6 +28,7 @@
 #include "src/meadow.h"
 #include "src/cabin.h"
 #include "src/snowSource.h"
+#include "src/snowfall.h"
 
 using namespace std;
 using namespace glm;
@@ -129,6 +130,8 @@ GLuint isSnowingLocation;
 GLuint snowAmountLocation;
 bool  snowingActive = false;
 float snowAmount    = 0.0f;
+// Snow particles
+Snowfall* snowfallSystem;
 
 
 
@@ -276,6 +279,17 @@ void createContext()
 
 	// Clouds
 	cloudSystem = new CloudRenderer();
+
+	// ===< Snow >=== // ===< Particles >=== //
+	GLuint snowfallTexture = 0;
+	snowfallSystem = new Snowfall(
+		2000,   // max particles
+		120.0f, // area radius around camera
+		80.0f,  // spawn height above camera
+		8.0f,   // min fall speed
+		14.0f,  // max fall speed
+		snowfallTexture
+	);
 
 	// Loading a model
 
@@ -567,7 +581,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glUniform1i(useTextureLocation, 0);
 	sphere->bind(); sphere->draw();
 
-	glUniform1d(ChampionOfLight, 0); // End of sun rendering
+	glUniform1i(ChampionOfLight, 0); // End of sun rendering
 
 
 
@@ -638,11 +652,17 @@ void mainLoop()
 			snowAmount          -= deltaTime * meltRate;
 			if (snowAmount < 0.0f) snowAmount = 0.0f;
 		}
+		snowfallSystem->setActive(snowingActive);
+		snowfallSystem->update(deltaTime, camera->position);
 
 
 
 		// Render the scene from camera's perspective
 		lighting_pass(viewMatrix, projectionMatrix);
+
+
+
+		snowfallSystem->draw(viewMatrix, projectionMatrix);
 
 
 

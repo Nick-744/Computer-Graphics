@@ -25,18 +25,14 @@ uniform mat4 light1VP;
 
 out vec4 vertex_position_cameraspace;
 out vec4 vertex_normal_cameraspace;
+out vec3 vertex_normal_worldspace;
 out vec4 light_direction_cameraspace1;
 out vec2 vertex_UV;
 out vec4 vertex_position_lightspace1;
 
-// ===< HOMEWORK 2 >=== //
-out vec4 light_direction_cameraspace2;
-out vec4 vertex_position_lightspace2;
-
 // ===< SNOW >=== //
 uniform mat4 snowVP;
 in vec3 snowPosition_worldspace;
-out vec4 snow_direction_cameraspace;
 out vec4 vertex_position_snowspace;
 
 
@@ -49,6 +45,7 @@ void main()
     // FS
     vertex_position_cameraspace  = V * M * vec4(vertexPosition_modelspace, 1);
     vertex_normal_cameraspace    = V * M * vec4(vertexNormal_modelspace, 0);
+    vertex_normal_worldspace     = normalize(mat3(M) * vertexNormal_modelspace);
     light_direction_cameraspace1 = V * vec4(light1.lightPosition_worldspace, 0);
     vertex_UV = vertexUV;
 
@@ -56,6 +53,5 @@ void main()
     vertex_position_lightspace1 = light1VP * M * vec4(vertexPosition_modelspace, 1);
 
     // ===< SNOW >=== //
-    snow_direction_cameraspace = V * vec4(snowPosition_worldspace, 0);
     vertex_position_snowspace  = snowVP * M * vec4(vertexPosition_modelspace, 1);
 }

@@ -188,7 +188,7 @@ void CloudRenderer::draw(const mat4& view, const mat4& proj, float time)
     mat4 vp = proj * view;
     glUniformMatrix4fv(vpLocation, 1, GL_FALSE, &vp[0][0]);
 
-    // --- MOVEMENT CALCULATION ---
+    // --- MOVEMENT CALCULATION --- //
     float zMin = -AREA_LENGTH / 2.0f;
     float zMax =  AREA_LENGTH / 2.0f;
     float mapLength = AREA_LENGTH;

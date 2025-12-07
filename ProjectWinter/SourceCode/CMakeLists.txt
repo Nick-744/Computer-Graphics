@@ -106,6 +106,7 @@ add_executable(project_winter
   project_winter/src/terrain.h
   project_winter/src/clouds.cpp
   project_winter/src/clouds.h
+
   project_winter/src/forest.cpp
   project_winter/src/forest.h
   project_winter/src/meadow.cpp
@@ -115,6 +116,8 @@ add_executable(project_winter
 
   project_winter/src/snowSource.cpp
   project_winter/src/snowSource.h
+  project_winter/src/snowfall.cpp
+  project_winter/src/snowfall.h
 
   common/util.cpp
   common/util.h
@@ -138,6 +141,8 @@ add_executable(project_winter
   project_winter/shaders/clouds.vertexshader
   project_winter/shaders/prompt.fragmentshader
   project_winter/shaders/prompt.vertexshader
+  project_winter/shaders/snowfall.fragmentshader
+  project_winter/shaders/snowfall.vertexshader
   )
 target_link_libraries(project_winter
   ${ALL_LIBS}
