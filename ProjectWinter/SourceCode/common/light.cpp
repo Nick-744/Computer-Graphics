@@ -3,66 +3,29 @@
 #include <math.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include "light.h"
-
-using namespace glm;
+#include <limits>
 
 Light::Light(GLFWwindow* window, 
-             glm::vec4 init_La,
-             glm::vec4 init_Ld,
-             glm::vec4 init_Ls,
-             glm::vec3 init_position) : window(window)
+             vec4 init_La,
+             vec4 init_Ld,
+             vec4 init_Ls,
+             vec3 init_position) : window(window)
 {
     La = init_La;
     Ld = init_Ld;
     Ls = init_Ls;
     lightPosition_worldspace = init_position;
-
-    // setting near and far plane affects the detail of the shadow
-    nearPlane = 300.0f;
-    farPlane  = 700.0f;
-
-    float shadowBoxSize = 90.0f;
-
-    projectionMatrix = ortho(
-        -shadowBoxSize, shadowBoxSize,
-        -shadowBoxSize, shadowBoxSize,
-        nearPlane, farPlane
-    );
+    
+    // Initialize to stop compiler warnings...
+    nearPlane = 1.0f;
+    farPlane  = 100.0f;
 
     targetPosition = vec3(0.0, 0.0, 0.0);
     direction      = normalize(targetPosition - lightPosition_worldspace);
-
-    lightSpeed = 0.1f;
 }
 
 void Light::update() // I assume that my light source will remain static...
 {
-    /*
-	// Move across z-axis (World space)
-    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-        lightPosition_worldspace += lightSpeed * vec3(0.0, 0.0, 1.0);
-    if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
-        lightPosition_worldspace -= lightSpeed * vec3(0.0, 0.0, 1.0);
-
-    // Move across x-axis
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-        lightPosition_worldspace += lightSpeed * vec3(1.0, 0.0, 0.0);
-    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
-        lightPosition_worldspace -= lightSpeed * vec3(1.0, 0.0, 0.0);
-
-    // Move across y-axis
-    if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
-        lightPosition_worldspace += lightSpeed * vec3(0.0, 1.0, 0.0);
-    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
-        lightPosition_worldspace -= lightSpeed * vec3(0.0, 1.0, 0.0);
-    */
-
-    // We have the direction of the light and the point where the light is looking at
-    // We will use this information to calculate the "up" vector, 
-    // just like we did with the camera
-
-
-
     // converting direction to cylidrical coordinates
     float x = direction.x;
     float y = direction.y;
@@ -93,3 +56,60 @@ void Light::update() // I assume that my light source will remain static...
 }
 
 mat4 Light::lightVP() { return projectionMatrix * viewMatrix; }
+
+void Light::fitToCameraFrustum(const mat4& cameraView, const mat4& cameraProj)
+{
+    // Get the 8 corners of the camera frustum in world space
+    mat4 invCam = inverse(cameraProj * cameraView);
+
+    vec4 frustumCornersWS[8];
+    int i = 0;
+    for (int x = 0; x < 2; ++x)
+        for (int y = 0; y < 2; ++y)
+            for (int z = 0; z < 2; ++z)
+            {
+                vec4 ndc(
+                    x ? 1.0f : -1.0f,
+                    y ? 1.0f : -1.0f,
+                    z ? 1.0f : -1.0f,
+                    1.0f
+                );
+
+                vec4 world            = invCam * ndc;
+                world                /= world.w; // Perspective divide
+                frustumCornersWS[i++] = world;
+            }
+
+    // Transform corners to light view space
+    float minX =  std::numeric_limits<float>::max();
+    float maxX = -std::numeric_limits<float>::max();
+    float minY =  std::numeric_limits<float>::max();
+    float maxY = -std::numeric_limits<float>::max();
+    float minZ =  std::numeric_limits<float>::max();
+    float maxZ = -std::numeric_limits<float>::max();
+
+    for (int j = 0; j < 8; ++j)
+    {
+        vec4 ls = viewMatrix * frustumCornersWS[j];
+
+        minX = std::min(minX, ls.x);
+        maxX = std::max(maxX, ls.x);
+        minY = std::min(minY, ls.y);
+        maxY = std::max(maxY, ls.y);
+        minZ = std::min(minZ, ls.z);
+        maxZ = std::max(maxZ, ls.z);
+    }
+
+    // Small padding so objects right on the edge don't flicker!
+    const float padding = 5.0f;
+    minX -= padding; maxX += padding;
+    minY -= padding; maxY += padding;
+    minZ -= padding; maxZ += padding;
+
+    // Setting near and far plane affects the detail of the shadow
+    nearPlane = -maxZ;
+    farPlane  = -minZ;
+
+    // Build the ortho projection that tightly fits the camera frustum
+    projectionMatrix = ortho(minX, maxX, minY, maxY, nearPlane, farPlane);
+}

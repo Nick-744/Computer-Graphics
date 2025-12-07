@@ -43,7 +43,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 #define W_HEIGHT 720
 #define TITLE "Project Winter"
 
-#define SHADOW_BUFFER_SIZE 8192
+#define SHADOW_BUFFER_SIZE 8192 * 2
 
 #define SNOW_BUFFER_SIZE 8192
 
@@ -73,7 +73,6 @@ Drawable* sphere;       // Light model helper
 GLuint shaderProgram, depthProgram; // Shader programs
 
 GLuint depthFBO1, depthTexture1;
-GLuint depthFBO2, depthTexture2;
 
 // Locations for shaderProgram
 GLuint viewMatrixLocation;
@@ -518,7 +517,6 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 		snowSource->snowSourcePosition_worldspace.y,
 		snowSource->snowSourcePosition_worldspace.z
 	);
-	glUniform1i(isSnowingLocation, snowingActive ? 1 : 0);
 	glUniform1f(snowAmountLocation, snowAmount);
 
 	glActiveTexture(GL_TEXTURE25);
@@ -610,8 +608,14 @@ void mainLoop()
 
 
 
+		// Getting camera information
+		camera->update();
+		mat4 projectionMatrix = camera->projectionMatrix;
+		mat4 viewMatrix       = camera->viewMatrix;
+
 		// Light Depth Pass
-		light1->update();
+		light1->update(); // Light's view matrix
+		light1->fitToCameraFrustum(viewMatrix, projectionMatrix); // Light's projection matrix
 		mat4 light1_proj = light1->projectionMatrix;
 		mat4 light1_view = light1->viewMatrix;
 		depth_pass(light1_view, light1_proj, depthFBO1, SHADOW_BUFFER_SIZE); // Create the depth buffer
@@ -624,21 +628,16 @@ void mainLoop()
 		// Snow accumulation
 		if (snowingActive)
 		{
-			const float growRate = 0.5f;
+			const float growRate = 0.02f;
 			snowAmount          += deltaTime * growRate;
 			if (snowAmount > 1.0f) snowAmount = 1.0f;
 		}
 		else
 		{
-			const float meltRate = 0.5f;
+			const float meltRate = 0.1f;
 			snowAmount          -= deltaTime * meltRate;
 			if (snowAmount < 0.0f) snowAmount = 0.0f;
 		}
-
-		// Getting camera information
-		camera->update();
-		mat4 projectionMatrix = camera->projectionMatrix;
-		mat4 viewMatrix       = camera->viewMatrix;
 
 
 
@@ -790,7 +789,7 @@ void initialize()
 		vec4{ 0.8, 0.8, 1, 1 },
 		vec4{ 0.8, 0.8, 1, 1 },
 		vec4{ 0.8, 0.8, 1, 1 },
-		vec3{ -300, 400, -400 }
+		vec3{ 0, 300, -300 }
 	);
 
 	// ===< SNOW SOURCE INIT >=== //
