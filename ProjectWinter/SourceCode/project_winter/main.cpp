@@ -43,10 +43,9 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 #define W_HEIGHT 720
 #define TITLE "Project Winter"
 
-#define SHADOW_WIDTH 8192
-#define SHADOW_HEIGHT 8192
+#define SHADOW_BUFFER_SIZE 8192
 
-#define SNOW_BUFFER_SIZE 4096
+#define SNOW_BUFFER_SIZE 8192
 
 
 
@@ -67,7 +66,6 @@ float lastFrameTime = 0.0f;
 
 // Lights
 Light* light1;
-Light* light2; // Not in use!
 
 GLuint ChampionOfLight; // Render with only ambient component!
 Drawable* sphere;       // Light model helper
@@ -84,7 +82,6 @@ GLuint modelMatrixLocation;
 GLuint KaLocation, KdLocation, KsLocation, NsLocation;
 
 GLuint LaLocation1, LdLocation1, LsLocation1, light1PositionLocation;
-GLuint LaLocation2, LdLocation2, LsLocation2, light2PositionLocation;
 
 GLuint lightPowerLocation;
 GLuint diffuseColorSampler;
@@ -92,7 +89,6 @@ GLuint specularColorSampler;
 GLuint useTextureLocation;
 
 GLuint depthMapSampler1; GLuint light1VPLocation;
-GLuint depthMapSampler2; GLuint light2VPLocation;
 
 // Locations for depthProgram
 GLuint shadowViewProjectionLocation;
@@ -121,20 +117,19 @@ Meadow* meadowSystem;
 // Cloud system
 CloudRenderer* cloudSystem;
 
-// ===< Snow System Start >=== //
+// ===< Snow >=== //
 SnowSource* snowSource;
-
-GLuint snowDepthFBO;
-GLuint snowDepthTexture;
-
-// Locations for snow in shaderProgram
-GLuint snowAmountLocation;
-GLuint snowMapLocation;
+GLuint snowDepthFBO; GLuint snowDepthTexture;
+GLuint snowDepthMapSampler;
 GLuint snowVPLocation;
-GLuint snowMaskTexture;
-
-float snowAmount = 0.0f; bool isSnowing = false;
-// ===< Snow System End >=== //
+// Gaea snow mask!
+GLuint textureSamplerSnowMask;
+GLuint textureSnowMask;
+// Snow state
+GLuint isSnowingLocation;
+GLuint snowAmountLocation;
+bool  snowingActive = false;
+float snowAmount    = 0.0f;
 
 
 
@@ -229,11 +224,6 @@ void createContext()
 	LsLocation1 = glGetUniformLocation(shaderProgram, "light1.Ls");
 	light1PositionLocation = glGetUniformLocation(shaderProgram, "light1.lightPosition_worldspace");
 
-	LaLocation2 = glGetUniformLocation(shaderProgram, "light2.La");
-	LdLocation2 = glGetUniformLocation(shaderProgram, "light2.Ld");
-	LsLocation2 = glGetUniformLocation(shaderProgram, "light2.Ls");
-	light2PositionLocation = glGetUniformLocation(shaderProgram, "light2.lightPosition_worldspace");
-
 	ChampionOfLight = glGetUniformLocation(shaderProgram, "ChampionOfLight");
 
 	diffuseColorSampler  = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
@@ -246,10 +236,6 @@ void createContext()
 	depthMapSampler1 = glGetUniformLocation(shaderProgram, "shadowMapSampler1");
 	light1VPLocation = glGetUniformLocation(shaderProgram, "light1VP");
 
-	// For light2
-	depthMapSampler2 = glGetUniformLocation(shaderProgram, "shadowMapSampler2");
-	light2VPLocation = glGetUniformLocation(shaderProgram, "light2VP");
-
 	// --- depthProgram --- //
 	shadowViewProjectionLocation = glGetUniformLocation(depthProgram, "VP");
 	shadowModelLocation          = glGetUniformLocation(depthProgram, "M");
@@ -260,11 +246,15 @@ void createContext()
 	// --- promptProgram --- //
 	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
 
-	// --- Snow --- //
-	snowAmountLocation = glGetUniformLocation(shaderProgram, "snowAmount");
-	snowMapLocation    = glGetUniformLocation(shaderProgram, "snowMapSampler");
-	snowVPLocation     = glGetUniformLocation(shaderProgram, "snowVP");
-	snowMaskTexture    = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
+	// ===< Snow >=== //
+	snowDepthMapSampler = glGetUniformLocation(shaderProgram, "snowDepthMapSampler");
+	snowVPLocation      = glGetUniformLocation(shaderProgram, "snowVP");
+	// Gaea snow mask!
+	textureSamplerSnowMask = glGetUniformLocation(shaderProgram, "textureSamplerSnowMask");
+	textureSnowMask        = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
+	// Snow state
+	isSnowingLocation   = glGetUniformLocation(shaderProgram, "isSnowing");
+	snowAmountLocation  = glGetUniformLocation(shaderProgram, "snowAmount");
 
 
 
@@ -340,7 +330,7 @@ void createContext()
 		GL_TEXTURE_2D,
 		0,
 		GL_DEPTH_COMPONENT,
-		SHADOW_WIDTH, SHADOW_HEIGHT,
+		SHADOW_BUFFER_SIZE, SHADOW_BUFFER_SIZE,
 		0,
 		GL_DEPTH_COMPONENT,
 		GL_FLOAT,
@@ -372,38 +362,7 @@ void createContext()
 
 
 
-	// Framebuffer for light2
-	glGenFramebuffers(1, &depthFBO2);
-	glBindFramebuffer(GL_FRAMEBUFFER, depthFBO2);
-
-	glGenTextures(1, &depthTexture2);
-	glBindTexture(GL_TEXTURE_2D, depthTexture2);
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		GL_DEPTH_COMPONENT,
-		SHADOW_WIDTH,
-		SHADOW_HEIGHT,
-		0,
-		GL_DEPTH_COMPONENT,
-		GL_FLOAT,
-		NULL
-	);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_BORDER);
-
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-	// Αν δεν εκτελεστεί, οι περιοχές εκτός του shadow map εμφανίζονται σκοτεινές (σκιά) για το light2!
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture2, 0);
-	glDrawBuffer(GL_NONE); glReadBuffer(GL_NONE);
-
-
-
-	// ---< SNOW DEPTH BUFFER >--- //
+	// ===< Snow >=== // ===< Framebuffer >=== //
 	glGenFramebuffers(1, &snowDepthFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, snowDepthFBO);
 
@@ -413,8 +372,7 @@ void createContext()
 		GL_TEXTURE_2D,
 		0,
 		GL_DEPTH_COMPONENT,
-		SNOW_BUFFER_SIZE,
-		SNOW_BUFFER_SIZE,
+		SNOW_BUFFER_SIZE, SNOW_BUFFER_SIZE,
 		0,
 		GL_DEPTH_COMPONENT,
 		GL_FLOAT,
@@ -470,12 +428,12 @@ void free()
 
 
 
-void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
+void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size)
 {
 	// Task 3.3
 
 	// Setting viewport to shadow map size
-	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glViewport(0, 0, buffer_size, buffer_size);
 
 	// Binding the depth framebuffer
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -553,27 +511,23 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 
-	uploadLight(*light2, LaLocation2, LdLocation2, LsLocation2, light2PositionLocation);
-
-	glActiveTexture(GL_TEXTURE24);
-	glBindTexture(GL_TEXTURE_2D, depthTexture2);
-	glUniform1i(depthMapSampler2, 24);
-
-	mat4 light2VP = light2->lightVP();
-	glUniformMatrix4fv(light2VPLocation, 1, GL_FALSE, &light2VP[0][0]);
-
-
-
-	// ===< SNOW SYSTEM UPLOADS >=== //
+	// ===< Snow >=== //
+	glUniform3f(
+		glGetUniformLocation(shaderProgram, "snowPosition_worldspace"),
+		snowSource->snowSourcePosition_worldspace.x,
+		snowSource->snowSourcePosition_worldspace.y,
+		snowSource->snowSourcePosition_worldspace.z
+	);
+	glUniform1i(isSnowingLocation, snowingActive ? 1 : 0);
 	glUniform1f(snowAmountLocation, snowAmount);
 
 	glActiveTexture(GL_TEXTURE25);
 	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
-	glUniform1i(snowMapLocation, 25);
+	glUniform1i(snowDepthMapSampler, 25);
 
 	glActiveTexture(GL_TEXTURE26);
-	glBindTexture(GL_TEXTURE_2D, snowMaskTexture);
-	glUniform1i(snowMaskTexture, 26);
+	glBindTexture(GL_TEXTURE_2D, textureSnowMask);
+	glUniform1i(textureSamplerSnowMask, 26);
 
 	mat4 snowVP = snowSource->snowVP();
 	glUniformMatrix4fv(snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
@@ -648,16 +602,6 @@ void renderPrompt()
 
 void mainLoop()
 {
-	light1->update();
-	mat4 light1_proj = light1->projectionMatrix;
-	mat4 light1_view = light1->viewMatrix;
-	depth_pass(light1_view, light1_proj, depthFBO1); // Create the depth buffer
-
-	/*light2->update();
-	mat4 light2_proj = light2->projectionMatrix;
-	mat4 light2_view = light2->viewMatrix;
-	depth_pass(light2_view, light2_proj, depthFBO2);*/
-
 	do
 	{
 		float currentFrameTime = glfwGetTime();
@@ -670,21 +614,26 @@ void mainLoop()
 		light1->update();
 		mat4 light1_proj = light1->projectionMatrix;
 		mat4 light1_view = light1->viewMatrix;
-		depth_pass(light1_view, light1_proj, depthFBO1); // Create the depth buffer
+		depth_pass(light1_view, light1_proj, depthFBO1, SHADOW_BUFFER_SIZE); // Create the depth buffer
 
-		/*mat4 light2_proj = light2->projectionMatrix;
-		mat4 light2_view = light2->viewMatrix;
-		depth_pass(light2_view, light2_proj, depthFBO2);*/
-
-		// Snow Depth Pass
+		// ===< Snow >=== // ===< Depth Pass >=== //
 		snowSource->update();
 		mat4 snow_proj = snowSource->projectionMatrix;
 		mat4 snow_view = snowSource->viewMatrix;
-		depth_pass(snow_view, snow_proj, snowDepthFBO);
-
-		if (isSnowing) snowAmount += 0.1f * deltaTime;
-		else           snowAmount -= 0.1f * deltaTime;
-		snowAmount = clamp(snowAmount, 0.0f, 1.0f);
+		depth_pass(snow_view, snow_proj, snowDepthFBO, SNOW_BUFFER_SIZE);
+		// Snow accumulation
+		if (snowingActive)
+		{
+			const float growRate = 0.5f;
+			snowAmount          += deltaTime * growRate;
+			if (snowAmount > 1.0f) snowAmount = 1.0f;
+		}
+		else
+		{
+			const float meltRate = 0.5f;
+			snowAmount          -= deltaTime * meltRate;
+			if (snowAmount < 0.0f) snowAmount = 0.0f;
+		}
 
 		// Getting camera information
 		camera->update();
@@ -734,7 +683,11 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 			cabinModel->toggleDoor();
 	}
 
-	if (key == GLFW_KEY_Z && action == GLFW_PRESS) isSnowing = !isSnowing;
+	if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+	{
+		snowingActive = !snowingActive;
+		printf("Snow %s\n", snowingActive ? "ON" : "OFF");
+	}
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)
@@ -837,19 +790,11 @@ void initialize()
 		vec4{ 0.8, 0.8, 1, 1 },
 		vec4{ 0.8, 0.8, 1, 1 },
 		vec4{ 0.8, 0.8, 1, 1 },
-		vec3{ -500, 600, -600 }
-	);
-
-	light2 = new Light(
-		window,
-		vec4{ 1, 1, 1, 1 },
-		vec4{ 1, 1, 1, 1 },
-		vec4{ 1, 1, 1, 1 },
-		vec3{ 7.0f, 60.0f, -0.5f }
+		vec3{ -300, 400, -400 }
 	);
 
 	// ===< SNOW SOURCE INIT >=== //
-	snowSource = new SnowSource(vec3(0.0f, 300.0f, 0.0f));
+	snowSource = new SnowSource(vec3(0.0f, 340.0f, 0.0f));
 }
 
 

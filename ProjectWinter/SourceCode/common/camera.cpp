@@ -71,7 +71,7 @@ void Camera::update()
     float targetFoV = 45.0f; // Default Base FoV
     
     // If UP is held, ZOOOOOOOOM IN!
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) targetFoV = 10.0f;
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) targetFoV = 20.0f;
 
     // Smoothly move current FoV towards the Target...
     if (FoV < targetFoV)
@@ -86,7 +86,7 @@ void Camera::update()
     }
 
     // Task 5.7: construct projection and view matrices
-    projectionMatrix = perspective(radians(FoV), 4.0f / 3.0f, 0.1f, 950.0f);
+    projectionMatrix = perspective(radians(FoV), 4.0f / 3.0f, 0.1f, 750.0f);
     viewMatrix = lookAt(
         position,
         position + direction,

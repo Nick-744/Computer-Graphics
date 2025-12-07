@@ -8,7 +8,7 @@ SnowSource::SnowSource(glm::vec3 init_position)
     snowSourcePosition_worldspace = init_position;
 
     nearPlane = 1.0f;
-    farPlane  = 300.0f;
+    farPlane  = 400.0f;
         
     float snowAreaSize = 505.0f;
 
@@ -32,7 +32,7 @@ void SnowSource::update()
     // We don't need to calculate the vertical angle
 
     float horizontalAngle;
-    if (z > 0.0)      horizontalAngle = atan(x / z);
+    if      (z > 0.0) horizontalAngle = atan(x / z);
     else if (z < 0.0) horizontalAngle = atan(x / z) + 3.1415f;
     else              horizontalAngle = 3.1415f / 2.0f;
 
