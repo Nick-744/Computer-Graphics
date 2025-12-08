@@ -65,37 +65,108 @@ Camera* camera;
 
 float lastFrameTime = 0.0f;
 
-// Lights
+struct MainShader // Shadow Mapping Shader...
+{
+	GLuint programID; // The shader's program ID
+
+	// --- Matrices --- //
+	GLuint viewMatrixLocation;
+	GLuint projectionMatrixLocation;
+	GLuint modelMatrixLocation;
+
+	// --- Material --- //
+	GLuint KaLocation, KdLocation, KsLocation, NsLocation;
+
+	// --- Light1 --- //
+	GLuint LaLocation1, LdLocation1, LsLocation1;
+	GLuint light1PositionLocation;
+	GLuint light1VPLocation;
+
+	// --- Textures & Rendering Options --- //
+	GLuint diffuseColorSampler;
+	GLuint specularColorSampler;
+	GLuint useTextureLocation;
+	GLuint ChampionOfLight; // Render with only ambient component!
+
+	// --- Shadow Mapping --- //
+	GLuint depthMapSampler1;
+
+	// --- Snow System --- //
+	GLuint snowDepthMapSampler;
+	GLuint snowPositionLocation;
+	GLuint snowVPLocation;
+	// Gaea snow mask!
+	GLuint textureSamplerSnowMask;
+	GLuint textureSnowMask;
+	// Snow state
+	GLuint snowAmountLocation;
+
+	void initialize()
+	{
+		programID = loadShaders("shaders/ShadowMapping.vertexshader", "shaders/ShadowMapping.fragmentshader");
+
+		// Matrices
+		projectionMatrixLocation = glGetUniformLocation(programID, "P");
+		viewMatrixLocation       = glGetUniformLocation(programID, "V");
+		modelMatrixLocation      = glGetUniformLocation(programID, "M");
+
+		// --- For phong lighting --- //
+
+		// Material
+		KaLocation = glGetUniformLocation(programID, "mtl.Ka");
+		KdLocation = glGetUniformLocation(programID, "mtl.Kd");
+		KsLocation = glGetUniformLocation(programID, "mtl.Ks");
+		NsLocation = glGetUniformLocation(programID, "mtl.Ns");
+
+		// Light 1
+		LaLocation1 = glGetUniformLocation(programID, "light1.La");
+		LdLocation1 = glGetUniformLocation(programID, "light1.Ld");
+		LsLocation1 = glGetUniformLocation(programID, "light1.Ls");
+		light1PositionLocation = glGetUniformLocation(programID, "light1.lightPosition_worldspace");
+		light1VPLocation       = glGetUniformLocation(programID, "light1VP"); // For shadow rendering
+
+		ChampionOfLight      = glGetUniformLocation(programID, "ChampionOfLight");
+		diffuseColorSampler  = glGetUniformLocation(programID, "diffuseColorSampler");
+		specularColorSampler = glGetUniformLocation(programID, "specularColorSampler");
+		useTextureLocation   = glGetUniformLocation(programID, "useTexture"); // Task 1.4
+
+		// Locations for shadow rendering
+		depthMapSampler1 = glGetUniformLocation(programID, "shadowMapSampler1");
+
+		// ===< Snow >=== //
+		snowDepthMapSampler = glGetUniformLocation(programID, "snowDepthMapSampler");
+		snowPositionLocation = glGetUniformLocation(programID, "snowPosition_worldspace");
+		snowVPLocation      = glGetUniformLocation(programID, "snowVP");
+		// Gaea snow mask!
+		textureSamplerSnowMask = glGetUniformLocation(programID, "textureSamplerSnowMask");
+		textureSnowMask        = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
+		// Snow state
+		snowAmountLocation = glGetUniformLocation(programID, "snowAmount");
+	}
+
+	void useProgram() { glUseProgram(programID); }
+};
+
+// Light
 Light* light1;
+Drawable* sphere; // Light model helper
 
-GLuint ChampionOfLight; // Render with only ambient component!
-Drawable* sphere;       // Light model helper
+// --- shaderProgram --- //
+MainShader shaderProgram;
 
-GLuint shaderProgram, depthProgram; // Shader programs
-
+// --- depthProgram --- //
+GLuint depthProgram;
 GLuint depthFBO1, depthTexture1;
-
-// Locations for shaderProgram
-GLuint viewMatrixLocation;
-GLuint projectionMatrixLocation;
-GLuint modelMatrixLocation;
-GLuint KaLocation, KdLocation, KsLocation, NsLocation;
-
-GLuint LaLocation1, LdLocation1, LsLocation1, light1PositionLocation;
-
-GLuint lightPowerLocation;
-GLuint diffuseColorSampler;
-GLuint specularColorSampler;
-GLuint useTextureLocation;
-
-GLuint depthMapSampler1; GLuint light1VPLocation;
-
-// Locations for depthProgram
 GLuint shadowViewProjectionLocation;
 GLuint shadowModelLocation;
-
 GLuint depthTextureSamplerLocation;
 GLuint depthUseTransparentTexLocation;
+
+// --- promptProgram --- //
+GLuint promptProgram; // Shader program
+GLuint quadTextureSamplerLocation;
+GLuint promptTexture;
+Drawable* quad;
 
 
 
@@ -117,29 +188,14 @@ Meadow* meadowSystem;
 // Cloud system
 CloudRenderer* cloudSystem;
 
-// ===< Snow >=== //
+// ===< Snow System >=== //
 SnowSource* snowSource;
 GLuint snowDepthFBO; GLuint snowDepthTexture;
-GLuint snowDepthMapSampler;
-GLuint snowVPLocation;
-// Gaea snow mask!
-GLuint textureSamplerSnowMask;
-GLuint textureSnowMask;
-// Snow state
-GLuint isSnowingLocation;
-GLuint snowAmountLocation;
+// Snow state (CPU)
 bool  snowingActive = false;
 float snowAmount    = 0.0f;
 // Snow particles
 Snowfall* snowfallSystem;
-
-
-
-// Prompt rendering
-GLuint promptProgram; // Shader program
-GLuint quadTextureSamplerLocation;
-GLuint promptTexture;
-Drawable* quad;
 
 
 
@@ -185,10 +241,10 @@ void uploadLight(const Light& light,
 // Creating a function to upload the material parameters of a model to the shader program
 void uploadMaterial(const Material& mtl)
 {
-	glUniform4f(KaLocation, mtl.Ka.r, mtl.Ka.g, mtl.Ka.b, mtl.Ka.a);
-	glUniform4f(KdLocation, mtl.Kd.r, mtl.Kd.g, mtl.Kd.b, mtl.Kd.a);
-	glUniform4f(KsLocation, mtl.Ks.r, mtl.Ks.g, mtl.Ks.b, mtl.Ks.a);
-	glUniform1f(NsLocation, mtl.Ns);
+	glUniform4f(shaderProgram.KaLocation, mtl.Ka.r, mtl.Ka.g, mtl.Ka.b, mtl.Ka.a);
+	glUniform4f(shaderProgram.KdLocation, mtl.Kd.r, mtl.Kd.g, mtl.Kd.b, mtl.Kd.a);
+	glUniform4f(shaderProgram.KsLocation, mtl.Ks.r, mtl.Ks.g, mtl.Ks.b, mtl.Ks.a);
+	glUniform1f(shaderProgram.NsLocation, mtl.Ns);
 }
 
 
@@ -196,7 +252,7 @@ void uploadMaterial(const Material& mtl)
 void createContext()
 {
 	// Create and compile our GLSL program from the shader
-	shaderProgram = loadShaders("shaders/ShadowMapping.vertexshader", "shaders/ShadowMapping.fragmentshader");
+	shaderProgram.initialize();
 
 	// Task 3.1 
 	// Create and load the shader program for the depth buffer construction
@@ -208,35 +264,7 @@ void createContext()
 
 	// NOTE: Don't forget to delete the shader programs on the free() function
 
-
-
-	// Get pointers to uniforms
-	// --- shaderProgram --- //
-	projectionMatrixLocation = glGetUniformLocation(shaderProgram, "P");
-	viewMatrixLocation       = glGetUniformLocation(shaderProgram, "V");
-	modelMatrixLocation      = glGetUniformLocation(shaderProgram, "M");
-	// for phong lighting
-	KaLocation = glGetUniformLocation(shaderProgram, "mtl.Ka");
-	KdLocation = glGetUniformLocation(shaderProgram, "mtl.Kd");
-	KsLocation = glGetUniformLocation(shaderProgram, "mtl.Ks");
-	NsLocation = glGetUniformLocation(shaderProgram, "mtl.Ns");
-
-	LaLocation1 = glGetUniformLocation(shaderProgram, "light1.La");
-	LdLocation1 = glGetUniformLocation(shaderProgram, "light1.Ld");
-	LsLocation1 = glGetUniformLocation(shaderProgram, "light1.Ls");
-	light1PositionLocation = glGetUniformLocation(shaderProgram, "light1.lightPosition_worldspace");
-
-	ChampionOfLight = glGetUniformLocation(shaderProgram, "ChampionOfLight");
-
-	diffuseColorSampler  = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
-	specularColorSampler = glGetUniformLocation(shaderProgram, "specularColorSampler");
-
-	// Task 1.4
-	useTextureLocation = glGetUniformLocation(shaderProgram, "useTexture");
-
-	// locations for shadow rendering
-	depthMapSampler1 = glGetUniformLocation(shaderProgram, "shadowMapSampler1");
-	light1VPLocation = glGetUniformLocation(shaderProgram, "light1VP");
+	
 
 	// --- depthProgram --- //
 	shadowViewProjectionLocation = glGetUniformLocation(depthProgram, "VP");
@@ -248,47 +276,33 @@ void createContext()
 	// --- promptProgram --- //
 	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
 
-	// ===< Snow >=== //
-	snowDepthMapSampler = glGetUniformLocation(shaderProgram, "snowDepthMapSampler");
-	snowVPLocation      = glGetUniformLocation(shaderProgram, "snowVP");
-	// Gaea snow mask!
-	textureSamplerSnowMask = glGetUniformLocation(shaderProgram, "textureSamplerSnowMask");
-	textureSnowMask        = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
-	// Snow state
-	isSnowingLocation   = glGetUniformLocation(shaderProgram, "isSnowing");
-	snowAmountLocation  = glGetUniformLocation(shaderProgram, "snowAmount");
-
 
 
 	// Initialize the terrain system
-	terrainSystem = new TerrainRenderer(shaderProgram);
+	terrainSystem = new TerrainRenderer(shaderProgram.programID);
 
 	// Cabin
-	cabinModel = new Cabin(shaderProgram);
+	cabinModel = new Cabin(shaderProgram.programID);
 
 	// Forests
-	forestSystem = new Forest(shaderProgram);
+	forestSystem = new Forest(shaderProgram.programID);
 	forestSystem->setPosition(vec3(26.5f, 60.2f, 30.5f));
 	forestSystem->setRotation(-0.5f);
 
-	forestSystem2 = new Forest(shaderProgram);
+	forestSystem2 = new Forest(shaderProgram.programID);
 	forestSystem2->setPosition(vec3(- 66.5f, 60.7f, 43.0f));
 
 	// Meadow
-	meadowSystem = new Meadow(shaderProgram);
+	meadowSystem = new Meadow(shaderProgram.programID);
 
 	// Clouds
 	cloudSystem = new CloudRenderer();
 
 	// ===< Snow >=== // ===< Particles >=== //
-	GLuint snowfallTexture = 0;
 	snowfallSystem = new Snowfall(
-		2000,   // max particles
-		120.0f, // area radius around camera
-		80.0f,  // spawn height above camera
-		8.0f,   // min fall speed
-		14.0f,  // max fall speed
-		snowfallTexture
+		20000, // max particles
+		20.0f, // min fall speed
+		25.0f  // max fall speed
 	);
 
 	// Loading a model
@@ -421,7 +435,7 @@ void createContext()
 void free()
 {
 	// Delete Shader Programs
-	glDeleteProgram(shaderProgram);
+	glDeleteProgram(shaderProgram.programID);
 	glDeleteProgram(depthProgram);
 	glDeleteProgram(promptProgram);
 
@@ -435,6 +449,8 @@ void free()
 	delete meadowSystem;
 
 	delete cloudSystem;
+
+	delete snowfallSystem;
 
 	glfwTerminate();
 }
@@ -499,50 +515,56 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Step 3: Selecting shader program
-	glUseProgram(shaderProgram);
+	shaderProgram.useProgram();
 
 	// Making view and projection matrices uniform to the shader program
-	glUniformMatrix4fv(viewMatrixLocation,       1, GL_FALSE, &viewMatrix[0][0]);
-	glUniformMatrix4fv(projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
+	glUniformMatrix4fv(shaderProgram.viewMatrixLocation,       1, GL_FALSE, &viewMatrix[0][0]);
+	glUniformMatrix4fv(shaderProgram.projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
 
-	glUniform1i(ChampionOfLight, 0); // Κανονικά αντικείμενα - Κάνε υπολογισμούς Phong!
+	glUniform1i(shaderProgram.ChampionOfLight, 0); // Κανονικά αντικείμενα - Κάνε υπολογισμούς Phong!
 
 
 
 	// uploading the light parameters to the shader program
-	uploadLight(*light1, LaLocation1, LdLocation1, LsLocation1, light1PositionLocation);
+	uploadLight(
+		*light1,
+		shaderProgram.LaLocation1,
+		shaderProgram.LdLocation1,
+		shaderProgram.LsLocation1,
+		shaderProgram.light1PositionLocation
+	);
 
 	// Task 4.1 Display shadows on the plane
 	// Sending the shadow texture to the shaderProgram
 	glActiveTexture(GL_TEXTURE23);
 	glBindTexture(GL_TEXTURE_2D, depthTexture1);
-	glUniform1i(depthMapSampler1, 23);
+	glUniform1i(shaderProgram.depthMapSampler1, 23);
 
 	// Sending the light View-Projection matrix to the shader program
 	mat4 light1VP = light1->lightVP();
-	glUniformMatrix4fv(light1VPLocation, 1, GL_FALSE, &light1VP[0][0]);
+	glUniformMatrix4fv(shaderProgram.light1VPLocation, 1, GL_FALSE, &light1VP[0][0]);
 
 
 
 	// ===< Snow >=== //
 	glUniform3f(
-		glGetUniformLocation(shaderProgram, "snowPosition_worldspace"),
+		shaderProgram.snowPositionLocation,
 		snowSource->snowSourcePosition_worldspace.x,
 		snowSource->snowSourcePosition_worldspace.y,
 		snowSource->snowSourcePosition_worldspace.z
 	);
-	glUniform1f(snowAmountLocation, snowAmount);
+	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
 
 	glActiveTexture(GL_TEXTURE25);
 	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
-	glUniform1i(snowDepthMapSampler, 25);
+	glUniform1i(shaderProgram.snowDepthMapSampler, 25);
 
 	glActiveTexture(GL_TEXTURE26);
-	glBindTexture(GL_TEXTURE_2D, textureSnowMask);
-	glUniform1i(textureSamplerSnowMask, 26);
+	glBindTexture(GL_TEXTURE_2D, shaderProgram.textureSnowMask);
+	glUniform1i(shaderProgram.textureSamplerSnowMask, 26);
 
 	mat4 snowVP = snowSource->snowVP();
-	glUniformMatrix4fv(snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
+	glUniformMatrix4fv(shaderProgram.snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
 
 
 
@@ -572,16 +594,16 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 	// Sun
-	glUniform1i(ChampionOfLight, 1);
+	glUniform1i(shaderProgram.ChampionOfLight, 1);
 
 	mat4 light1SphereModel = translate(mat4(), light1->lightPosition_worldspace) * scale(mat4(), vec3(4.0f));
-	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &light1SphereModel[0][0]);
+	glUniformMatrix4fv(shaderProgram.modelMatrixLocation, 1, GL_FALSE, &light1SphereModel[0][0]);
 
 	uploadMaterial(gold);
-	glUniform1i(useTextureLocation, 0);
+	glUniform1i(shaderProgram.useTextureLocation, 0);
 	sphere->bind(); sphere->draw();
 
-	glUniform1i(ChampionOfLight, 0); // End of sun rendering
+	glUniform1i(shaderProgram.ChampionOfLight, 0); // End of sun rendering
 
 
 
@@ -598,16 +620,20 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 void renderPrompt()
 {
-	// using the correct shaders to visualize the depth texture on the quad
+	glDisable(GL_DEPTH_TEST); // Disable depth test so quad is always on top
+
+	// Using the correct shaders to visualize the depth texture on the quad
 	glUseProgram(promptProgram);
 
-	//enabling the texture - follow the aforementioned pipeline
+	//Enabling the texture - follow the aforementioned pipeline
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, promptTexture);
 	glUniform1i(quadTextureSamplerLocation, 0);
 
 	// Drawing the quad
 	quad->bind(); quad->draw();
+
+	glEnable(GL_DEPTH_TEST);
 }
 
 
@@ -636,32 +662,39 @@ void mainLoop()
 
 		// ===< Snow >=== // ===< Depth Pass >=== //
 		snowSource->update();
+		//snowSource->fitToCameraFrustum(viewMatrix, projectionMatrix); // Not working with snow...
 		mat4 snow_proj = snowSource->projectionMatrix;
 		mat4 snow_view = snowSource->viewMatrix;
 		depth_pass(snow_view, snow_proj, snowDepthFBO, SNOW_BUFFER_SIZE);
 		// Snow accumulation
 		if (snowingActive)
 		{
-			const float growRate = 0.02f;
+			const float growRate = 0.005f;
 			snowAmount          += deltaTime * growRate;
 			if (snowAmount > 1.0f) snowAmount = 1.0f;
 		}
 		else
 		{
-			const float meltRate = 0.1f;
+			const float meltRate = 0.05f;
 			snowAmount          -= deltaTime * meltRate;
 			if (snowAmount < 0.0f) snowAmount = 0.0f;
 		}
+		// Snow particles
 		snowfallSystem->setActive(snowingActive);
-		snowfallSystem->update(deltaTime, camera->position);
+		snowfallSystem->update(deltaTime, viewMatrix, projectionMatrix);
 
 
 
-		// Render the scene from camera's perspective
-		lighting_pass(viewMatrix, projectionMatrix);
+		if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
+			lighting_pass(light1_view, light1_proj); // View from Sun!
+		else if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS)
+			lighting_pass(snow_view, snow_proj); // View from Snow Source!
+		else
+			lighting_pass(viewMatrix, projectionMatrix); // Render the scene from camera's perspective!
 
 
 
+		// Render snow particles - AFTER the lighting pass!
 		snowfallSystem->draw(viewMatrix, projectionMatrix);
 
 

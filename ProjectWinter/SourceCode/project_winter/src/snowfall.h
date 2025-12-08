@@ -1,67 +1,58 @@
-// snowfall.h
-#pragma once
-
 #include <vector>
 #include <GL/glew.h>
 #include <glm/glm.hpp>
+
+using namespace std;
+using namespace glm;
 
 class Snowfall
 {
 public:
     Snowfall(
         int   maxParticles,
-        float areaRadius,     // horizontal radius around camera
-        float spawnHeight,    // how much above camera to spawn
         float minSpeed,
-        float maxSpeed,
-        GLuint snowTexture    // 0 if you want plain white discs
+        float maxSpeed
     );
 
     ~Snowfall();
 
-    // Call every frame
-    void update(float deltaTime, const glm::vec3& cameraPos);
+    // Call every frame (fit the camera's view box!)
+    void update(float deltaTime, const mat4& view, const mat4& proj);
 
-    // Call every frame after normal 3D scene (with blending enabled here)
-    void draw(const glm::mat4& view, const glm::mat4& proj);
+    // Call every frame!
+    void draw(const mat4& view, const mat4& proj);
 
     void setActive(bool value) { active = value; }
-    bool isActive() const { return active; }
 
 private:
     struct Particle
     {
-        glm::vec3 pos;
-        glm::vec3 vel;
-        float     life; // seconds
+        vec3 pos;
+        vec3 vel;
+        float life; // seconds
+        float wobblePhase;
     };
 
-    void respawnParticle(Particle& p, const glm::vec3& cameraPos);
+    // Helper to randomize a particle's properties
+    // (velocity/life) without moving it...
+    void resetParticle(Particle& p);
 
-    std::vector<Particle> particles;
+    vector<Particle> particles;
 
     int   maxParticles;
-    float areaRadius;
-    float spawnHeight;
     float minSpeed;
     float maxSpeed;
 
-    bool   active;
-    bool   useTexture;
-    GLuint snowTexture;
+    bool active;
+    bool firstFrame;
 
     // GL
     GLuint vao;
     GLuint vbo;
-    GLuint shader;   // particle shader
+    GLuint shader; // Particle Shader
 
     // uniforms
-    GLint  uView;
-    GLint  uProj;
-    GLint  uPointSize;
-    GLint  uUseTexture;
-    GLint  uTexture;
-
-    // internal helper
-    float rand01() const;
+	GLint viewMatrix;
+	GLint projMatrix;
+	GLint pointSize;
 };

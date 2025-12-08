@@ -73,10 +73,8 @@ uniform int ChampionOfLight;
 // ===< SNOW >=== //
 uniform sampler2D snowDepthMapSampler;
 in vec4 vertex_position_snowspace;
-// Gaea mask
-uniform sampler2D textureSamplerSnowMask;
-// Snow state
-uniform float snowAmount;
+uniform sampler2D textureSamplerSnowMask; // Gaea mask
+uniform float snowAmount; // Snow state
 
 
 
@@ -142,7 +140,7 @@ void main()
         if (snowVisibility > 0.001)
         {
             // Pixel-by-pixel snow accumulation using noise
-            vec2 snowUV      = vertex_position_snowspace.xy * 2000.0; // Small snow pixels!
+            vec2 snowUV      = vertex_position_snowspace.xy * 3000.0; // Small snow pixels!
             float pixelNoise = hash(floor(snowUV));
             
             // Add some variation with multiple octaves
@@ -154,7 +152,7 @@ void main()
             float snowThreshold = pixelNoise * 0.95; // Reduced range to cover more area
             float pixelSnow     = step(snowThreshold, snowVisibility); // Fully white
             
-            vec3 snowColor = vec3(1.2, 1.2, 1.2); // The light source has blut tint!
+            vec3 snowColor = vec3(1.0, 1.0, 0.9); // The light source has blut tint!
 
             // Apply snow color but preserve lighting/shadows from baseColor
             vec3 litSnowColor = snowColor * (baseColor.rgb / max(terrainBaseColor, vec3(0.01)));

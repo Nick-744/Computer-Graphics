@@ -24,6 +24,8 @@ public:
     void update();
 
     mat4 snowVP();
+
+    void fitToCameraFrustum(const mat4& cameraView, const mat4& cameraProj);
 };
 
 #endif

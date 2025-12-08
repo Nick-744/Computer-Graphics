@@ -3,7 +3,6 @@
 #include <math.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include "light.h"
-#include <limits>
 
 Light::Light(GLFWwindow* window, 
              vec4 init_La,

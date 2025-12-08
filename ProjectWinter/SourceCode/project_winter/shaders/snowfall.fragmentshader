@@ -1,29 +1,13 @@
 #version 330 core
 
-uniform sampler2D snowTexture;
-uniform int useTexture;
-
 out vec4 fragmentColor;
 
 void main()
 {
-    if (useTexture == 1)
-    {
-        // Use the provided snowflake texture (must have alpha)
-        vec4 tex = texture(snowTexture, gl_PointCoord);
-        if (tex.a < 0.1) discard;
-        fragmentColor = tex;
-    }
-    else
-    {
-        // Soft white disc
-        vec2 c = gl_PointCoord * 2.0 - 1.0; // [-1,1]
-        float r2 = dot(c, c);
-        if (r2 > 4.0) discard;
+    vec2 coord = gl_PointCoord - vec2(0.5);
+    if(length(coord) > 0.5) discard; // Cut into circle
+    
+    float alpha = 1.0 - smoothstep(0.3, 0.5, length(coord)); // Soft edge
 
-        float r = sqrt(r2);
-        float alpha = 1.0 - smoothstep(0.7, 1.0, r);
-
-        fragmentColor = vec4(vec3(1.0), alpha);
-    }
+    fragmentColor = vec4(1.0, 1.0, 1.0, alpha);
 }
