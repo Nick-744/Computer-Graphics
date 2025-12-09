@@ -300,9 +300,9 @@ void createContext()
 
 	// ===< Snow >=== // ===< Particles >=== //
 	snowfallSystem = new Snowfall(
-		20000, // max particles
-		20.0f, // min fall speed
-		25.0f  // max fall speed
+		10000, // max particles
+		 5.0f, // min fall speed
+		10.0f  // max fall speed
 	);
 
 	// Loading a model

@@ -7,7 +7,7 @@
 #include <common/shader.h>
 #include <glm/gtc/matrix_transform.hpp>
 
-static const float SNOWFLAKE_POINT_SIZE = 2.5f;
+static const float SNOWFLAKE_POINT_SIZE = 4.0f;
 
 float rand01() { return static_cast<float> (rand()) / static_cast<float> (RAND_MAX); }
 
@@ -69,30 +69,13 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
 {
     if (!active) return;
 
-    // --- Calculate Frustum Bounds in View Space --- //
-    mat4 invProj = inverse(proj);
-    vec3 minBounds(1e9f);
-    vec3 maxBounds(-1e9f);
-
-    // Check all 8 corners of NDC cube
-    for (int z = 0; z <= 1; ++z)
-        for (int y = 0; y <= 1; ++y)
-            for (int x = 0; x <= 1; ++x)
-            {
-                vec4 ndc(
-                    x ? 1.0f : -1.0f,
-                    y ? 1.0f : -1.0f,
-                    z ? 1.0f : -1.0f,
-                    1.0f
-                );
-                vec4 viewPos = invProj * ndc;
-                viewPos     /= viewPos.w;
-                minBounds    = glm::min(minBounds, vec3(viewPos));
-                maxBounds    = glm::max(maxBounds, vec3(viewPos));
-            }
-
-    vec3 boxSize = maxBounds - minBounds;
-    mat4 invView = inverse(view);
+    mat4 invView    = inverse(view);
+    float boxRadius = 70.0f; // VERY IMPORTANT FOR THE ILLUSION OF INFINITE SNOWFALL!
+    
+    // Define the "Snow Globe" bounds in View Space
+    vec3 minBounds = vec3(-boxRadius, -boxRadius, -boxRadius);
+    vec3 maxBounds = vec3(boxRadius, boxRadius, boxRadius);
+    vec3 boxSize   = maxBounds - minBounds;
 
     // --- First Frame Scatter --- //
     // If this is the first update, scatter particles RANDOMLY inside the box!
@@ -102,7 +85,7 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
         {
             Particle& p = particles[i];
 
-            // Random position in View Space
+            // Random position in View Space within the Snow Globe
             float rx = rand01();
             float ry = rand01();
             float rz = rand01();
@@ -123,42 +106,44 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
         // [Wobble Effect] Add sine wave motion to X and Z
         p.wobblePhase += deltaTime * 2.0f; // Speed of flutter
         vec3 flutter = vec3(
-            cos(p.wobblePhase) * 1.5f, // X flutter strength
+            cos(p.wobblePhase) * 1.3f, // X flutter strength
             0.0f,
-            sin(p.wobblePhase) * 1.5f  // Z flutter strength
+            sin(p.wobblePhase) * 1.3f  // Z flutter strength
         );
 
         // Apply Gravity + Flutter
         p.pos += (p.vel + flutter) * deltaTime;
 
         // --- Wrap Logic (View Space) --- //
+        // Convert particle to View Space to check against the "Snow Globe" bounds
         vec4 pView4 = view * vec4(p.pos, 1.0f);
-        vec3 pView = vec3(pView4);
+        vec3 pView  = vec3(pView4);
 
         bool wrapped = false;
         vec3 wrapOffsetView(0.0f);
 
         // X Axis
-        if (pView.x < minBounds.x)      { wrapOffsetView.x += boxSize.x; wrapped = true; }
+        if      (pView.x < minBounds.x) { wrapOffsetView.x += boxSize.x; wrapped = true; }
         else if (pView.x > maxBounds.x) { wrapOffsetView.x -= boxSize.x; wrapped = true; }
 
         // Y Axis (Top/Bottom)
-        if (pView.y < minBounds.y)      { wrapOffsetView.y += boxSize.y; wrapped = true; }
+        if      (pView.y < minBounds.y) { wrapOffsetView.y += boxSize.y; wrapped = true; }
         else if (pView.y > maxBounds.y) { wrapOffsetView.y -= boxSize.y; wrapped = true; }
 
         // Z Axis (Near/Far)
-        if (pView.z < minBounds.z)      { wrapOffsetView.z += boxSize.z; wrapped = true; }
+        if      (pView.z < minBounds.z) { wrapOffsetView.z += boxSize.z; wrapped = true; }
         else if (pView.z > maxBounds.z) { wrapOffsetView.z -= boxSize.z; wrapped = true; }
 
         if (wrapped)
         {
-            // Transform offset to world and apply
+            // Transform the wrapping offset from View Space -> World Space
+            // Note: Direction vectors use w=0.0f
             vec3 wrapOffsetWorld = vec3(invView * vec4(wrapOffsetView, 0.0f));
             p.pos += wrapOffsetWorld;
 
-            // Randomize X/Z slightly on wrap to prevent repeating patterns...
+            // Randomize X/Z slightly to break patterns
             if (wrapOffsetView.y != 0.0f)
-            {   // If it wrapped vertically
+            {
                 p.pos.x += (rand01() - 0.5f) * 5.0f;
                 p.pos.z += (rand01() - 0.5f) * 5.0f;
             }
