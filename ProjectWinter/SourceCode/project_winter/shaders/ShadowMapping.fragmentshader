@@ -3,7 +3,7 @@
 // ============< TERRAIN TEXTURE CREATOR >============ //
 
 // Precomputed terrain base color!!!
-vec3 terrainBaseColor;
+vec3 terrainBaseColor = vec3(0.0);
 uniform int isTerrain = 0;
 
 // Main terrain texture
@@ -32,13 +32,16 @@ uniform sampler2D textureSamplerRiversDirection;
 
 // ============< END TERRAIN TEXTURE CREATOR >============ //
 
+
+
 // ===< Reflection >=== //
 uniform sampler2D reflectionTextureSampler;
-uniform int useReflection = 1;
+uniform int useReflection = 0;
 in vec4 vertex_position_clipspace;
 
 
 
+// ===< Light & Shadows >=== //
 in vec4 vertex_position_cameraspace;
 in vec4 vertex_normal_cameraspace;
 in vec3 vertex_normal_worldspace;
@@ -77,6 +80,8 @@ out vec4 fragmentColor;
 
 uniform int ChampionOfLight;
 
+
+
 // ===< SNOW >=== //
 uniform sampler2D snowDepthMapSampler;
 in vec4 vertex_position_snowspace;
@@ -85,6 +90,7 @@ uniform float snowAmount; // Snow state
 
 
 
+// Helpers
 vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace);
 float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias);
 
@@ -93,6 +99,9 @@ float hash(vec2 p);
 
 void main()
 {
+    // ALWAYS initialize - Windows 11 is a thing, unfortunately...
+    fragmentColor = vec4(0.0);
+
     // Compute terrain texture ONCE per fragment!!!
     if (isTerrain == 1) terrainBaseColor = computeTerrainTexture(vertex_UV);
 
@@ -103,25 +112,7 @@ void main()
 
     vec4 baseColor = fragmentColor; // NO SNOW!!!
 
-    // ===< LAKE REFLECTION >=== //
-    if (isTerrain == 1 && useReflection == 1)
-    {
-        float lake = texture(textureSamplerLake, vertex_UV).r;
-        lake       = smoothstep(0.2, 0.8, lake);
-        
-        // Calculate reflection texture coordinates from clip space
-        vec2 ndc          = (vertex_position_clipspace.xy / vertex_position_clipspace.w);
-        vec2 reflectionUV = ndc * 0.5 + 0.5;
-        
-        // Sample reflection texture
-        vec3 reflectionColor = texture(reflectionTextureSampler, reflectionUV).rgb;
-        
-        // Mix base water color with reflection
-        vec3 waterColor = baseColor.rgb;
-        vec3 finalWater = mix(waterColor, reflectionColor, 0.1);
-        
-        baseColor.rgb = mix(baseColor.rgb, finalWater, lake);
-    }
+
 
     // ===< SNOW ACCUMULATION >=== //
     if (snowAmount > 0.0)
@@ -382,6 +373,24 @@ vec3 computeTerrainTexture(vec2 UV)
         vec3 displacementTexture = texture(displacementTextureSampler, UV + 0.9*sin(time)).rgb;
         vec3 surfaceTexture      = mix(movingWater, displacementTexture, 0.2);
         vec3 displacedWater      = texture(textureSamplerWater, waterUV + length(surfaceTexture)*0.05).rgb;
+        
+        // ===< LAKE REFLECTION >=== //
+        if (useReflection == 1)
+        {
+            // Calculate reflection texture coordinates from clip space
+            vec2 ndc          = (vertex_position_clipspace.xy / vertex_position_clipspace.w);
+            vec2 reflectionUV = ndc * 0.5 + 0.5;
+
+            // DISTORTION: Apply the SAME wave distortion to the reflection!
+            vec2 reflectionDistortion = vec2(wave, wave) * waveStrength * 0.5; // Less distortion...
+            reflectionDistortion     += (displacementTexture.xy - 0.5) * 0.01; // Add high-frequency noise
+
+            // Sample reflection texture with distortion!
+            vec3 reflectionColor = texture(reflectionTextureSampler, reflectionUV + reflectionDistortion).rgb;
+
+            // Mix the water texture with the reflection...
+            displacedWater = mix(displacedWater, reflectionColor, 0.2);
+        }
 
         // ... AND SAND!
         vec3 sand      = texture(textureSamplerSand, tileLocal).rgb;
