@@ -70,7 +70,7 @@ void Camera::update()
     // Task 5.6: handle ZOOM EFFECT!
     float targetFoV = 45.0f; // Default Base FoV
     
-    // If UP is held, ZOOOOOOOOM IN!
+    // If SPACE is held, ZOOOOOOOOM IN!
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) targetFoV = 20.0f;
 
     // Smoothly move current FoV towards the Target...
@@ -87,7 +87,7 @@ void Camera::update()
 
     // Task 5.7: construct projection and view matrices
     projectionMatrix = perspective(radians(FoV), 4.0f / 3.0f, 0.1f, 660.0f);
-    viewMatrix = lookAt(
+    viewMatrix       = lookAt(
         position,
         position + direction,
         up

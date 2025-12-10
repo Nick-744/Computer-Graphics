@@ -118,6 +118,8 @@ add_executable(project_winter
   project_winter/src/snowSource.h
   project_winter/src/snowfall.cpp
   project_winter/src/snowfall.h
+  project_winter/src/lakeReflection.cpp
+  project_winter/src/lakeReflection.h
 
   common/util.cpp
   common/util.h

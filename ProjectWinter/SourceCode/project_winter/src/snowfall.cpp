@@ -74,7 +74,7 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
     
     // Define the "Snow Globe" bounds in View Space
     vec3 minBounds = vec3(-boxRadius, -boxRadius, -boxRadius);
-    vec3 maxBounds = vec3(boxRadius, boxRadius, boxRadius);
+    vec3 maxBounds = vec3( boxRadius,  boxRadius,  boxRadius);
     vec3 boxSize   = maxBounds - minBounds;
 
     // --- First Frame Scatter --- //
@@ -137,7 +137,7 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
         if (wrapped)
         {
             // Transform the wrapping offset from View Space -> World Space
-            // Note: Direction vectors use w=0.0f
+            // Note: Direction vectors use w = 0.0f...
             vec3 wrapOffsetWorld = vec3(invView * vec4(wrapOffsetView, 0.0f));
             p.pos += wrapOffsetWorld;
 
@@ -172,8 +172,8 @@ void Snowfall::draw(const mat4& view, const mat4& proj)
     glUniformMatrix4fv(viewMatrix, 1, GL_FALSE, &view[0][0]);
     glUniformMatrix4fv(projMatrix, 1, GL_FALSE, &proj[0][0]);
     glUniform1f(pointSize, SNOWFLAKE_POINT_SIZE);
-
-    glEnable(GL_PROGRAM_POINT_SIZE);
+    
+    glEnable(GL_PROGRAM_POINT_SIZE); // Enable point size control in shader...
 
     // Keep depth test ON but disable depth write so snow doesn't punch holes
     GLboolean depthMask;

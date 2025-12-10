@@ -29,6 +29,7 @@
 #include "src/cabin.h"
 #include "src/snowSource.h"
 #include "src/snowfall.h"
+#include "src/lakeReflection.h"
 
 using namespace std;
 using namespace glm;
@@ -48,6 +49,8 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 
 #define SNOW_BUFFER_SIZE 8192
 
+#define REFLECTION_BUFFER_SIZE 1024
+
 
 
 // Creating a structure to store the material parameters of an object
@@ -58,12 +61,6 @@ struct Material
 	vec4 Ks;
 	float Ns;
 };
-
-// Global Variables
-GLFWwindow* window;
-Camera* camera;
-
-float lastFrameTime = 0.0f;
 
 struct MainShader // Shadow Mapping Shader...
 {
@@ -101,6 +98,10 @@ struct MainShader // Shadow Mapping Shader...
 	// Snow state
 	GLuint snowAmountLocation;
 
+	// --- Lake Reflection --- //
+	GLuint reflectionTextureSamplerLocation;
+	GLuint useReflectionLocation;
+
 	void initialize()
 	{
 		programID = loadShaders("shaders/ShadowMapping.vertexshader", "shaders/ShadowMapping.fragmentshader");
@@ -134,18 +135,30 @@ struct MainShader // Shadow Mapping Shader...
 		depthMapSampler1 = glGetUniformLocation(programID, "shadowMapSampler1");
 
 		// ===< Snow >=== //
-		snowDepthMapSampler = glGetUniformLocation(programID, "snowDepthMapSampler");
+		snowDepthMapSampler  = glGetUniformLocation(programID, "snowDepthMapSampler");
 		snowPositionLocation = glGetUniformLocation(programID, "snowPosition_worldspace");
-		snowVPLocation      = glGetUniformLocation(programID, "snowVP");
+		snowVPLocation       = glGetUniformLocation(programID, "snowVP");
 		// Gaea snow mask!
 		textureSamplerSnowMask = glGetUniformLocation(programID, "textureSamplerSnowMask");
 		textureSnowMask        = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
 		// Snow state
 		snowAmountLocation = glGetUniformLocation(programID, "snowAmount");
+
+		// Lake reflection
+		reflectionTextureSamplerLocation = glGetUniformLocation(programID, "reflectionTextureSampler");
+		useReflectionLocation            = glGetUniformLocation(programID, "useReflection");
 	}
 
 	void useProgram() { glUseProgram(programID); }
 };
+
+
+
+// Global Variables
+GLFWwindow* window;
+Camera* camera;
+
+float lastFrameTime = 0.0f;
 
 // Light
 Light* light1;
@@ -196,6 +209,10 @@ bool  snowingActive = false;
 float snowAmount    = 0.0f;
 // Snow particles
 Snowfall* snowfallSystem;
+
+// Lake reflection system
+LakeReflection* lakeReflection;
+const float WATER_HEIGHT = 58.1f; // Trial and error...
 
 
 
@@ -278,7 +295,9 @@ void createContext()
 
 
 
-	// Initialize the terrain system
+	// =====< Systems Initialization >===== //
+
+	// Terrain
 	terrainSystem = new TerrainRenderer(shaderProgram.programID);
 
 	// Cabin
@@ -301,14 +320,20 @@ void createContext()
 	// ===< Snow >=== // ===< Particles >=== //
 	snowfallSystem = new Snowfall(
 		10000, // max particles
-		 5.0f, // min fall speed
-		10.0f  // max fall speed
+		4.0f,  // min fall speed
+		8.0f   // max fall speed
 	);
 
-	// Loading a model
+	// Lake reflection
+	lakeReflection = new LakeReflection(REFLECTION_BUFFER_SIZE);
+	lakeReflection->initialize();
+
+
+
+	// ---< Loading a model >--- //
 
 	// Task 1.2 Load earth.obj using drawable 
-	sphere = new Drawable("assets/earth.obj");
+	sphere = new Drawable("assets/earth.obj"); // Sun!!!
 
 
 
@@ -440,17 +465,13 @@ void free()
 	glDeleteProgram(promptProgram);
 
 	delete terrainSystem;
-
 	delete cabinModel;
-
 	delete forestSystem;
 	delete forestSystem2;	
-
 	delete meadowSystem;
-
 	delete cloudSystem;
-
 	delete snowfallSystem;
+	delete lakeReflection;
 
 	glfwTerminate();
 }
@@ -525,7 +546,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 
-	// uploading the light parameters to the shader program
+	// Uploading the >-- light --< parameters to the shader program
 	uploadLight(
 		*light1,
 		shaderProgram.LaLocation1,
@@ -565,6 +586,14 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	mat4 snowVP = snowSource->snowVP();
 	glUniformMatrix4fv(shaderProgram.snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
+
+
+
+	// Lake Reflection
+	glActiveTexture(GL_TEXTURE27);
+	glBindTexture(GL_TEXTURE_2D, lakeReflection->getReflectionTexture());
+	glUniform1i(shaderProgram.reflectionTextureSamplerLocation, 27);
+	glUniform1i(shaderProgram.useReflectionLocation, 1); // Enable reflection...
 
 
 
@@ -614,6 +643,99 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime);
 
 	if (cull) glEnable(GL_CULL_FACE);
+}
+
+
+
+void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
+{
+	// Calculate mirrored view matrix!
+	mat4 mirroredView = lakeReflection->getMirroredViewMatrix(viewMatrix, WATER_HEIGHT);
+
+	// Begin reflection rendering
+	lakeReflection->beginReflectionPass();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+
+	shaderProgram.useProgram(); // Use main shader
+
+	// Upload mirrored matrices
+	glUniformMatrix4fv(shaderProgram.viewMatrixLocation,       1, GL_FALSE, &mirroredView[0][0]);
+	glUniformMatrix4fv(shaderProgram.projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+	// Disable reflection rendering in the reflection pass (avoid recursion)
+	glUniform1i(shaderProgram.useReflectionLocation, 0);
+
+
+
+	// Upload lighting (same as normal pass!)
+	uploadLight(
+		*light1,
+		shaderProgram.LaLocation1,
+		shaderProgram.LdLocation1,
+		shaderProgram.LsLocation1,
+		shaderProgram.light1PositionLocation
+	);
+
+	// Shadow maps
+	glActiveTexture(GL_TEXTURE23);
+	glBindTexture(GL_TEXTURE_2D, depthTexture1);
+	glUniform1i(shaderProgram.depthMapSampler1, 23);
+
+	mat4 light1VP = light1->lightVP();
+	glUniformMatrix4fv(shaderProgram.light1VPLocation, 1, GL_FALSE, &light1VP[0][0]);
+
+
+
+	// Snow (keep same for reflection)
+	glUniform3f(shaderProgram.snowPositionLocation,
+		snowSource->snowSourcePosition_worldspace.x,
+		snowSource->snowSourcePosition_worldspace.y,
+		snowSource->snowSourcePosition_worldspace.z);
+	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
+
+	glActiveTexture(GL_TEXTURE25);
+	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
+	glUniform1i(shaderProgram.snowDepthMapSampler, 25);
+
+	glActiveTexture(GL_TEXTURE26);
+	glBindTexture(GL_TEXTURE_2D, shaderProgram.textureSnowMask);
+	glUniform1i(shaderProgram.textureSamplerSnowMask, 26);
+
+	mat4 snowVP = snowSource->snowVP();
+	glUniformMatrix4fv(shaderProgram.snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
+
+
+
+	glCullFace(GL_FRONT); // Flip culling for mirrored rendering
+
+	// ===< Render scene objects (reflected) >=== //
+	float currentTime = (float) glfwGetTime() / 20.0f;
+
+	// Draw terrain
+	terrainSystem->draw(mirroredView, projectionMatrix, currentTime);
+
+	// Draw cabin
+	cabinModel->draw();
+
+	// Draw forests
+	forestSystem->draw();
+	forestSystem2->draw();
+
+	// Draw meadow
+	meadowSystem->draw();
+
+	// Draw clouds
+	GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
+	cloudSystem->draw(mirroredView, projectionMatrix, currentTime);
+	if (cull) glEnable(GL_CULL_FACE);
+
+
+
+	// End reflection pass
+	glCullFace(GL_BACK); // Restore culling
+	lakeReflection->endReflectionPass();
 }
 
 
@@ -669,19 +791,19 @@ void mainLoop()
 		// Snow accumulation
 		if (snowingActive)
 		{
-			const float growRate = 0.005f;
+			const float growRate = 0.008f;
 			snowAmount          += deltaTime * growRate;
 			if (snowAmount > 1.0f) snowAmount = 1.0f;
 		}
-		else
+		/*else
 		{
 			const float meltRate = 0.05f;
 			snowAmount          -= deltaTime * meltRate;
 			if (snowAmount < 0.0f) snowAmount = 0.0f;
-		}
-		// Snow particles
-		snowfallSystem->setActive(snowingActive);
-		snowfallSystem->update(deltaTime, viewMatrix, projectionMatrix);
+		}*/
+
+		// Lake Reflection Pass
+		reflection_pass(viewMatrix, projectionMatrix);
 
 
 
@@ -694,7 +816,9 @@ void mainLoop()
 
 
 
-		// Render snow particles - AFTER the lighting pass!
+		// Render SNOW PARTICLES - AFTER the lighting pass!
+		snowfallSystem->setActive(snowingActive);
+		snowfallSystem->update(deltaTime, viewMatrix, projectionMatrix);
 		snowfallSystem->draw(viewMatrix, projectionMatrix);
 
 

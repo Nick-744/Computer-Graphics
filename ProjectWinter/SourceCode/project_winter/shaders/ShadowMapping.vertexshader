@@ -35,12 +35,17 @@ uniform mat4 snowVP;
 in vec3 snowPosition_worldspace;
 out vec4 vertex_position_snowspace;
 
+out vec4 vertex_position_clipspace; // Reflection
+
 
 
 void main()
 {
     // Output position of the vertex
     gl_Position =  P * V * M * vec4(vertexPosition_modelspace, 1);
+
+    // Reflection
+    vertex_position_clipspace = gl_Position;
     
     // FS
     vertex_position_cameraspace  = V * M * vec4(vertexPosition_modelspace, 1);
