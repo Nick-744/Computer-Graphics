@@ -103,32 +103,46 @@ void Camera::update()
         position -= right * deltaTime * speed;
         isMoving  = true;
     }
+    
+    
+    
+    // ===< FLYING MODE TOGGLE >=== //
+    static int lastToggleState = GLFW_RELEASE; // Remembered between frames
+    int currentToggleState     = glfwGetKey(window, GLFW_KEY_F);
 
-
-
-    // ===< TERRAIN HEIGHT ADJUSTMENT >=== //
+    if (currentToggleState == GLFW_PRESS && lastToggleState == GLFW_RELEASE)
     {
-        // Calculate height of the ground at current (x, z)
-        float groundHeight = getTerrainHeight(position.x, position.z);
-        position.y         = groundHeight + 1.8f;
+        flyingMode = !flyingMode;
+        speed      = flyingMode ? 20.0f : 4.0f;
     }
+    lastToggleState = currentToggleState; // Didn't want to overcomplicate things with pollKeyboard...
 
-    // ===< HEAD BOBBING >=== //
     vec3 eyePosition = position;
-    if (isMoving)
+    if (!flyingMode) // Realistic camera movement...
     {
-        // Increment timer based on movement speed
-        walkTimer += deltaTime * speed * 2.5f;
+        // ===< TERRAIN HEIGHT ADJUSTMENT >=== //
+        {
+            // Calculate height of the ground at current (x, z)
+            float groundHeight = getTerrainHeight(position.x, position.z);
+            position.y         = groundHeight + 1.8f;
+        }
 
-        // Vertical Bob (Up/Down)
-        float bobOffset = sin(walkTimer) * 0.1f;
-        eyePosition.y  += bobOffset;
+        // ===< HEAD BOBBING >=== //
+        if (isMoving)
+        {
+            // Increment timer based on movement speed
+            walkTimer += deltaTime * speed * 2.5f;
 
-        // Horizontal Sway (Left/Right) - Simulates weight shifting...
-        float swayOffset = cos(walkTimer * 0.5f) * 0.1f;
-        eyePosition     += right * swayOffset;
+            // Vertical Bob (Up/Down)
+            float bobOffset = sin(walkTimer) * 0.1f;
+            eyePosition.y  += bobOffset;
+
+            // Horizontal Sway (Left/Right) - Simulates weight shifting...
+            float swayOffset = cos(walkTimer * 0.5f) * 0.08f;
+            eyePosition     += right * swayOffset;
+        }
+        else walkTimer = 0.0f; // Reset timer to 0!
     }
-    else walkTimer = 0.0f; // Reset timer to 0!
 
 
 

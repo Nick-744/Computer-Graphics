@@ -11,15 +11,12 @@ uniform sampler2D textureSamplerWorld;
 
 // Gaea terrain masks
 uniform sampler2D textureSamplerSlope;
-uniform sampler2D textureSamplerSoil;
-uniform sampler2D textureSamplerPeaks;
 uniform sampler2D textureSamplerLake;
 uniform sampler2D textureSamplerRivers;
 
 // High-resolution material textures
 uniform sampler2D textureSamplerRock;
 uniform sampler2D textureSamplerGrass;
-uniform sampler2D textureSamplerDirt;
 uniform sampler2D textureSamplerSand;
 
 // Moving water texture + displacement
@@ -106,7 +103,7 @@ void main()
     if (isTerrain == 1) terrainBaseColor = computeTerrainTexture(vertex_UV);
 
     // ===< light 1 >=== //
-    float shadow     = ShadowCalculation(vertex_position_lightspace1, shadowMapSampler1, 0.0003);
+    float shadow     = ShadowCalculation(vertex_position_lightspace1, shadowMapSampler1, 0.0004);
     float visibility = 1.0f - shadow;
     fragmentColor   += phong(light1, visibility, light_direction_cameraspace1);
 
@@ -309,10 +306,8 @@ vec3 computeTerrainTexture(vec2 UV)
 
     // Gaea terrain masks
     float slope = texture(textureSamplerSlope, UV).r;
-    float soil  = texture(textureSamplerSoil,  UV).r;
-
-    float lake = texture(textureSamplerLake, UV).r;
-    lake       = smoothstep(0.2, 0.8, lake);
+    float lake  = texture(textureSamplerLake, UV).r;
+    lake        = smoothstep(0.2, 0.8, lake);
 
 
 
@@ -324,7 +319,7 @@ vec3 computeTerrainTexture(vec2 UV)
     float tileScale = 200.0f;
     vec2  tileLocal = fract(UV * tileScale); // 0..1 inside tile
 
-    { // ROCK, GRASS, DIRT... (Land)
+    { // ROCK, GRASS... (Land)
 
         vec2  tile       = floor(UV * tileScale);
         float tileRandom = hash(tile);
@@ -336,14 +331,12 @@ vec3 computeTerrainTexture(vec2 UV)
         // Sample materials using tile-local UVs!
         rock       = texture(textureSamplerRock,  tileLocal).rgb;
         vec3 grass = texture(textureSamplerGrass, tileLocal).rgb;
-        vec3 dirt  = texture(textureSamplerDirt,  tileLocal).rgb;
 
         // Blending logic
-        vec3 base1 = mix(dirt, grass, soil);
-        vec3 base2 = mix(rock, base1, slope * 1.2);
+        vec3 details = mix(rock, grass, slope * 1.2);
 
         // Blend with Gaea terrain texture
-        finalColor = mix(base2, worldColor, 0.5);
+        finalColor = mix(details, worldColor, 0.5);
 
     }
 

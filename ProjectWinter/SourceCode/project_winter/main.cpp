@@ -826,7 +826,7 @@ void mainLoop()
 		// Door animation update!
 		cabinModel->update(deltaTime);
 		// Render the prompt quad (when the camera is near the cabin door)
-		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.5f)
+		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f)
 			renderPrompt();
 
 		
@@ -855,15 +855,12 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	// ---< Player interactions >--- //
 	if (key == GLFW_KEY_E && action == GLFW_PRESS)
 	{
-		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.5f)
+		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f)
 			cabinModel->toggleDoor();
 	}
 
 	if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-	{
 		snowingActive = !snowingActive;
-		printf("Snow %s\n", snowingActive ? "ON" : "OFF");
-	}
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)

@@ -36,8 +36,8 @@ private:
     GLuint vpLocation, mLocation, timeLocation;
 
     // Texture Sampler Locations
-    GLuint textureSamplerWorld, textureSamplerSlope, textureSamplerSoil, textureSamplerPeaks, textureSamplerLake, textureSamplerRivers;
-    GLuint textureSamplerRock, textureSamplerGrass, textureSamplerDirt, textureSamplerSand, textureSamplerWater, textureSamplerDisplacement, textureSamplerRiversDirection;
+    GLuint textureSamplerWorld, textureSamplerSlope, textureSamplerLake, textureSamplerRivers;
+    GLuint textureSamplerRock, textureSamplerGrass, textureSamplerSand, textureSamplerWater, textureSamplerDisplacement, textureSamplerRiversDirection;
 
     // Actual Texture IDs
     GLuint textureWorld, textureSlope, textureSoil, texturePeaks, textureLake, textureRivers;

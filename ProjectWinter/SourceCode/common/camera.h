@@ -30,6 +30,8 @@ public:
     float mouseSpeed;
     float fovSpeed;
     
+    bool flyingMode = false; // If true, no terrain height adjustment!
+    
     // Terrain data - Camera height management!
     vector<TerrainTriangle> terrainTriangles;
     void loadTerrain(const char* filePath);
