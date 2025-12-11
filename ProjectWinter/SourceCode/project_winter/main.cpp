@@ -309,7 +309,7 @@ void createContext()
 	forestSystem->setRotation(-0.5f);
 
 	forestSystem2 = new Forest(shaderProgram.programID);
-	forestSystem2->setPosition(vec3(- 66.5f, 60.7f, 43.0f));
+	forestSystem2->setPosition(vec3(-66.5f, 60.7f, 43.0f));
 
 	// Meadow
 	meadowSystem = new Meadow(shaderProgram.programID);

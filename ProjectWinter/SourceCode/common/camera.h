@@ -2,6 +2,17 @@
 #define CAMERA_HPP
 
 #include <glm/glm.hpp>
+#include <vector>
+
+using namespace std;
+
+// Store terrain triangle...
+struct TerrainTriangle
+{
+    glm::vec3 v1;
+    glm::vec3 v2;
+    glm::vec3 v3;
+};
 
 class Camera {
 public:
@@ -18,6 +29,11 @@ public:
     float speed; // units / second
     float mouseSpeed;
     float fovSpeed;
+    
+    // Terrain data - Camera height management!
+    vector<TerrainTriangle> terrainTriangles;
+    void loadTerrain(const char* filePath);
+    float getTerrainHeight(float x, float z);
 
     Camera(GLFWwindow* window);
     void update();
