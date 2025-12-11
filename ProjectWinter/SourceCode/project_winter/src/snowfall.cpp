@@ -69,13 +69,21 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
 {
     if (!active) return;
 
-    mat4 invView    = inverse(view);
-    float boxRadius = 70.0f; // VERY IMPORTANT FOR THE ILLUSION OF INFINITE SNOWFALL!
-    
+    mat4 invView   = inverse(view);
+    float boxWidth = 25.0f; // VERY IMPORTANT FOR THE ILLUSION OF INFINITE SNOWFALL!
+
     // Define the "Snow Globe" bounds in View Space
-    vec3 minBounds = vec3(-boxRadius, -boxRadius, -boxRadius);
-    vec3 maxBounds = vec3( boxRadius,  boxRadius,  boxRadius);
-    vec3 boxSize   = maxBounds - minBounds;
+    float minX = -boxWidth;
+    float maxX =  boxWidth;
+    float minY = -4.0f; // Player's head height + margin...
+    float maxY = 20.0f;
+
+    // Most snow should be in front!
+    float minZ = -35.0f;
+    float maxZ =   2.0f;
+
+    // Calculate dimensions for wrapping
+    vec3 boxSize = vec3(maxX - minX, maxY - minY, maxZ - minZ);
 
     // --- First Frame Scatter --- //
     // If this is the first update, scatter particles RANDOMLY inside the box!
@@ -85,12 +93,16 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
         {
             Particle& p = particles[i];
 
-            // Random position in View Space within the Snow Globe
+            // Random position strictly within asymmetric box
             float rx = rand01();
             float ry = rand01();
             float rz = rand01();
 
-            vec3 randomViewPos = minBounds + vec3(rx, ry, rz) * boxSize;
+            vec3 randomViewPos = vec3(
+                minX + rx * boxSize.x,
+                minY + ry * boxSize.y,
+                minZ + rz * boxSize.z
+            );
 
             // Transform back to World Space
             p.pos = vec3(invView * vec4(randomViewPos, 1.0f));
@@ -115,7 +127,7 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
         p.pos += (p.vel + flutter) * deltaTime;
 
         // --- Wrap Logic (View Space) --- //
-        // Convert particle to View Space to check against the "Snow Globe" bounds
+        // Convert particle to View Space to check against the bounds...
         vec4 pView4 = view * vec4(p.pos, 1.0f);
         vec3 pView  = vec3(pView4);
 
@@ -123,16 +135,16 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
         vec3 wrapOffsetView(0.0f);
 
         // X Axis
-        if      (pView.x < minBounds.x) { wrapOffsetView.x += boxSize.x; wrapped = true; }
-        else if (pView.x > maxBounds.x) { wrapOffsetView.x -= boxSize.x; wrapped = true; }
+        if      (pView.x < minX) { wrapOffsetView.x += boxSize.x; wrapped = true; }
+        else if (pView.x > maxX) { wrapOffsetView.x -= boxSize.x; wrapped = true; }
 
         // Y Axis (Top/Bottom)
-        if      (pView.y < minBounds.y) { wrapOffsetView.y += boxSize.y; wrapped = true; }
-        else if (pView.y > maxBounds.y) { wrapOffsetView.y -= boxSize.y; wrapped = true; }
+        if      (pView.y < minY) { wrapOffsetView.y += boxSize.y; wrapped = true; }
+        else if (pView.y > maxY) { wrapOffsetView.y -= boxSize.y; wrapped = true; }
 
-        // Z Axis (Near/Far)
-        if      (pView.z < minBounds.z) { wrapOffsetView.z += boxSize.z; wrapped = true; }
-        else if (pView.z > maxBounds.z) { wrapOffsetView.z -= boxSize.z; wrapped = true; }
+        // Z Axis (Front/Back)
+        if      (pView.z < minZ) { wrapOffsetView.z += boxSize.z; wrapped = true; }
+        else if (pView.z > maxZ) { wrapOffsetView.z -= boxSize.z; wrapped = true; }
 
         if (wrapped)
         {

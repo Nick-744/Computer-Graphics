@@ -59,7 +59,7 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // Load Mesh
-    terrain = new Drawable("assets/worldmap_gaea/super_low_poly_worldmap.obj");
+    terrain = new Drawable("assets/worldmap_gaea/ultra_low_poly_worldmap.obj");
 }
 
 TerrainRenderer::~TerrainRenderer()

@@ -44,6 +44,10 @@ CloudRenderer::CloudRenderer()
     timeLocation        = glGetUniformLocation(shaderProgram, "time");
     cloudBaseLocation   = glGetUniformLocation(shaderProgram, "cloudBase");
     cloudDetailLocation = glGetUniformLocation(shaderProgram, "cloudDetail");
+    
+    // For the fog effect...
+    fogDensityLocation = glGetUniformLocation(shaderProgram, "fogDensity");
+    fogColorLocation   = glGetUniformLocation(shaderProgram, "fogColor");
 
     // Build a cluster of 50 billboards (puffs)
     buildCloudMesh(50, 15.0f);
@@ -156,7 +160,7 @@ CloudRenderer::~CloudRenderer()
     glDeleteTextures(1, &cloudDetailTexture);
 }
 
-void CloudRenderer::draw(const mat4& view, const mat4& proj, float time)
+void CloudRenderer::draw(const mat4& view, const mat4& proj, float time, vec3 fogColor, float fogDensity)
 {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -177,6 +181,10 @@ void CloudRenderer::draw(const mat4& view, const mat4& proj, float time)
     glUniform1i(cloudDetailLocation, 1);
 
     glUniform1f(timeLocation, time);
+    
+    // --- FOG UNIFORMS --- //
+    glUniform3fv(fogColorLocation, 1, &fogColor[0]);
+    glUniform1f(fogDensityLocation, fogDensity);
 
     // --- BILLBOARDING MATH --- //
     // We need these so the clouds face the camera!

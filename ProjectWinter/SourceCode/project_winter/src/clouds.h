@@ -13,7 +13,7 @@ public:
     CloudRenderer();
     ~CloudRenderer();
 
-    void draw(const mat4& view, const mat4& proj, float time);
+    void draw(const mat4& view, const mat4& proj, float time, vec3 fogColor, float fogDensity);
 
 private:
     struct CloudInstance
@@ -37,6 +37,10 @@ private:
     GLint timeLocation;
     GLint cloudBaseLocation;
     GLint cloudDetailLocation;
+
+    // Fog
+    GLint fogDensityLocation;
+    GLint fogColorLocation;
 
     std::vector<CloudInstance> clouds;
 

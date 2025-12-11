@@ -4,7 +4,7 @@ import os
 
 # ================= CONFIGURATION ================= #
 # Paths
-TERRAIN_OBJ     = "../project_winter/assets/worldmap_gaea/super_low_poly_worldmap.obj"
+TERRAIN_OBJ     = "../project_winter/assets/worldmap_gaea/ultra_low_poly_worldmap.obj"
 CABIN_FLOOR_OBJ = "../project_winter/assets/cabin/model/Floor.obj"
 OUTPUT_TXT      = "../project_winter/assets/terrain_triangles_geometry.txt"
 

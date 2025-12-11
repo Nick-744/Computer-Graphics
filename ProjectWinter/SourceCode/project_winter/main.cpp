@@ -102,6 +102,10 @@ struct MainShader // Shadow Mapping Shader...
 	GLuint reflectionTextureSamplerLocation;
 	GLuint useReflectionLocation;
 
+	// --- Fog --- //
+	GLuint fogDensityLocation;
+	GLuint fogColorLocation;
+
 	void initialize()
 	{
 		programID = loadShaders("shaders/ShadowMapping.vertexshader", "shaders/ShadowMapping.fragmentshader");
@@ -147,6 +151,10 @@ struct MainShader // Shadow Mapping Shader...
 		// Lake reflection
 		reflectionTextureSamplerLocation = glGetUniformLocation(programID, "reflectionTextureSampler");
 		useReflectionLocation            = glGetUniformLocation(programID, "useReflection");
+
+		// Fog
+		fogDensityLocation = glGetUniformLocation(programID, "fogDensity");
+		fogColorLocation   = glGetUniformLocation(programID, "fogColor");
 	}
 
 	void useProgram() { glUseProgram(programID); }
@@ -163,6 +171,10 @@ float lastFrameTime = 0.0f;
 // Light
 Light* light1;
 Drawable* sphere; // Light model helper
+
+// Sky & fog colors
+vec3 skyColor     = vec3(0.6f, 0.7f, 1.0f);
+vec3 snowFogColor = vec3(0.8f, 0.85f, 0.9f);
 
 // --- shaderProgram --- //
 MainShader shaderProgram;
@@ -319,9 +331,9 @@ void createContext()
 
 	// ===< Snow >=== // ===< Particles >=== //
 	snowfallSystem = new Snowfall(
-		10000, // max particles
-		4.0f,  // min fall speed
-		8.0f   // max fall speed
+		3000, // max particles
+		2.0f,  // min fall speed
+		5.0f   // max fall speed
 	);
 
 	// Lake reflection
@@ -538,6 +550,26 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Step 3: Selecting shader program
 	shaderProgram.useProgram();
 
+
+
+	// ===< Fog >=== //
+	// Fog is gradualy applied based on snow amount!
+	// Blend so the sky color doesn't have to change...
+	vec3 currentFogColor = mix(skyColor, snowFogColor, snowAmount);
+
+	// Base density + extra density when snowing
+	float currentDensity = snowAmount * 0.04f;
+
+	glUniform3f(
+		shaderProgram.fogColorLocation,
+		currentFogColor.x,
+		currentFogColor.y,
+		currentFogColor.z
+	);
+	glUniform1f(shaderProgram.fogDensityLocation, currentDensity);
+
+
+
 	// Making view and projection matrices uniform to the shader program
 	glUniformMatrix4fv(shaderProgram.viewMatrixLocation,       1, GL_FALSE, &viewMatrix[0][0]);
 	glUniformMatrix4fv(shaderProgram.projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
@@ -640,7 +672,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	GLboolean cull = glIsEnabled(GL_CULL_FACE);
 	glDisable(GL_CULL_FACE);
 
-	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime);
+	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime, currentFogColor, currentDensity);
 
 	if (cull) glEnable(GL_CULL_FACE);
 }
@@ -728,7 +760,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw clouds
 	GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
-	cloudSystem->draw(mirroredView, projectionMatrix, currentTime);
+	cloudSystem->draw(mirroredView, projectionMatrix, currentTime, vec3(0.0f), 0.0f);
 	if (cull) glEnable(GL_CULL_FACE);
 
 
@@ -801,6 +833,10 @@ void mainLoop()
 			snowAmount          -= deltaTime * meltRate;
 			if (snowAmount < 0.0f) snowAmount = 0.0f;
 		}*/
+
+		// ===< UPDATE SKY COLOR >=== //
+		vec3 currentSkyColor = mix(skyColor, snowFogColor, snowAmount);
+		glClearColor(currentSkyColor.x, currentSkyColor.y, currentSkyColor.z, 0.0f);
 
 		// Lake Reflection Pass
 		reflection_pass(viewMatrix, projectionMatrix);
@@ -935,7 +971,7 @@ void initialize()
 	glfwSetCursorPos(window, W_WIDTH / 2, W_HEIGHT / 2);
 
 	// Sky color
-	glClearColor(0.6f, 0.7f, 1.0f, 0.0f);
+	glClearColor(skyColor[0], skyColor[1], skyColor[2], 0.0f);
 
 	glfwSetKeyCallback(window, pollKeyboard);
 

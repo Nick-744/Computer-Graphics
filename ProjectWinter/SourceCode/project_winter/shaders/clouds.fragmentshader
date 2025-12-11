@@ -9,6 +9,10 @@ uniform sampler2D cloudBase;
 uniform sampler2D cloudDetail;
 uniform float time;
 
+// Fog
+uniform vec3 fogColor;
+uniform float fogDensity;
+
 void main()
 {
     // Texture Sampling with movement
@@ -38,6 +42,25 @@ void main()
     
     // Smooth mix based on height
     vec3 finalColor = mix(shadowColor, sunColor, VerticalPos);
+
+
+
+    { // ===< APPLY FOG >=== //
+
+        // Linear approximation is fine for billboards
+        dist = gl_FragCoord.z / gl_FragCoord.w;
+
+        // Same math as main shader!
+        float cloudFogDensity = fogDensity * 1.2;
+
+        float fogFactor = 1.0 / exp( (dist * cloudFogDensity) * (dist * cloudFogDensity) );
+        fogFactor       = clamp(fogFactor, 0.0, 1.0);
+
+        finalColor = mix(fogColor, finalColor, fogFactor);
+
+    }
+
+
 
     color = vec4(finalColor, alphaShape * 0.85);
 }
