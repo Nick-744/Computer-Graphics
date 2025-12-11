@@ -110,7 +110,7 @@ void Camera::update()
     {
         // Calculate height of the ground at current (x, z)
         float groundHeight = getTerrainHeight(position.x, position.z);
-        position.y         = groundHeight + 2.0f; // My character is a basketball player...
+        position.y         = groundHeight + 1.8f;
     }
 
     // ===< HEAD BOBBING >=== //
