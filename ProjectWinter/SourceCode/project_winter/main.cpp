@@ -167,6 +167,7 @@ GLFWwindow* window;
 Camera* camera;
 
 float lastFrameTime = 0.0f;
+float terrainTime   = 0.0f; // For terrain's animation control!
 
 // Light
 Light* light1;
@@ -558,7 +559,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	vec3 currentFogColor = mix(skyColor, snowFogColor, snowAmount);
 
 	// Base density + extra density when snowing
-	float currentDensity = snowAmount * 0.04f;
+	float currentDensity = snowAmount * 0.03f;
 
 	glUniform3f(
 		shaderProgram.fogColorLocation,
@@ -633,9 +634,10 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// --------------------- Drawing scene objects --------------------- //	
 	// ----------------------------------------------------------------- //
 
-	// Draw terrain!
 	float currentTime = (float) glfwGetTime() / 20.0f;
-	terrainSystem->draw(viewMatrix, projectionMatrix, currentTime);
+
+	// Draw terrain!
+	terrainSystem->draw(viewMatrix, projectionMatrix, terrainTime);
 
 	// Remove the texture from terrain and use material instead!
 	// ** Use bool variable to tell the shader not to use a texture
@@ -673,6 +675,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glDisable(GL_CULL_FACE);
 
 	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime, currentFogColor, currentDensity);
+	// Remember to change the parameters in reflection pass too...
 
 	if (cull) glEnable(GL_CULL_FACE);
 }
@@ -746,7 +749,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	float currentTime = (float) glfwGetTime() / 20.0f;
 
 	// Draw terrain
-	terrainSystem->draw(mirroredView, projectionMatrix, currentTime);
+	terrainSystem->draw(mirroredView, projectionMatrix, terrainTime);
 
 	// Draw cabin
 	cabinModel->draw();
@@ -760,7 +763,13 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw clouds
 	GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
-	cloudSystem->draw(mirroredView, projectionMatrix, currentTime, vec3(0.0f), 0.0f);
+	cloudSystem->draw(
+		mirroredView,
+		projectionMatrix,
+		currentTime,
+		mix(skyColor, snowFogColor, snowAmount),
+		snowAmount * 0.03f
+	);
 	if (cull) glEnable(GL_CULL_FACE);
 
 
@@ -827,16 +836,13 @@ void mainLoop()
 			snowAmount          += deltaTime * growRate;
 			if (snowAmount > 1.0f) snowAmount = 1.0f;
 		}
-		/*else
-		{
-			const float meltRate = 0.05f;
-			snowAmount          -= deltaTime * meltRate;
-			if (snowAmount < 0.0f) snowAmount = 0.0f;
-		}*/
+		// Control terrain's water speed...
+		float flowSpeed = mix(1.0f, 0.05f, snowAmount);
+		terrainTime    += (deltaTime / 20.0f) * flowSpeed;
 
 		// ===< UPDATE SKY COLOR >=== //
 		vec3 currentSkyColor = mix(skyColor, snowFogColor, snowAmount);
-		glClearColor(currentSkyColor.x, currentSkyColor.y, currentSkyColor.z, 0.0f);
+		glClearColor(currentSkyColor.x, currentSkyColor.y, currentSkyColor.z, 0.0f); // Better fog effect!
 
 		// Lake Reflection Pass
 		reflection_pass(viewMatrix, projectionMatrix);

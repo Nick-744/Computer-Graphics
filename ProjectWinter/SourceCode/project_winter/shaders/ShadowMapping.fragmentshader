@@ -175,8 +175,17 @@ void main()
             
             vec3 snowColor = vec3(1.0, 1.0, 0.9); // The light source has blut tint!
 
+            vec3 albedo = terrainBaseColor; // Base color of an object before any lighting...
+            if (isTerrain == 0) 
+            {
+                if (useTexture == 1 || useTransparentTex == 1) 
+                    albedo = texture(diffuseColorSampler, vertex_UV).rgb;
+                else 
+                    albedo = mtl.Kd.rgb;
+            }
+
             // Apply snow color but preserve lighting/shadows from baseColor
-            vec3 litSnowColor = snowColor * (baseColor.rgb / max(terrainBaseColor, vec3(0.01)));
+            vec3 litSnowColor = snowColor * (baseColor.rgb / max(albedo, vec3(0.01)));
 
             fragmentColor.rgb = mix(baseColor.rgb, litSnowColor, pixelSnow);
             fragmentColor.a   = baseColor.a;
@@ -245,10 +254,16 @@ vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
 
     if (isTerrain == 1)
     {
-        _Ks = 0.3 * vec4(texture(textureSamplerLake, vertex_UV).r);
+        float lakeMask = texture(textureSamplerLake, vertex_UV).r;
+
+        // ===< FREEZING GLARE >=== //
+        float iceSpecular = mix(0.3, 1.0, snowAmount); 
+
+        _Ks = iceSpecular * vec4(lakeMask);
         _Kd = vec4(terrainBaseColor, 1.0);
         _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
-        _Ns = 200; // Sharp highlights
+
+        _Ns = mix(200.0, 600.0, snowAmount); // Smoother ice...
     }
     else if (useTexture == 1) // use texture for materials
     {
@@ -381,6 +396,11 @@ vec3 computeTerrainTexture(vec2 UV)
 
         vec3 movingWater = texture(textureSamplerWater, waterUV).rgb;
 
+        // ===< FREEZING LAKE EFFECT >=== //
+        vec3 iceColor      = vec3(0.95, 0.98, 1.0);
+        float freezeFactor = smoothstep(0.1, 0.9, snowAmount) * 0.95; // Non-linear freeze!
+        movingWater        = mix(movingWater, iceColor, freezeFactor);
+
         // Displacement texture for more detail (WATER)
         vec3 displacementTexture = texture(displacementTextureSampler, UV + 0.9*sin(time)).rgb;
         vec3 surfaceTexture      = mix(movingWater, displacementTexture, 0.2);
@@ -394,14 +414,20 @@ vec3 computeTerrainTexture(vec2 UV)
             vec2 reflectionUV = ndc * 0.5 + 0.5;
 
             // DISTORTION: Apply the SAME wave distortion to the reflection!
+            float freezeDampen = 1.0 - snowAmount; // Reduce distortion
+            
             vec2 reflectionDistortion = vec2(wave, wave) * waveStrength * 0.5; // Less distortion...
             reflectionDistortion     += (displacementTexture.xy - 0.5) * 0.01; // Add high-frequency noise
+            
+            reflectionDistortion *= freezeDampen; // Apply dampening
 
             // Sample reflection texture with distortion!
             vec3 reflectionColor = texture(reflectionTextureSampler, reflectionUV + reflectionDistortion).rgb;
 
             // Mix the water texture with the reflection...
-            displacedWater = mix(displacedWater, reflectionColor, 0.2);
+            float reflectionStrength = mix(0.2, 0.8, snowAmount); // Stronger Reflection
+            
+            displacedWater = mix(displacedWater, reflectionColor, reflectionStrength);
         }
 
         // ... AND SAND!
