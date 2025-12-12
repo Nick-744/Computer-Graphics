@@ -6,6 +6,8 @@
 
 using namespace glm;
 
+extern float cameraFarPlane; // Optimization for shadow mapping...
+
 Camera::Camera(GLFWwindow* window) : window(window) {
     position        = vec3(0, 60, 0);
     horizontalAngle = 3.14f;
@@ -167,7 +169,7 @@ void Camera::update()
 
 
     // Task 5.7: construct projection and view matrices
-    projectionMatrix = perspective(radians(FoV), 4.0f / 3.0f, 0.1f, 660.0f);
+    projectionMatrix = perspective(radians(FoV), 4.0f / 3.0f, 0.1f, cameraFarPlane);
     viewMatrix       = lookAt(
         eyePosition,
         eyePosition + direction,

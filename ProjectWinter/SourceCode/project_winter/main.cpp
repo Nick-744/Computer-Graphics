@@ -45,7 +45,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 #define W_HEIGHT 720
 #define TITLE "Project Winter"
 
-#define SHADOW_BUFFER_SIZE 8192 * 2
+#define SHADOW_BUFFER_SIZE 8192
 
 #define SNOW_BUFFER_SIZE 8192
 
@@ -165,6 +165,7 @@ struct MainShader // Shadow Mapping Shader...
 // Global Variables
 GLFWwindow* window;
 Camera* camera;
+float cameraFarPlane = 660.0f; // Optimization for shadow mapping...
 
 float lastFrameTime = 0.0f;
 float terrainTime   = 0.0f; // For terrain's animation control!
@@ -834,7 +835,11 @@ void mainLoop()
 		{
 			const float growRate = 0.008f;
 			snowAmount          += deltaTime * growRate;
-			if (snowAmount > 1.0f) snowAmount = 1.0f;
+			if (snowAmount > 1.0f)
+			{
+				snowAmount     = 1.0f;
+				cameraFarPlane = 110.0f; // Reduce far plane for better performance!
+			}
 		}
 		// Control terrain's water speed...
 		float flowSpeed = mix(1.0f, 0.05f, snowAmount);
