@@ -1,29 +1,29 @@
-#include <glfw3.h>
-#include <iostream>
-#include <math.h>
+#include "snowSource.h"
 #include <glm/gtc/matrix_transform.hpp>
-#include "light.h"
+#include <iostream>
 
-Light::Light(GLFWwindow* window, 
-             vec4 init_La,
-             vec4 init_Ld,
-             vec4 init_Ls,
-             vec3 init_position) : window(window)
+using namespace glm;
+
+SnowSource::SnowSource(glm::vec3 init_position)
 {
-    La = init_La;
-    Ld = init_Ld;
-    Ls = init_Ls;
-    lightPosition_worldspace = init_position;
-    
-    // Initialize to stop compiler warnings...
-    nearPlane = 1.0f;
-    farPlane  = 100.0f;
+    snowSourcePosition_worldspace = init_position;
 
+    nearPlane = 1.0f;
+    farPlane  = 400.0f;
+        
+    float snowAreaSize = 505.0f;
+
+    projectionMatrix = ortho(
+        -snowAreaSize, snowAreaSize,
+        -snowAreaSize, snowAreaSize,
+        nearPlane, farPlane
+    );
+    
     targetPosition = vec3(0.0, 0.0, 0.0);
-    direction      = normalize(targetPosition - lightPosition_worldspace);
+    direction      = normalize(targetPosition - snowSourcePosition_worldspace);
 }
 
-void Light::update() // I assume that my light source will remain static...
+void SnowSource::update()
 {
     // converting direction to cylidrical coordinates
     float x = direction.x;
@@ -31,10 +31,10 @@ void Light::update() // I assume that my light source will remain static...
     float z = direction.z;
 
     // We don't need to calculate the vertical angle
-    
+
     float horizontalAngle;
-    if      (z > 0.0) horizontalAngle = atan(x/z);
-    else if (z < 0.0) horizontalAngle = atan(x/z) + 3.1415f;
+    if      (z > 0.0) horizontalAngle = atan(x / z);
+    else if (z < 0.0) horizontalAngle = atan(x / z) + 3.1415f;
     else              horizontalAngle = 3.1415f / 2.0f;
 
     // Right vector
@@ -46,17 +46,17 @@ void Light::update() // I assume that my light source will remain static...
 
     // Up vector
     vec3 up = cross(right, direction);
-   
+
     viewMatrix = lookAt(
-        lightPosition_worldspace,
+        snowSourcePosition_worldspace,
         targetPosition,
-        up 
+        up
     );
 }
 
-mat4 Light::lightVP() { return projectionMatrix * viewMatrix; }
+glm::mat4 SnowSource::snowVP() { return projectionMatrix * viewMatrix; }
 
-void Light::fitToCameraFrustum(const mat4& cameraView, const mat4& cameraProj)
+void SnowSource::fitToCameraFrustum(const mat4& cameraView, const mat4& cameraProj)
 {
     // Get the 8 corners of the camera frustum in world space
     mat4 invCam = inverse(cameraProj * cameraView);

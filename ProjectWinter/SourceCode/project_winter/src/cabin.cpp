@@ -152,8 +152,8 @@ void Cabin::draw()
     glUniform4f(KdLocation, 0.588f, 0.588f, 0.588f, 0.0f);
     glUniform4f(KsLocation, 0.9f,   0.9f,   0.9f,   0.0f);
     glUniform1f(NsLocation, 20.0f);
-
-    //windowsMesh->bind(); windowsMesh->draw();
+    
+    //windowsMesh->bind(); windowsMesh->draw(); // No windows until I figure out transparency sorting...
 }
 
 void Cabin::drawOnlyObjects(GLuint shadowModelLocation)

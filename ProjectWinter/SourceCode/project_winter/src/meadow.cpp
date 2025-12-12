@@ -13,7 +13,7 @@ using namespace glm;
 extern GLuint depthTextureSamplerLocation;
 extern GLuint depthUseTransparentTexLocation;
 
-vec3 normalCorrectLighting = vec3(1.0f, 1.0f, 1.0f); // SPECIAL NORMAL for lighting...
+vec3 normalCorrectLighting = normalize(vec3(0.0f, 1.0f, 0.2f)); // SPECIAL NORMAL for lighting...
 
 // Random helper: returns float between 0.0 and 1.0
 float rnd() { return (float) rand() / (float) RAND_MAX; }
@@ -213,7 +213,7 @@ Meadow::~Meadow()
     glDeleteTextures(1, &treeTexture);
 }
 
-void Meadow::draw(const mat4& view, const mat4& proj)
+void Meadow::draw()
 {
     // Disable Culling so the flat quads are visible from both sides
     glDisable(GL_CULL_FACE);

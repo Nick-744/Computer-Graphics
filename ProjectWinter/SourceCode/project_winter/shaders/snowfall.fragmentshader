@@ -1,0 +1,13 @@
+#version 330 core
+
+out vec4 fragmentColor;
+
+void main()
+{
+    vec2 coord = gl_PointCoord - vec2(0.5);
+    if(length(coord) > 0.5) discard; // Cut into circle
+    
+    float alpha = 1.0 - smoothstep(0.3, 0.5, length(coord)); // Soft edge
+
+    fragmentColor = vec4(1.0, 1.0, 1.0, alpha);
+}

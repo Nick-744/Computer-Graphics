@@ -27,6 +27,9 @@
 #include "src/forest.h"
 #include "src/meadow.h"
 #include "src/cabin.h"
+#include "src/snowSource.h"
+#include "src/snowfall.h"
+#include "src/lakeReflection.h"
 
 using namespace std;
 using namespace glm;
@@ -42,8 +45,11 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 #define W_HEIGHT 720
 #define TITLE "Project Winter"
 
-#define SHADOW_WIDTH 8192
-#define SHADOW_HEIGHT 8192
+#define SHADOW_BUFFER_SIZE 8192 * 2
+
+#define SNOW_BUFFER_SIZE 8192
+
+#define REFLECTION_BUFFER_SIZE 1024
 
 
 
@@ -56,63 +62,147 @@ struct Material
 	float Ns;
 };
 
+struct MainShader // Shadow Mapping Shader...
+{
+	GLuint programID; // The shader's program ID
+
+	// --- Matrices --- //
+	GLuint viewMatrixLocation;
+	GLuint projectionMatrixLocation;
+	GLuint modelMatrixLocation;
+
+	// --- Material --- //
+	GLuint KaLocation, KdLocation, KsLocation, NsLocation;
+
+	// --- Light1 --- //
+	GLuint LaLocation1, LdLocation1, LsLocation1;
+	GLuint light1PositionLocation;
+	GLuint light1VPLocation;
+
+	// --- Textures & Rendering Options --- //
+	GLuint diffuseColorSampler;
+	GLuint specularColorSampler;
+	GLuint useTextureLocation;
+	GLuint ChampionOfLight; // Render with only ambient component!
+
+	// --- Shadow Mapping --- //
+	GLuint depthMapSampler1;
+
+	// --- Snow System --- //
+	GLuint snowDepthMapSampler;
+	GLuint snowPositionLocation;
+	GLuint snowVPLocation;
+	// Gaea snow mask!
+	GLuint textureSamplerSnowMask;
+	GLuint textureSnowMask;
+	// Snow state
+	GLuint snowAmountLocation;
+
+	// --- Lake Reflection --- //
+	GLuint reflectionTextureSamplerLocation;
+	GLuint useReflectionLocation;
+
+	// --- Fog --- //
+	GLuint fogDensityLocation;
+	GLuint fogColorLocation;
+
+	void initialize()
+	{
+		programID = loadShaders("shaders/ShadowMapping.vertexshader", "shaders/ShadowMapping.fragmentshader");
+
+		// Matrices
+		projectionMatrixLocation = glGetUniformLocation(programID, "P");
+		viewMatrixLocation       = glGetUniformLocation(programID, "V");
+		modelMatrixLocation      = glGetUniformLocation(programID, "M");
+
+		// --- For phong lighting --- //
+
+		// Material
+		KaLocation = glGetUniformLocation(programID, "mtl.Ka");
+		KdLocation = glGetUniformLocation(programID, "mtl.Kd");
+		KsLocation = glGetUniformLocation(programID, "mtl.Ks");
+		NsLocation = glGetUniformLocation(programID, "mtl.Ns");
+
+		// Light 1
+		LaLocation1 = glGetUniformLocation(programID, "light1.La");
+		LdLocation1 = glGetUniformLocation(programID, "light1.Ld");
+		LsLocation1 = glGetUniformLocation(programID, "light1.Ls");
+		light1PositionLocation = glGetUniformLocation(programID, "light1.lightPosition_worldspace");
+		light1VPLocation       = glGetUniformLocation(programID, "light1VP"); // For shadow rendering
+
+		ChampionOfLight      = glGetUniformLocation(programID, "ChampionOfLight");
+		diffuseColorSampler  = glGetUniformLocation(programID, "diffuseColorSampler");
+		specularColorSampler = glGetUniformLocation(programID, "specularColorSampler");
+		useTextureLocation   = glGetUniformLocation(programID, "useTexture"); // Task 1.4
+
+		// Locations for shadow rendering
+		depthMapSampler1 = glGetUniformLocation(programID, "shadowMapSampler1");
+
+		// ===< Snow >=== //
+		snowDepthMapSampler  = glGetUniformLocation(programID, "snowDepthMapSampler");
+		snowPositionLocation = glGetUniformLocation(programID, "snowPosition_worldspace");
+		snowVPLocation       = glGetUniformLocation(programID, "snowVP");
+		// Gaea snow mask!
+		textureSamplerSnowMask = glGetUniformLocation(programID, "textureSamplerSnowMask");
+		textureSnowMask        = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
+		// Snow state
+		snowAmountLocation = glGetUniformLocation(programID, "snowAmount");
+
+		// Lake reflection
+		reflectionTextureSamplerLocation = glGetUniformLocation(programID, "reflectionTextureSampler");
+		useReflectionLocation            = glGetUniformLocation(programID, "useReflection");
+
+		// Fog
+		fogDensityLocation = glGetUniformLocation(programID, "fogDensity");
+		fogColorLocation   = glGetUniformLocation(programID, "fogColor");
+	}
+
+	void useProgram() { glUseProgram(programID); }
+};
+
+
+
 // Global Variables
 GLFWwindow* window;
 Camera* camera;
 
 float lastFrameTime = 0.0f;
+float terrainTime   = 0.0f; // For terrain's animation control!
 
+// Light
 Light* light1;
-Light* light2;
-int lightController = 1;         // 1 -> light & 2 -> light2
-int previousLightController = 0; // Print ONCE the selected light...
-
-GLuint ChampionOfLight;
-
-GLuint shaderProgram, depthProgram;
 Drawable* sphere; // Light model helper
 
-// For testing new models positioning!
-vec3 tempPosition       = vec3(-0.37f, 0.0f, 2.85f);
-float tempRotationAngle = 0.0f;
-mat4 tempModelMatrix    = translate(mat4(), tempPosition) * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
+// Sky & fog colors
+vec3 skyColor     = vec3(0.6f, 0.7f, 1.0f);
+vec3 snowFogColor = vec3(0.8f, 0.85f, 0.9f);
 
+// --- shaderProgram --- //
+MainShader shaderProgram;
+
+// --- depthProgram --- //
+GLuint depthProgram;
 GLuint depthFBO1, depthTexture1;
-GLuint depthFBO2, depthTexture2;
-
-// locations for shaderProgram
-GLuint viewMatrixLocation;
-GLuint projectionMatrixLocation;
-GLuint modelMatrixLocation;
-GLuint KaLocation, KdLocation, KsLocation, NsLocation;
-
-GLuint LaLocation1, LdLocation1, LsLocation1, light1PositionLocation;
-GLuint LaLocation2, LdLocation2, LsLocation2, light2PositionLocation;
-
-GLuint lightPowerLocation;
-GLuint diffuseColorSampler;
-GLuint specularColorSampler;
-GLuint useTextureLocation;
-
-GLuint depthMapSampler1;
-GLuint light1VPLocation;
-GLuint depthMapSampler2;
-GLuint light2VPLocation;
-
-// locations for depthProgram
 GLuint shadowViewProjectionLocation;
 GLuint shadowModelLocation;
-
 GLuint depthTextureSamplerLocation;
 GLuint depthUseTransparentTexLocation;
 
+// --- promptProgram --- //
+GLuint promptProgram; // Shader program
+GLuint quadTextureSamplerLocation;
+GLuint promptTexture;
+Drawable* quad;
 
+
+
+// =====< Systems >===== //
 
 // Terrain system
 TerrainRenderer* terrainSystem;
 
-// Cloud system
-CloudRenderer* cloudSystem;
+// Cabin model
+Cabin* cabinModel;
 
 // Forest system
 Forest* forestSystem;
@@ -121,16 +211,21 @@ Forest* forestSystem2;
 // Meadow system
 Meadow* meadowSystem;
 
-// Cabin model
-Cabin* cabinModel;
+// Cloud system
+CloudRenderer* cloudSystem;
 
+// ===< Snow System >=== //
+SnowSource* snowSource;
+GLuint snowDepthFBO; GLuint snowDepthTexture;
+// Snow state (CPU)
+bool  snowingActive = false;
+float snowAmount    = 0.0f;
+// Snow particles
+Snowfall* snowfallSystem;
 
-
-// For prompt rendering
-GLuint promptProgram;
-GLuint quadTextureSamplerLocation;
-GLuint promptTexture;
-Drawable* quad;
+// Lake reflection system
+LakeReflection* lakeReflection;
+const float WATER_HEIGHT = 58.1f; // Trial and error...
 
 
 
@@ -142,6 +237,12 @@ const Material gold
 	vec4{ 0.628281, 0.555802, 0.366065, 1 },
 	51.2f
 };
+
+// For testing new models positioning!
+vec3 tempPosition       = vec3(-0.37f, 0.0f, 2.85f);
+float tempRotationAngle = 0.0f;
+mat4 tempModelMatrix    = translate(mat4(), tempPosition)
+                        * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
 
 
 
@@ -170,10 +271,10 @@ void uploadLight(const Light& light,
 // Creating a function to upload the material parameters of a model to the shader program
 void uploadMaterial(const Material& mtl)
 {
-	glUniform4f(KaLocation, mtl.Ka.r, mtl.Ka.g, mtl.Ka.b, mtl.Ka.a);
-	glUniform4f(KdLocation, mtl.Kd.r, mtl.Kd.g, mtl.Kd.b, mtl.Kd.a);
-	glUniform4f(KsLocation, mtl.Ks.r, mtl.Ks.g, mtl.Ks.b, mtl.Ks.a);
-	glUniform1f(NsLocation, mtl.Ns);
+	glUniform4f(shaderProgram.KaLocation, mtl.Ka.r, mtl.Ka.g, mtl.Ka.b, mtl.Ka.a);
+	glUniform4f(shaderProgram.KdLocation, mtl.Kd.r, mtl.Kd.g, mtl.Kd.b, mtl.Kd.a);
+	glUniform4f(shaderProgram.KsLocation, mtl.Ks.r, mtl.Ks.g, mtl.Ks.b, mtl.Ks.a);
+	glUniform1f(shaderProgram.NsLocation, mtl.Ns);
 }
 
 
@@ -181,7 +282,7 @@ void uploadMaterial(const Material& mtl)
 void createContext()
 {
 	// Create and compile our GLSL program from the shader
-	shaderProgram = loadShaders("shaders/ShadowMapping.vertexshader", "shaders/ShadowMapping.fragmentshader");
+	shaderProgram.initialize();
 
 	// Task 3.1 
 	// Create and load the shader program for the depth buffer construction
@@ -193,81 +294,59 @@ void createContext()
 
 	// NOTE: Don't forget to delete the shader programs on the free() function
 
+	
 
-
-	// Get pointers to uniforms
-	// --- shaderProgram ---
-	projectionMatrixLocation = glGetUniformLocation(shaderProgram, "P");
-	viewMatrixLocation       = glGetUniformLocation(shaderProgram, "V");
-	modelMatrixLocation      = glGetUniformLocation(shaderProgram, "M");
-	// for phong lighting
-	KaLocation = glGetUniformLocation(shaderProgram, "mtl.Ka");
-	KdLocation = glGetUniformLocation(shaderProgram, "mtl.Kd");
-	KsLocation = glGetUniformLocation(shaderProgram, "mtl.Ks");
-	NsLocation = glGetUniformLocation(shaderProgram, "mtl.Ns");
-
-	LaLocation1 = glGetUniformLocation(shaderProgram, "light1.La");
-	LdLocation1 = glGetUniformLocation(shaderProgram, "light1.Ld");
-	LsLocation1 = glGetUniformLocation(shaderProgram, "light1.Ls");
-	light1PositionLocation = glGetUniformLocation(shaderProgram, "light1.lightPosition_worldspace");
-
-	LaLocation2 = glGetUniformLocation(shaderProgram, "light2.La");
-	LdLocation2 = glGetUniformLocation(shaderProgram, "light2.Ld");
-	LsLocation2 = glGetUniformLocation(shaderProgram, "light2.Ls");
-	light2PositionLocation = glGetUniformLocation(shaderProgram, "light2.lightPosition_worldspace");
-
-	ChampionOfLight = glGetUniformLocation(shaderProgram, "ChampionOfLight");
-
-	diffuseColorSampler  = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
-	specularColorSampler = glGetUniformLocation(shaderProgram, "specularColorSampler");
-
-	// Task 1.4
-	useTextureLocation = glGetUniformLocation(shaderProgram, "useTexture");
-
-	// locations for shadow rendering
-	depthMapSampler1 = glGetUniformLocation(shaderProgram, "shadowMapSampler1");
-	light1VPLocation = glGetUniformLocation(shaderProgram, "light1VP");
-
-	// For light2
-	depthMapSampler2 = glGetUniformLocation(shaderProgram, "shadowMapSampler2");
-	light2VPLocation = glGetUniformLocation(shaderProgram, "light2VP");
-
-	// --- depthProgram ---
+	// --- depthProgram --- //
 	shadowViewProjectionLocation = glGetUniformLocation(depthProgram, "VP");
 	shadowModelLocation          = glGetUniformLocation(depthProgram, "M");
 
 	depthTextureSamplerLocation    = glGetUniformLocation(depthProgram, "textureSampler");
 	depthUseTransparentTexLocation = glGetUniformLocation(depthProgram, "useTransparentTex");
 
-	// --- promptProgram ---
+	// --- promptProgram --- //
 	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
 
 
 
-	// Initialize the terrain system
-	terrainSystem = new TerrainRenderer(shaderProgram);
+	// =====< Systems Initialization >===== //
+
+	// Terrain
+	terrainSystem = new TerrainRenderer(shaderProgram.programID);
 
 	// Cabin
-	cabinModel = new Cabin(shaderProgram);
+	cabinModel = new Cabin(shaderProgram.programID);
 
 	// Forests
-	forestSystem = new Forest(shaderProgram);
+	forestSystem = new Forest(shaderProgram.programID);
 	forestSystem->setPosition(vec3(26.5f, 60.2f, 30.5f));
 	forestSystem->setRotation(-0.5f);
 
-	forestSystem2 = new Forest(shaderProgram);
-	forestSystem2->setPosition(vec3(- 66.5f, 60.7f, 43.0f));
+	forestSystem2 = new Forest(shaderProgram.programID);
+	forestSystem2->setPosition(vec3(-66.5f, 60.7f, 43.0f));
 
 	// Meadow
-	meadowSystem = new Meadow(shaderProgram);
+	meadowSystem = new Meadow(shaderProgram.programID);
 
 	// Clouds
 	cloudSystem = new CloudRenderer();
 
-	// Loading a model
+	// ===< Snow >=== // ===< Particles >=== //
+	snowfallSystem = new Snowfall(
+		3000, // max particles
+		2.0f,  // min fall speed
+		5.0f   // max fall speed
+	);
+
+	// Lake reflection
+	lakeReflection = new LakeReflection(REFLECTION_BUFFER_SIZE);
+	lakeReflection->initialize();
+
+
+
+	// ---< Loading a model >--- //
 
 	// Task 1.2 Load earth.obj using drawable 
-	sphere = new Drawable("assets/earth.obj");
+	sphere = new Drawable("assets/earth.obj"); // Sun!!!
 
 
 
@@ -308,8 +387,6 @@ void createContext()
 	// **Don't forget to bind the default framebuffer at the end of initialization
 	glBindFramebuffer(GL_FRAMEBUFFER, depthFBO1);
 
-
-
 	// We need a texture to store the depth image
 	glGenTextures(1, &depthTexture1);
 	glBindTexture(GL_TEXTURE_2D, depthTexture1);
@@ -318,12 +395,13 @@ void createContext()
 		GL_TEXTURE_2D,
 		0,
 		GL_DEPTH_COMPONENT,
-		SHADOW_WIDTH, SHADOW_HEIGHT,
+		SHADOW_BUFFER_SIZE, SHADOW_BUFFER_SIZE,
 		0,
 		GL_DEPTH_COMPONENT,
 		GL_FLOAT,
 		NULL // Δεν έχουμε εικόνα ακόμα, θα δημιουργηθεί αργότερα!
 	);
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -331,6 +409,7 @@ void createContext()
 	// Step 1 : (Don't forget to comment out the respective lines above
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
 	// Set color to set out of border 
 	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -344,23 +423,21 @@ void createContext()
 
 	// Since the depth buffer is only for the generation of the depth texture, 
 	// there is no need to have a color output
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
+	glDrawBuffer(GL_NONE); glReadBuffer(GL_NONE);
 
 
 
-	// Framebuffer for light2
-	glGenFramebuffers(1, &depthFBO2);
-	glBindFramebuffer(GL_FRAMEBUFFER, depthFBO2);
+	// ===< Snow >=== // ===< Framebuffer >=== //
+	glGenFramebuffers(1, &snowDepthFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, snowDepthFBO);
 
-	glGenTextures(1, &depthTexture2);
-	glBindTexture(GL_TEXTURE_2D, depthTexture2);
+	glGenTextures(1, &snowDepthTexture);
+	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
 	glTexImage2D(
 		GL_TEXTURE_2D,
 		0,
 		GL_DEPTH_COMPONENT,
-		SHADOW_WIDTH,
-		SHADOW_HEIGHT,
+		SNOW_BUFFER_SIZE, SNOW_BUFFER_SIZE,
 		0,
 		GL_DEPTH_COMPONENT,
 		GL_FLOAT,
@@ -372,12 +449,11 @@ void createContext()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_BORDER);
 
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-	// Αν δεν εκτελεστεί, οι περιοχές εκτός του shadow map εμφανίζονται σκοτεινές (σκιά) για το light2!
+	float snowBorder[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, snowBorder);
 
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture2, 0);
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, snowDepthTexture, 0);
+	glDrawBuffer(GL_NONE); glReadBuffer(GL_NONE);
 
 
 
@@ -397,30 +473,30 @@ void createContext()
 void free()
 {
 	// Delete Shader Programs
-	glDeleteProgram(shaderProgram);
+	glDeleteProgram(shaderProgram.programID);
 	glDeleteProgram(depthProgram);
 	glDeleteProgram(promptProgram);
 
 	delete terrainSystem;
-
-	delete cloudSystem;
-
+	delete cabinModel;
 	delete forestSystem;
-	delete forestSystem2;
-
+	delete forestSystem2;	
 	delete meadowSystem;
+	delete cloudSystem;
+	delete snowfallSystem;
+	delete lakeReflection;
 
 	glfwTerminate();
 }
 
 
 
-void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
+void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size)
 {
 	// Task 3.3
 
 	// Setting viewport to shadow map size
-	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glViewport(0, 0, buffer_size, buffer_size);
 
 	// Binding the depth framebuffer
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -456,6 +532,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo)
 	meadowSystem->drawOnlyObjects(shadowModelLocation);
 
 
+
 	// binding the default framebuffer again
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -472,39 +549,84 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Step 3: Selecting shader program
-	glUseProgram(shaderProgram);
+	shaderProgram.useProgram();
+
+
+
+	// ===< Fog >=== //
+	// Fog is gradualy applied based on snow amount!
+	// Blend so the sky color doesn't have to change...
+	vec3 currentFogColor = mix(skyColor, snowFogColor, snowAmount);
+
+	// Base density + extra density when snowing
+	float currentDensity = snowAmount * 0.03f;
+
+	glUniform3f(
+		shaderProgram.fogColorLocation,
+		currentFogColor.x,
+		currentFogColor.y,
+		currentFogColor.z
+	);
+	glUniform1f(shaderProgram.fogDensityLocation, currentDensity);
+
+
 
 	// Making view and projection matrices uniform to the shader program
-	glUniformMatrix4fv(viewMatrixLocation,       1, GL_FALSE, &viewMatrix[0][0]);
-	glUniformMatrix4fv(projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
+	glUniformMatrix4fv(shaderProgram.viewMatrixLocation,       1, GL_FALSE, &viewMatrix[0][0]);
+	glUniformMatrix4fv(shaderProgram.projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
 
-	glUniform1i(ChampionOfLight, 0); // Κανονικά αντικείμενα - Κάνε υπολογισμούς Phong!
+	glUniform1i(shaderProgram.ChampionOfLight, 0); // Κανονικά αντικείμενα - Κάνε υπολογισμούς Phong!
 
 
 
-	// uploading the light parameters to the shader program
-	uploadLight(*light1, LaLocation1, LdLocation1, LsLocation1, light1PositionLocation);
+	// Uploading the >-- light --< parameters to the shader program
+	uploadLight(
+		*light1,
+		shaderProgram.LaLocation1,
+		shaderProgram.LdLocation1,
+		shaderProgram.LsLocation1,
+		shaderProgram.light1PositionLocation
+	);
 
 	// Task 4.1 Display shadows on the plane
 	// Sending the shadow texture to the shaderProgram
 	glActiveTexture(GL_TEXTURE23);
 	glBindTexture(GL_TEXTURE_2D, depthTexture1);
-	glUniform1i(depthMapSampler1, 23);
+	glUniform1i(shaderProgram.depthMapSampler1, 23);
 
 	// Sending the light View-Projection matrix to the shader program
 	mat4 light1VP = light1->lightVP();
-	glUniformMatrix4fv(light1VPLocation, 1, GL_FALSE, &light1VP[0][0]);
+	glUniformMatrix4fv(shaderProgram.light1VPLocation, 1, GL_FALSE, &light1VP[0][0]);
 
 
 
-	uploadLight(*light2, LaLocation2, LdLocation2, LsLocation2, light2PositionLocation);
+	// ===< Snow >=== //
+	glUniform3f(
+		shaderProgram.snowPositionLocation,
+		snowSource->snowSourcePosition_worldspace.x,
+		snowSource->snowSourcePosition_worldspace.y,
+		snowSource->snowSourcePosition_worldspace.z
+	);
+	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
 
-	glActiveTexture(GL_TEXTURE24);
-	glBindTexture(GL_TEXTURE_2D, depthTexture2);
-	glUniform1i(depthMapSampler2, 24);
+	glActiveTexture(GL_TEXTURE25);
+	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
+	glUniform1i(shaderProgram.snowDepthMapSampler, 25);
 
-	mat4 light2VP = light2->lightVP();
-	glUniformMatrix4fv(light2VPLocation, 1, GL_FALSE, &light2VP[0][0]);
+	glActiveTexture(GL_TEXTURE26);
+	glBindTexture(GL_TEXTURE_2D, shaderProgram.textureSnowMask);
+	glUniform1i(shaderProgram.textureSamplerSnowMask, 26);
+
+	mat4 snowVP = snowSource->snowVP();
+	glUniformMatrix4fv(shaderProgram.snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
+
+
+
+	// Lake Reflection
+	glActiveTexture(GL_TEXTURE27);
+	glBindTexture(GL_TEXTURE_2D, lakeReflection->getReflectionTexture());
+	glUniform1i(shaderProgram.reflectionTextureSamplerLocation, 27);
+	glUniform1i(shaderProgram.useReflectionLocation, 1); // Enable reflection...
 
 
 
@@ -512,9 +634,10 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// --------------------- Drawing scene objects --------------------- //	
 	// ----------------------------------------------------------------- //
 
-	// Draw terrain!
 	float currentTime = (float) glfwGetTime() / 20.0f;
-	terrainSystem->draw(viewMatrix, projectionMatrix, currentTime);
+
+	// Draw terrain!
+	terrainSystem->draw(viewMatrix, projectionMatrix, terrainTime);
 
 	// Remove the texture from terrain and use material instead!
 	// ** Use bool variable to tell the shader not to use a texture
@@ -529,21 +652,21 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	forestSystem2->draw();
 
 	// Draw meadow
-	meadowSystem->draw(viewMatrix, projectionMatrix);
+	meadowSystem->draw();
 
 
 
 	// Sun
-	glUniform1i(ChampionOfLight, 1);
+	glUniform1i(shaderProgram.ChampionOfLight, 1);
 
 	mat4 light1SphereModel = translate(mat4(), light1->lightPosition_worldspace) * scale(mat4(), vec3(4.0f));
-	glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &light1SphereModel[0][0]);
+	glUniformMatrix4fv(shaderProgram.modelMatrixLocation, 1, GL_FALSE, &light1SphereModel[0][0]);
 
 	uploadMaterial(gold);
-	glUniform1i(useTextureLocation, 0);
+	glUniform1i(shaderProgram.useTextureLocation, 0);
 	sphere->bind(); sphere->draw();
 
-	glUniform1d(ChampionOfLight, 0); // End of sun rendering
+	glUniform1i(shaderProgram.ChampionOfLight, 0); // End of sun rendering
 
 
 
@@ -551,74 +674,204 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	GLboolean cull = glIsEnabled(GL_CULL_FACE);
 	glDisable(GL_CULL_FACE);
 
-	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime);
+	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime, currentFogColor, currentDensity);
+	// Remember to change the parameters in reflection pass too...
 
 	if (cull) glEnable(GL_CULL_FACE);
 }
 
 
 
+void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
+{
+	// Calculate mirrored view matrix!
+	mat4 mirroredView = lakeReflection->getMirroredViewMatrix(viewMatrix, WATER_HEIGHT);
+
+	// Begin reflection rendering
+	lakeReflection->beginReflectionPass();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+
+	shaderProgram.useProgram(); // Use main shader
+
+	// Upload mirrored matrices
+	glUniformMatrix4fv(shaderProgram.viewMatrixLocation,       1, GL_FALSE, &mirroredView[0][0]);
+	glUniformMatrix4fv(shaderProgram.projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+	// Disable reflection rendering in the reflection pass (avoid recursion)
+	glUniform1i(shaderProgram.useReflectionLocation, 0);
+
+
+
+	// Upload lighting (same as normal pass!)
+	uploadLight(
+		*light1,
+		shaderProgram.LaLocation1,
+		shaderProgram.LdLocation1,
+		shaderProgram.LsLocation1,
+		shaderProgram.light1PositionLocation
+	);
+
+	// Shadow maps
+	glActiveTexture(GL_TEXTURE23);
+	glBindTexture(GL_TEXTURE_2D, depthTexture1);
+	glUniform1i(shaderProgram.depthMapSampler1, 23);
+
+	mat4 light1VP = light1->lightVP();
+	glUniformMatrix4fv(shaderProgram.light1VPLocation, 1, GL_FALSE, &light1VP[0][0]);
+
+
+
+	// Snow (keep same for reflection)
+	glUniform3f(shaderProgram.snowPositionLocation,
+		snowSource->snowSourcePosition_worldspace.x,
+		snowSource->snowSourcePosition_worldspace.y,
+		snowSource->snowSourcePosition_worldspace.z);
+	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
+
+	glActiveTexture(GL_TEXTURE25);
+	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
+	glUniform1i(shaderProgram.snowDepthMapSampler, 25);
+
+	glActiveTexture(GL_TEXTURE26);
+	glBindTexture(GL_TEXTURE_2D, shaderProgram.textureSnowMask);
+	glUniform1i(shaderProgram.textureSamplerSnowMask, 26);
+
+	mat4 snowVP = snowSource->snowVP();
+	glUniformMatrix4fv(shaderProgram.snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
+
+
+
+	glCullFace(GL_FRONT); // Flip culling for mirrored rendering
+
+	// ===< Render scene objects (reflected) >=== //
+	float currentTime = (float) glfwGetTime() / 20.0f;
+
+	// Draw terrain
+	terrainSystem->draw(mirroredView, projectionMatrix, terrainTime);
+
+	// Draw cabin
+	cabinModel->draw();
+
+	// Draw forests
+	forestSystem->draw();
+	forestSystem2->draw();
+
+	// Draw meadow
+	meadowSystem->draw();
+
+	// Draw clouds
+	GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
+	cloudSystem->draw(
+		mirroredView,
+		projectionMatrix,
+		currentTime,
+		mix(skyColor, snowFogColor, snowAmount),
+		snowAmount * 0.03f
+	);
+	if (cull) glEnable(GL_CULL_FACE);
+
+
+
+	// End reflection pass
+	glCullFace(GL_BACK); // Restore culling
+	lakeReflection->endReflectionPass();
+}
+
+
+
 void renderPrompt()
 {
-	// using the correct shaders to visualize the depth texture on the quad
+	glDisable(GL_DEPTH_TEST); // Disable depth test so quad is always on top
+
+	// Using the correct shaders to visualize the depth texture on the quad
 	glUseProgram(promptProgram);
 
-	//enabling the texture - follow the aforementioned pipeline
+	//Enabling the texture - follow the aforementioned pipeline
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, promptTexture);
 	glUniform1i(quadTextureSamplerLocation, 0);
 
 	// Drawing the quad
 	quad->bind(); quad->draw();
+
+	glEnable(GL_DEPTH_TEST);
 }
 
 
 
 void mainLoop()
 {
-	light1->update();
-	mat4 light1_proj = light1->projectionMatrix;
-	mat4 light1_view = light1->viewMatrix;
-	depth_pass(light1_view, light1_proj, depthFBO1); // Create the depth buffer
-
-	light2->update();
-	mat4 light2_proj = light2->projectionMatrix;
-	mat4 light2_view = light2->viewMatrix;
-	depth_pass(light2_view, light2_proj, depthFBO2);
-
 	do
 	{
 		float currentFrameTime = glfwGetTime();
-		float deltaTime = currentFrameTime - lastFrameTime;
+		float deltaTime        = currentFrameTime - lastFrameTime;
 		lastFrameTime = currentFrameTime;
 
-		if (lightController == 1) light1->update();
-		else                      light2->update();
 
-		mat4 light1_proj = light1->projectionMatrix;
-		mat4 light1_view = light1->viewMatrix;
-		depth_pass(light1_view, light1_proj, depthFBO1); // Create the depth buffer
-
-		mat4 light2_proj = light2->projectionMatrix;
-		mat4 light2_view = light2->viewMatrix;
-		depth_pass(light2_view, light2_proj, depthFBO2);
-
-		cabinModel->update(deltaTime); // Door animation update!
 
 		// Getting camera information
 		camera->update();
 		mat4 projectionMatrix = camera->projectionMatrix;
 		mat4 viewMatrix       = camera->viewMatrix;
 
+		// Light Depth Pass
+		light1->update(); // Light's view matrix
+		light1->fitToCameraFrustum(viewMatrix, projectionMatrix); // Light's projection matrix
+		mat4 light1_proj = light1->projectionMatrix;
+		mat4 light1_view = light1->viewMatrix;
+		depth_pass(light1_view, light1_proj, depthFBO1, SHADOW_BUFFER_SIZE); // Create the depth buffer
+
+		// ===< Snow >=== // ===< Depth Pass >=== //
+		snowSource->update();
+		//snowSource->fitToCameraFrustum(viewMatrix, projectionMatrix); // Not working with snow...
+		mat4 snow_proj = snowSource->projectionMatrix;
+		mat4 snow_view = snowSource->viewMatrix;
+		depth_pass(snow_view, snow_proj, snowDepthFBO, SNOW_BUFFER_SIZE);
+		// Snow accumulation
+		if (snowingActive)
+		{
+			const float growRate = 0.008f;
+			snowAmount          += deltaTime * growRate;
+			if (snowAmount > 1.0f) snowAmount = 1.0f;
+		}
+		// Control terrain's water speed...
+		float flowSpeed = mix(1.0f, 0.05f, snowAmount);
+		terrainTime    += (deltaTime / 20.0f) * flowSpeed;
+
+		// ===< UPDATE SKY COLOR >=== //
+		vec3 currentSkyColor = mix(skyColor, snowFogColor, snowAmount);
+		glClearColor(currentSkyColor.x, currentSkyColor.y, currentSkyColor.z, 0.0f); // Better fog effect!
+
+		// Lake Reflection Pass
+		reflection_pass(viewMatrix, projectionMatrix);
 
 
-		lighting_pass(viewMatrix, projectionMatrix); // Render the scene from camera's perspective
 
+		if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
+			lighting_pass(light1_view, light1_proj); // View from Sun!
+		else if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS)
+			lighting_pass(snow_view, snow_proj); // View from Snow Source!
+		else
+			lighting_pass(viewMatrix, projectionMatrix); // Render the scene from camera's perspective!
+
+
+
+		// Render SNOW PARTICLES - AFTER the lighting pass!
+		snowfallSystem->setActive(snowingActive);
+		snowfallSystem->update(deltaTime, viewMatrix, projectionMatrix);
+		snowfallSystem->draw(viewMatrix, projectionMatrix);
+
+
+
+		// Door animation update!
+		cabinModel->update(deltaTime);
 		// Render the prompt quad (when the camera is near the cabin door)
-		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.5f)
+		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f)
 			renderPrompt();
 
-
+		
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -644,11 +897,12 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	// ---< Player interactions >--- //
 	if (key == GLFW_KEY_E && action == GLFW_PRESS)
 	{
-		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.5f)
-		{
+		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f)
 			cabinModel->toggleDoor();
-		}
 	}
+
+	if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+		snowingActive = !snowingActive;
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)
@@ -723,7 +977,7 @@ void initialize()
 	glfwSetCursorPos(window, W_WIDTH / 2, W_HEIGHT / 2);
 
 	// Sky color
-	glClearColor(0.6f, 0.7f, 1.0f, 0.0f);
+	glClearColor(skyColor[0], skyColor[1], skyColor[2], 0.0f);
 
 	glfwSetKeyCallback(window, pollKeyboard);
 
@@ -751,16 +1005,11 @@ void initialize()
 		vec4{ 0.8, 0.8, 1, 1 },
 		vec4{ 0.8, 0.8, 1, 1 },
 		vec4{ 0.8, 0.8, 1, 1 },
-		vec3{ 0, 400, -200 }
+		vec3{ 0, 300, -300 }
 	);
 
-	light2 = new Light(
-		window,
-		vec4{ 1, 1, 1, 1 },
-		vec4{ 1, 1, 1, 1 },
-		vec4{ 1, 1, 1, 1 },
-		vec3{ 7.0f, 60.0f, -0.5f }
-	);
+	// ===< SNOW SOURCE INIT >=== //
+	snowSource = new SnowSource(vec3(0.0f, 340.0f, 0.0f));
 }
 
 
