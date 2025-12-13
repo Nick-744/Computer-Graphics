@@ -28,7 +28,6 @@ private:
 
     // Uniform Locations
     GLint modelMatrixLocation;
-    GLint useTextureLocation;
     GLint useTransparentTexLocation;
     GLint diffuseColorSampler;
 

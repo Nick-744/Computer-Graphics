@@ -45,11 +45,11 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 #define W_HEIGHT 720
 #define TITLE "Project Winter"
 
-#define SHADOW_BUFFER_SIZE 8192
-
-#define SNOW_BUFFER_SIZE 8192
-
+#define SHADOW_BUFFER_SIZE     8192
+#define SNOW_BUFFER_SIZE       8192
 #define REFLECTION_BUFFER_SIZE 1024
+
+#define FAR_PLANE_INITIAL 660.0f
 
 
 
@@ -165,7 +165,7 @@ struct MainShader // Shadow Mapping Shader...
 // Global Variables
 GLFWwindow* window;
 Camera* camera;
-float cameraFarPlane = 660.0f; // Optimization for shadow mapping...
+float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
 float lastFrameTime = 0.0f;
 float terrainTime   = 0.0f; // For terrain's animation control!
@@ -840,6 +840,7 @@ void mainLoop()
 				snowAmount     = 1.0f;
 				cameraFarPlane = 110.0f; // Reduce far plane for better performance!
 			}
+			else cameraFarPlane = FAR_PLANE_INITIAL; // Reset far plane
 		}
 		// Control terrain's water speed...
 		float flowSpeed = mix(1.0f, 0.05f, snowAmount);
@@ -906,8 +907,14 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 			cabinModel->toggleDoor();
 	}
 
+	// ---< Snow control >--- //
 	if (key == GLFW_KEY_Z && action == GLFW_PRESS)
 		snowingActive = !snowingActive;
+	if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_PRESS)
+		if (snowAmount < 1.0f)
+			snowAmount = 1.0f; // Instant full snow!
+		else
+			snowAmount = 0.0f; // Remove snow!
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)

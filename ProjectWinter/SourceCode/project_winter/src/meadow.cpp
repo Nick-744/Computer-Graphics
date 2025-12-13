@@ -23,7 +23,6 @@ Meadow::Meadow(GLuint shaderProgram)
     this->shaderProgram = shaderProgram;
 
     modelMatrixLocation       = glGetUniformLocation(shaderProgram, "M");
-    useTextureLocation        = glGetUniformLocation(shaderProgram, "useTexture");
     useTransparentTexLocation = glGetUniformLocation(shaderProgram, "useTransparentTex");
     diffuseColorSampler       = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
 
@@ -90,9 +89,9 @@ void Meadow::loadAndGenerateMesh(const char* filepath)
 
             // Define the 4 corners relative to the center
             vec3 vBottomLeft  = center + vec3(-dx, 0, -dz);
-            vec3 vBottomRight = center + vec3(dx, 0, dz);
+            vec3 vBottomRight = center + vec3( dx, 0,  dz);
             vec3 vTopLeft     = center + vec3(-dx, h, -dz);
-            vec3 vTopRight    = center + vec3(dx, h, dz);
+            vec3 vTopRight    = center + vec3( dx, h,  dz);
 
             vec3 normal = normalCorrectLighting;
 
@@ -112,7 +111,7 @@ void Meadow::loadAndGenerateMesh(const char* filepath)
 
     file.close();
 
-    vertexCount = (GLsizei)vertices.size();
+    vertexCount = (GLsizei) vertices.size();
     // Adjusted printf division by 18 (3 quads * 2 tris * 3 verts)
     printf("Loaded %d grass tufts from file.\n", vertexCount / 18);
 
@@ -168,9 +167,9 @@ void Meadow::loadAndGenerateTrees(const char* filepath)
             float dz = sin(angle) * w;
 
             vec3 vBottomLeft  = center + vec3(-dx, 0, -dz);
-            vec3 vBottomRight = center + vec3(dx, 0, dz);
+            vec3 vBottomRight = center + vec3( dx, 0,  dz);
             vec3 vTopLeft     = center + vec3(-dx, h, -dz);
-            vec3 vTopRight    = center + vec3(dx, h, dz);
+            vec3 vTopRight    = center + vec3( dx, h,  dz);
             
             vec3 normal = normalCorrectLighting;
 
@@ -186,7 +185,7 @@ void Meadow::loadAndGenerateTrees(const char* filepath)
 
     file.close();
 
-    treeVertexCount = (GLsizei)vertices.size();
+    treeVertexCount = (GLsizei) vertices.size();
     printf("Loaded %d trees.\n", treeVertexCount / 18);
 
     // Generate separate VAO/VBO for trees
@@ -218,32 +217,30 @@ void Meadow::draw()
     // Disable Culling so the flat quads are visible from both sides
     glDisable(GL_CULL_FACE);
 
-    mat4 model = mat4();
-    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &model[0][0]);
+    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &mat4()[0][0]);
 
-    glUniform1i(useTextureLocation, 1);
     glUniform1i(useTransparentTexLocation, 1);
 
-    // --- DRAW GRASS --- //
-    if (vertexCount > 0)
-    {
+    { // --- DRAW GRASS --- //
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTexture);
         glUniform1i(diffuseColorSampler, 0);
 
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+
     }
 
-    // --- DRAW TREES --- //
-    if (treeVertexCount > 0)
-    {
+    { // --- DRAW TREES --- //
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, treeTexture);
         glUniform1i(diffuseColorSampler, 0);
 
         glBindVertexArray(treeVAO);
         glDrawArrays(GL_TRIANGLES, 0, treeVertexCount);
+
     }
 
     // Reset / Cleanup
@@ -255,8 +252,7 @@ void Meadow::draw()
 void Meadow::drawOnlyObjects(GLuint shadowModelLocation)
 {
     // The positions of grass/trees are already "baked" into the VBOs in world space!
-    mat4 model = mat4();
-    glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &model[0][0]);
+    glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &mat4()[0][0]);
 
     // Disable Culling - Shadows must be cast from both sides of the 2D quad!
     glDisable(GL_CULL_FACE);
@@ -264,9 +260,8 @@ void Meadow::drawOnlyObjects(GLuint shadowModelLocation)
     // Enable Transparency Check in Depth Shader
     glUniform1i(depthUseTransparentTexLocation, 1);
 
-    // --- DRAW GRASS --- //
-    if (vertexCount > 0)
-    {
+    { // --- DRAW GRASS --- //
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTexture);
 
@@ -275,11 +270,11 @@ void Meadow::drawOnlyObjects(GLuint shadowModelLocation)
 
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+
     }
 
-    // --- DRAW TREES --- //
-    if (treeVertexCount > 0)
-    {
+    { // --- DRAW TREES --- //
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, treeTexture);
 
@@ -288,6 +283,7 @@ void Meadow::drawOnlyObjects(GLuint shadowModelLocation)
 
         glBindVertexArray(treeVAO);
         glDrawArrays(GL_TRIANGLES, 0, treeVertexCount);
+
     }
 
     // Cleanup
