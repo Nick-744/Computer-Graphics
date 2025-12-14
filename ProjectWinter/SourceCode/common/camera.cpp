@@ -6,6 +6,8 @@
 
 using namespace glm;
 
+#define PLAYER_HEIGHT 1.8f
+
 extern float cameraFarPlane; // Optimization for shadow mapping...
 
 Camera::Camera(GLFWwindow* window) : window(window) {
@@ -80,30 +82,19 @@ void Camera::update()
 
 
     // Task 5.5: update camera position using the direction/right vectors
-	bool isMoving = false; // For head bobbing!
-    // Move forward
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    bool isMoving = false; // For head bobbing!
+    vec3 moveDir(0.0f);    // Movement direction vector...
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) moveDir += direction;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) moveDir -= direction;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) moveDir += right;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) moveDir -= right;
+
+    if (length(moveDir) > 0.001f)
     {
-        position += direction * deltaTime * speed;
-		isMoving  = true;
-    }
-    // Move backward
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    {
-        position -= direction * deltaTime * speed;
-        isMoving  = true;
-    }
-    // Strafe right
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    {
-        position += right * deltaTime * speed;
-        isMoving  = true;
-    }
-    // Strafe left
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    {
-        position -= right * deltaTime * speed;
-        isMoving  = true;
+        moveDir   = normalize(moveDir); // Prevent faster diagonal movement...
+        position += moveDir * deltaTime * speed;
+
+        isMoving = true;
     }
     
     
@@ -126,21 +117,41 @@ void Camera::update()
         {
             // Calculate height of the ground at current (x, z)
             float groundHeight = getTerrainHeight(position.x, position.z);
-            position.y         = groundHeight + 1.8f;
+            float targetHeight = groundHeight + PLAYER_HEIGHT;
+
+            // Smoothly interpolate current Y towards target Y!
+            float climbSpeed = 8.0f; // Smoothing speed...
+            position.y      += (targetHeight - position.y) * climbSpeed * deltaTime;
+
+            // Prevent glitching...
+            if (abs(position.y - targetHeight) < 0.01f) position.y = targetHeight;
         }
 
         // ===< HEAD BOBBING >=== //
+
+        static float bobBlend = 0.0f; // 0 = stopped - 1 = moving
         if (isMoving)
+        {
+            bobBlend += deltaTime * 4.0f; // Start walk...
+            if (bobBlend > 1.0f) bobBlend = 1.0f;
+        }
+        else
+        {
+            bobBlend -= deltaTime * 4.0f; // Smooth stop...
+            if (bobBlend < 0.0f) bobBlend = 0.0f;
+        }
+        
+        if (bobBlend > 0.001f) // Apply bobbing only if walking/stopping!
         {
             // Increment timer based on movement speed
             walkTimer += deltaTime * speed * 2.5f;
 
             // Vertical Bob (Up/Down)
-            float bobOffset = sin(walkTimer) * 0.1f;
+            float bobOffset = sin(walkTimer) * 0.1f * bobBlend;
             eyePosition.y  += bobOffset;
 
             // Horizontal Sway (Left/Right) - Simulates weight shifting...
-            float swayOffset = cos(walkTimer * 0.5f) * 0.08f;
+            float swayOffset = cos(walkTimer * 0.5f) * 0.08f * bobBlend;
             eyePosition     += right * swayOffset;
         }
         else walkTimer = 0.0f; // Reset timer to 0!
