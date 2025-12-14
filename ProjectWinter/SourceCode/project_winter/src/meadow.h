@@ -21,7 +21,7 @@ public:
     ~Meadow();
 
     void draw();
-    void drawOnlyObjects(GLuint shadowModelLocation);
+    void drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocation);
 
 private:
     GLuint shaderProgram;
@@ -30,6 +30,7 @@ private:
     GLint modelMatrixLocation;
     GLint useTransparentTexLocation;
     GLint diffuseColorSampler;
+    GLint enableWind;
 
     // Grass Data
     GLuint grassTexture;

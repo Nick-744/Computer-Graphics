@@ -10,9 +10,30 @@ uniform mat4 M;
 
 out vec2 UV;
 
+// ===< WIND >=== //
+uniform float time;
+uniform int enableWind;
+
 void main()
 {
-    gl_Position =  VP * M * vec4(vertexPosition_modelspace, 1);
+    // ===< WIND EFFECT >=== //
+    vec3 modifiedPosition = vertexPosition_modelspace;
+    if (enableWind > 0)
+    {
+        float stiffness = vertexUV.y; // Root -> 0 & Top -> 1
+
+        float windSpeed     = 4.0;
+        float windIntensity = 0.08;
+
+        vec3 worldPos = (M * vec4(modifiedPosition, 1.0)).xyz;
+        float wave    = sin(time * windSpeed + worldPos.x + worldPos.z);
+        wave         += sin(time * windSpeed + worldPos.x) * 0.6;
+
+        modifiedPosition.x += wave * windIntensity * stiffness;
+        modifiedPosition.z += wave * windIntensity * stiffness;
+    }
+
+    gl_Position =  VP * M * vec4(modifiedPosition, 1);
 
     UV = vertexUV;
 }

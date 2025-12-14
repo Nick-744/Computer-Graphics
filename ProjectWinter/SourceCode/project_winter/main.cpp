@@ -66,6 +66,8 @@ struct MainShader // Shadow Mapping Shader...
 {
 	GLuint programID; // The shader's program ID
 
+	GLuint timeLocation;
+
 	// --- Matrices --- //
 	GLuint viewMatrixLocation;
 	GLuint projectionMatrixLocation;
@@ -110,9 +112,11 @@ struct MainShader // Shadow Mapping Shader...
 	{
 		programID = loadShaders("shaders/ShadowMapping.vertexshader", "shaders/ShadowMapping.fragmentshader");
 
+		timeLocation = glGetUniformLocation(programID, "time");
+
 		// Matrices
-		projectionMatrixLocation = glGetUniformLocation(programID, "P");
 		viewMatrixLocation       = glGetUniformLocation(programID, "V");
+		projectionMatrixLocation = glGetUniformLocation(programID, "P");
 		modelMatrixLocation      = glGetUniformLocation(programID, "M");
 
 		// --- For phong lighting --- //
@@ -188,6 +192,9 @@ GLuint shadowViewProjectionLocation;
 GLuint shadowModelLocation;
 GLuint depthTextureSamplerLocation;
 GLuint depthUseTransparentTexLocation;
+// For meadow's shadow wind animation
+GLuint depthTimeLocation;
+GLuint depthEnableWindLocation;
 
 // --- promptProgram --- //
 GLuint promptProgram; // Shader program
@@ -303,6 +310,9 @@ void createContext()
 
 	depthTextureSamplerLocation    = glGetUniformLocation(depthProgram, "textureSampler");
 	depthUseTransparentTexLocation = glGetUniformLocation(depthProgram, "useTransparentTex");
+	// For meadow's shadow wind animation
+	depthTimeLocation       = glGetUniformLocation(depthProgram, "time");
+	depthEnableWindLocation = glGetUniformLocation(depthProgram, "enableWind");
 
 	// --- promptProgram --- //
 	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
@@ -530,7 +540,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	forestSystem2->drawOnlyObjects(shadowModelLocation);
 
 	// Meadow
-	meadowSystem->drawOnlyObjects(shadowModelLocation);
+	meadowSystem->drawOnlyObjects(shadowModelLocation, depthEnableWindLocation);
 
 
 
@@ -558,8 +568,6 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Fog is gradualy applied based on snow amount!
 	// Blend so the sky color doesn't have to change...
 	vec3 currentFogColor = mix(skyColor, snowFogColor, snowAmount);
-
-	// Base density + extra density when snowing
 	float currentDensity = snowAmount * 0.03f;
 
 	glUniform3f(
@@ -635,8 +643,6 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// --------------------- Drawing scene objects --------------------- //	
 	// ----------------------------------------------------------------- //
 
-	float currentTime = (float) glfwGetTime() / 20.0f;
-
 	// Draw terrain!
 	terrainSystem->draw(viewMatrix, projectionMatrix, terrainTime);
 
@@ -653,6 +659,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	forestSystem2->draw();
 
 	// Draw meadow
+	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
 	meadowSystem->draw();
 
 
@@ -675,7 +682,13 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	GLboolean cull = glIsEnabled(GL_CULL_FACE);
 	glDisable(GL_CULL_FACE);
 
-	cloudSystem->draw(viewMatrix, projectionMatrix, currentTime, currentFogColor, currentDensity);
+	cloudSystem->draw(
+		viewMatrix,
+		projectionMatrix,
+		lastFrameTime / 25.0f,
+		currentFogColor,
+		currentDensity
+	);
 	// Remember to change the parameters in reflection pass too...
 
 	if (cull) glEnable(GL_CULL_FACE);
@@ -747,7 +760,6 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glCullFace(GL_FRONT); // Flip culling for mirrored rendering
 
 	// ===< Render scene objects (reflected) >=== //
-	float currentTime = (float) glfwGetTime() / 20.0f;
 
 	// Draw terrain
 	terrainSystem->draw(mirroredView, projectionMatrix, terrainTime);
@@ -760,6 +772,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	forestSystem2->draw();
 
 	// Draw meadow
+	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
 	meadowSystem->draw();
 
 	// Draw clouds
@@ -767,7 +780,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	cloudSystem->draw(
 		mirroredView,
 		projectionMatrix,
-		currentTime,
+		lastFrameTime / 25.0f,
 		mix(skyColor, snowFogColor, snowAmount),
 		snowAmount * 0.03f
 	);

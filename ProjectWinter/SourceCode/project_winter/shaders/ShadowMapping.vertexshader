@@ -32,31 +32,52 @@ out vec4 vertex_position_lightspace1;
 
 // ===< SNOW >=== //
 uniform mat4 snowVP;
-in vec3 snowPosition_worldspace;
 out vec4 vertex_position_snowspace;
 
 out vec4 vertex_position_clipspace; // Reflection
+
+// ===< WIND >=== //
+uniform float time;
+uniform int enableWind;
 
 
 
 void main()
 {
-    // Output position of the vertex
-    gl_Position =  P * V * M * vec4(vertexPosition_modelspace, 1);
+    // ===< WIND EFFECT >=== //
+    vec3 modifiedPosition = vertexPosition_modelspace;
+    if (enableWind > 0)
+    {
+        float stiffness = vertexUV.y; // Root -> 0 & Top -> 1
 
-    // Reflection
-    vertex_position_clipspace = gl_Position;
+        float windSpeed     = 4.0;
+        float windIntensity = 0.08;
+
+        vec3 worldPos = (M * vec4(modifiedPosition, 1.0)).xyz;
+        float wave    = sin(time * windSpeed + worldPos.x + worldPos.z);
+        wave         += sin(time * windSpeed + worldPos.x) * 0.6;
+
+        modifiedPosition.x += wave * windIntensity * stiffness;
+        modifiedPosition.z += wave * windIntensity * stiffness;
+    }
+
+
+
+    // Output position of the vertex
+    gl_Position               =  P * V * M * vec4(modifiedPosition, 1);
+    vertex_position_clipspace = gl_Position; // Reflection
     
     // FS
-    vertex_position_cameraspace  = V * M * vec4(vertexPosition_modelspace, 1);
+    vertex_position_cameraspace  = V * M * vec4(modifiedPosition, 1);
     vertex_normal_cameraspace    = V * M * vec4(vertexNormal_modelspace, 0);
     vertex_normal_worldspace     = normalize(mat3(M) * vertexNormal_modelspace);
     light_direction_cameraspace1 = V * vec4(light1.lightPosition_worldspace, 0);
+
     vertex_UV = vertexUV;
 
     // Task 4.2
-    vertex_position_lightspace1 = light1VP * M * vec4(vertexPosition_modelspace, 1);
+    vertex_position_lightspace1 = light1VP * M * vec4(modifiedPosition, 1);
 
     // ===< SNOW >=== //
-    vertex_position_snowspace  = snowVP * M * vec4(vertexPosition_modelspace, 1);
+    vertex_position_snowspace  = snowVP * M * vec4(modifiedPosition, 1);
 }

@@ -25,6 +25,7 @@ Meadow::Meadow(GLuint shaderProgram)
     modelMatrixLocation       = glGetUniformLocation(shaderProgram, "M");
     useTransparentTexLocation = glGetUniformLocation(shaderProgram, "useTransparentTex");
     diffuseColorSampler       = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
+    enableWind                = glGetUniformLocation(shaderProgram, "enableWind");
 
     // --- SETUP GRASS --- //
     grassTexture = loadBMP("assets/vegetation/grass.bmp");
@@ -222,6 +223,8 @@ void Meadow::draw()
     glUniform1i(useTransparentTexLocation, 1);
 
     { // --- DRAW GRASS --- //
+        
+        glUniform1i(enableWind, 1); // Enable wind animation
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTexture);
@@ -229,6 +232,8 @@ void Meadow::draw()
 
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+        
+        glUniform1i(enableWind, 0); // Disable wind animation
 
     }
 
@@ -249,7 +254,7 @@ void Meadow::draw()
     glEnable(GL_CULL_FACE);
 }
 
-void Meadow::drawOnlyObjects(GLuint shadowModelLocation)
+void Meadow::drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocation)
 {
     // The positions of grass/trees are already "baked" into the VBOs in world space!
     glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &mat4()[0][0]);
@@ -262,6 +267,8 @@ void Meadow::drawOnlyObjects(GLuint shadowModelLocation)
 
     { // --- DRAW GRASS --- //
 
+        glUniform1i(enableWindLocation, 1); // Enable wind animation
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTexture);
 
@@ -270,6 +277,8 @@ void Meadow::drawOnlyObjects(GLuint shadowModelLocation)
 
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+        
+        glUniform1i(enableWindLocation, 0); // Disable wind animation
 
     }
 

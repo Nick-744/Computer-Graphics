@@ -40,8 +40,8 @@ private:
     GLuint textureSamplerRock, textureSamplerGrass, textureSamplerSand, textureSamplerWater, textureSamplerDisplacement, textureSamplerRiversDirection;
 
     // Actual Texture IDs
-    GLuint textureWorld, textureSlope, textureSoil, texturePeaks, textureLake, textureRivers;
-    GLuint textureRock, textureGrass, textureDirt, textureSand, textureWater, textureRiversDirection, textureDisplacement;
+    GLuint textureWorld, textureSlope, textureLake, textureRivers;
+    GLuint textureRock, textureGrass, textureSand, textureWater, textureRiversDirection, textureDisplacement;
 
     // The 3D Mesh
     Drawable* terrain;
