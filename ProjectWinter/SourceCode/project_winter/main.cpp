@@ -30,6 +30,7 @@
 #include "src/snowSource.h"
 #include "src/snowfall.h"
 #include "src/lakeReflection.h"
+#include "src/timer.h"
 
 using namespace std;
 using namespace glm;
@@ -228,12 +229,15 @@ GLuint snowDepthFBO; GLuint snowDepthTexture;
 // Snow state (CPU)
 bool  snowingActive = false;
 float snowAmount    = 0.0f;
+Timer snowStartTimer;
 // Snow particles
 Snowfall* snowfallSystem;
 
 // Lake reflection system
 LakeReflection* lakeReflection;
 const float WATER_HEIGHT = 58.1f; // Trial and error...
+
+float windPower = 0.0f;
 
 
 
@@ -843,8 +847,11 @@ void mainLoop()
 		mat4 snow_proj = snowSource->projectionMatrix;
 		mat4 snow_view = snowSource->viewMatrix;
 		depth_pass(snow_view, snow_proj, snowDepthFBO, SNOW_BUFFER_SIZE);
+
+
+
 		// Snow accumulation
-		if (snowingActive)
+		if (snowingActive && snowStartTimer.hasFinished(3.5f))
 		{
 			const float growRate = 0.008f;
 			snowAmount          += deltaTime * growRate;
@@ -855,6 +862,7 @@ void mainLoop()
 			}
 			else cameraFarPlane = FAR_PLANE_INITIAL; // Reset far plane
 		}
+
 		// Control terrain's water speed...
 		float flowSpeed = mix(1.0f, 0.05f, snowAmount);
 		terrainTime    += (deltaTime / 20.0f) * flowSpeed;
@@ -863,10 +871,10 @@ void mainLoop()
 		vec3 currentSkyColor = mix(skyColor, snowFogColor, snowAmount);
 		glClearColor(currentSkyColor.x, currentSkyColor.y, currentSkyColor.z, 0.0f); // Better fog effect!
 
+
+
 		// Lake Reflection Pass
 		reflection_pass(viewMatrix, projectionMatrix);
-
-
 
 		if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
 			lighting_pass(light1_view, light1_proj); // View from Sun!
@@ -879,7 +887,7 @@ void mainLoop()
 
 		// Render SNOW PARTICLES - AFTER the lighting pass!
 		snowfallSystem->setActive(snowingActive);
-		snowfallSystem->update(deltaTime, viewMatrix, projectionMatrix);
+		snowfallSystem->update(deltaTime, viewMatrix, projectionMatrix, windPower);
 		snowfallSystem->draw(viewMatrix, projectionMatrix);
 
 
@@ -922,12 +930,18 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 
 	// ---< Snow control >--- //
 	if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+	{
+		snowStartTimer.start();
 		snowingActive = !snowingActive;
+	}
 	if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_PRESS)
 		if (snowAmount < 1.0f)
 			snowAmount = 1.0f; // Instant full snow!
 		else
 			snowAmount = 0.0f; // Remove snow!
+
+	if (key == GLFW_KEY_X && action == GLFW_PRESS)
+		windPower = (windPower == 0.0f) ? 6.0f : 0.0f;
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)

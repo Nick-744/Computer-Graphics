@@ -121,6 +121,8 @@ add_executable(project_winter
   project_winter/src/lakeReflection.cpp
   project_winter/src/lakeReflection.h
 
+  project_winter/src/timer.h
+
   common/util.cpp
   common/util.h
   common/shader.cpp

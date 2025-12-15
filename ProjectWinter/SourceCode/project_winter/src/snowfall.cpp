@@ -65,7 +65,7 @@ void Snowfall::resetParticle(Particle& p)
     p.wobblePhase = rand01() * 6.28f; // Random starting angle for wobble
 }
 
-void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
+void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj, float windPower)
 {
     if (!active) return;
 
@@ -95,7 +95,7 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
 
             // Random position strictly within asymmetric box
             float rx = rand01();
-            float ry = rand01();
+            float ry = 0.8f + rand01() * 0.2f;
             float rz = rand01();
 
             vec3 randomViewPos = vec3(
@@ -111,20 +111,23 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj)
     }
 
     // --- Update Physics & Wrapping --- //
+    vec3 windVelocity = vec3(windPower * 1.5, 0.0f, 0.0f);
     for (int i = 0; i < maxParticles; ++i)
     {
         Particle& p = particles[i];
 
         // [Wobble Effect] Add sine wave motion to X and Z
-        p.wobblePhase += deltaTime * 2.0f; // Speed of flutter
+        float turbulence = 2.0f + (windPower * 1.5f);
+        p.wobblePhase   += deltaTime * turbulence; // Speed of flutter
+
         vec3 flutter = vec3(
             cos(p.wobblePhase) * 1.3f, // X flutter strength
             0.0f,
             sin(p.wobblePhase) * 1.3f  // Z flutter strength
         );
 
-        // Apply Gravity + Flutter
-        p.pos += (p.vel + flutter) * deltaTime;
+        // Apply Gravity + Wind + Flutter
+        p.pos += (p.vel + windVelocity + flutter) * deltaTime;
 
         // --- Wrap Logic (View Space) --- //
         // Convert particle to View Space to check against the bounds...

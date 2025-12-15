@@ -17,7 +17,7 @@ public:
     ~Snowfall();
 
     // Call every frame (fit the camera's view box!)
-    void update(float deltaTime, const mat4& view, const mat4& proj);
+    void update(float deltaTime, const mat4& view, const mat4& proj, float windPower);
 
     // Call every frame!
     void draw(const mat4& view, const mat4& proj);
