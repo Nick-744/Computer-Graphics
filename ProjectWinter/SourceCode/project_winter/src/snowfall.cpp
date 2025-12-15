@@ -65,7 +65,7 @@ void Snowfall::resetParticle(Particle& p)
     p.wobblePhase = rand01() * 6.28f; // Random starting angle for wobble
 }
 
-void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj, float windPower)
+void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj, int windPower)
 {
     if (!active) return;
 
@@ -111,13 +111,18 @@ void Snowfall::update(float deltaTime, const mat4& view, const mat4& proj, float
     }
 
     // --- Update Physics & Wrapping --- //
-    vec3 windVelocity = vec3(windPower * 1.5, 0.0f, 0.0f);
+    float temp        = (float) windPower * 1.5f;
+    vec3 windVelocity = vec3(
+        (windPower > 1) ? temp : 0.0f,
+        0.0f,
+        0.0f
+    );
     for (int i = 0; i < maxParticles; ++i)
     {
         Particle& p = particles[i];
 
         // [Wobble Effect] Add sine wave motion to X and Z
-        float turbulence = 2.0f + (windPower * 1.5f);
+        float turbulence = 0.5f + temp;
         p.wobblePhase   += deltaTime * turbulence; // Speed of flutter
 
         vec3 flutter = vec3(

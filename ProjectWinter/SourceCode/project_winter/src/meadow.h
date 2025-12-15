@@ -20,8 +20,9 @@ public:
     Meadow(GLuint shaderProgram);
     ~Meadow();
 
-    void draw();
-    void drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocation);
+    void draw(int windPower);
+    void drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocation, int windPower);
+    // Passing the enableWindLocation is better than passing the entire DEPTH shader program...
 
 private:
     GLuint shaderProgram;
@@ -30,7 +31,7 @@ private:
     GLint modelMatrixLocation;
     GLint useTransparentTexLocation;
     GLint diffuseColorSampler;
-    GLint enableWind;
+    GLint windPowerLocation;
 
     // Grass Data
     GLuint grassTexture;

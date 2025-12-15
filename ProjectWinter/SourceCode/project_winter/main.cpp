@@ -195,7 +195,7 @@ GLuint depthTextureSamplerLocation;
 GLuint depthUseTransparentTexLocation;
 // For meadow's shadow wind animation
 GLuint depthTimeLocation;
-GLuint depthEnableWindLocation;
+GLuint depthWindPowerLocation;
 
 // --- promptProgram --- //
 GLuint promptProgram; // Shader program
@@ -237,7 +237,7 @@ Snowfall* snowfallSystem;
 LakeReflection* lakeReflection;
 const float WATER_HEIGHT = 58.1f; // Trial and error...
 
-float windPower = 0.0f;
+int windPower = 1;
 
 
 
@@ -315,8 +315,8 @@ void createContext()
 	depthTextureSamplerLocation    = glGetUniformLocation(depthProgram, "textureSampler");
 	depthUseTransparentTexLocation = glGetUniformLocation(depthProgram, "useTransparentTex");
 	// For meadow's shadow wind animation
-	depthTimeLocation       = glGetUniformLocation(depthProgram, "time");
-	depthEnableWindLocation = glGetUniformLocation(depthProgram, "enableWind");
+	depthTimeLocation      = glGetUniformLocation(depthProgram, "time");
+	depthWindPowerLocation = glGetUniformLocation(depthProgram, "windPower");
 
 	// --- promptProgram --- //
 	quadTextureSamplerLocation = glGetUniformLocation(promptProgram, "textureSampler");
@@ -544,7 +544,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	forestSystem2->drawOnlyObjects(shadowModelLocation);
 
 	// Meadow
-	meadowSystem->drawOnlyObjects(shadowModelLocation, depthEnableWindLocation);
+	meadowSystem->drawOnlyObjects(shadowModelLocation, depthWindPowerLocation, windPower);
 
 
 
@@ -664,7 +664,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw meadow
 	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
-	meadowSystem->draw();
+	meadowSystem->draw(windPower);
 
 
 
@@ -777,7 +777,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw meadow
 	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
-	meadowSystem->draw();
+	meadowSystem->draw(windPower);
 
 	// Draw clouds
 	GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
@@ -941,7 +941,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 			snowAmount = 0.0f; // Remove snow!
 
 	if (key == GLFW_KEY_X && action == GLFW_PRESS)
-		windPower = (windPower == 0.0f) ? 6.0f : 0.0f;
+		windPower = (windPower > 1) ? 1 : 6;
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)

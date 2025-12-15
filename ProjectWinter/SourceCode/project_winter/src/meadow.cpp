@@ -25,7 +25,7 @@ Meadow::Meadow(GLuint shaderProgram)
     modelMatrixLocation       = glGetUniformLocation(shaderProgram, "M");
     useTransparentTexLocation = glGetUniformLocation(shaderProgram, "useTransparentTex");
     diffuseColorSampler       = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
-    enableWind                = glGetUniformLocation(shaderProgram, "enableWind");
+    windPowerLocation         = glGetUniformLocation(shaderProgram, "windPower");
 
     // --- SETUP GRASS --- //
     grassTexture = loadBMP("assets/vegetation/grass.bmp");
@@ -213,7 +213,7 @@ Meadow::~Meadow()
     glDeleteTextures(1, &treeTexture);
 }
 
-void Meadow::draw()
+void Meadow::draw(int windPower)
 {
     // Disable Culling so the flat quads are visible from both sides
     glDisable(GL_CULL_FACE);
@@ -224,7 +224,7 @@ void Meadow::draw()
 
     { // --- DRAW GRASS --- //
         
-        glUniform1i(enableWind, 1); // Enable wind animation
+        glUniform1i(windPowerLocation, windPower); // Enable wind animation
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTexture);
@@ -233,7 +233,7 @@ void Meadow::draw()
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
         
-        glUniform1i(enableWind, 0); // Disable wind animation
+        glUniform1i(windPowerLocation, 0); // Disable wind animation
 
     }
 
@@ -254,7 +254,7 @@ void Meadow::draw()
     glEnable(GL_CULL_FACE);
 }
 
-void Meadow::drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocation)
+void Meadow::drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocation, int windPower)
 {
     // The positions of grass/trees are already "baked" into the VBOs in world space!
     glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &mat4()[0][0]);
@@ -267,7 +267,7 @@ void Meadow::drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocati
 
     { // --- DRAW GRASS --- //
 
-        glUniform1i(enableWindLocation, 1); // Enable wind animation
+        glUniform1i(enableWindLocation, windPower); // Enable wind animation
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTexture);
