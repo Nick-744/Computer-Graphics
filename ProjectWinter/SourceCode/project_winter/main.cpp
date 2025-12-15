@@ -180,8 +180,13 @@ Light* light1;
 Drawable* sphere; // Light model helper
 
 // Sky & fog colors
-vec3 skyColor     = vec3(0.6f, 0.7f, 1.0f);
-vec3 snowFogColor = vec3(0.8f, 0.85f, 0.9f);
+vec3 skyColor        = vec3(0.6f, 0.7f, 1.0f);
+vec3 currentSkyColor = skyColor; // Or currentFogColor!
+vec3 snowFogColor    = vec3(0.8f, 0.85f, 0.9f);
+float fogDensity     = 0.0f;
+bool forceClearFog   = false;
+
+int windPower = 1;
 
 // --- shaderProgram --- //
 MainShader shaderProgram;
@@ -236,8 +241,6 @@ Snowfall* snowfallSystem;
 // Lake reflection system
 LakeReflection* lakeReflection;
 const float WATER_HEIGHT = 58.1f; // Trial and error...
-
-int windPower = 1;
 
 
 
@@ -571,16 +574,13 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// ===< Fog >=== //
 	// Fog is gradualy applied based on snow amount!
 	// Blend so the sky color doesn't have to change...
-	vec3 currentFogColor = mix(skyColor, snowFogColor, snowAmount);
-	float currentDensity = snowAmount * 0.03f;
-
 	glUniform3f(
 		shaderProgram.fogColorLocation,
-		currentFogColor.x,
-		currentFogColor.y,
-		currentFogColor.z
+		currentSkyColor.x,
+		currentSkyColor.y,
+		currentSkyColor.z
 	);
-	glUniform1f(shaderProgram.fogDensityLocation, currentDensity);
+	glUniform1f(shaderProgram.fogDensityLocation, fogDensity * 0.03f);
 
 
 
@@ -683,19 +683,22 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 	// ======< CLOUDS >====== //
-	GLboolean cull = glIsEnabled(GL_CULL_FACE);
-	glDisable(GL_CULL_FACE);
+	if (!forceClearFog)
+	{
+		GLboolean cull = glIsEnabled(GL_CULL_FACE);
+		glDisable(GL_CULL_FACE);
 
-	cloudSystem->draw(
-		viewMatrix,
-		projectionMatrix,
-		lastFrameTime / 25.0f,
-		currentFogColor,
-		currentDensity
-	);
-	// Remember to change the parameters in reflection pass too...
+		cloudSystem->draw(
+			viewMatrix,
+			projectionMatrix,
+			lastFrameTime / 25.0f,
+			currentSkyColor,
+			fogDensity * 0.03f
+		);
+		// Remember to change the parameters in reflection pass too...
 
-	if (cull) glEnable(GL_CULL_FACE);
+		if (cull) glEnable(GL_CULL_FACE);
+	}
 }
 
 
@@ -759,9 +762,9 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	mat4 snowVP = snowSource->snowVP();
 	glUniformMatrix4fv(shaderProgram.snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
 
-
-
 	glCullFace(GL_FRONT); // Flip culling for mirrored rendering
+
+
 
 	// ===< Render scene objects (reflected) >=== //
 
@@ -780,15 +783,18 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	meadowSystem->draw(windPower);
 
 	// Draw clouds
-	GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
-	cloudSystem->draw(
-		mirroredView,
-		projectionMatrix,
-		lastFrameTime / 25.0f,
-		mix(skyColor, snowFogColor, snowAmount),
-		snowAmount * 0.03f
-	);
-	if (cull) glEnable(GL_CULL_FACE);
+	if (!forceClearFog)
+	{
+		GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
+		cloudSystem->draw(
+			mirroredView,
+			projectionMatrix,
+			lastFrameTime / 25.0f,
+			currentSkyColor,
+			fogDensity * 0.03f
+		);
+		if (cull) glEnable(GL_CULL_FACE);
+	}
 
 
 
@@ -850,25 +856,32 @@ void mainLoop()
 
 
 
+		const float growRate = 0.008f;
+
 		// Snow accumulation
 		if (snowingActive && snowStartTimer.hasFinished(3.5f))
 		{
-			const float growRate = 0.008f;
-			snowAmount          += deltaTime * growRate;
-			if (snowAmount > 1.0f)
-			{
-				snowAmount     = 1.0f;
-				cameraFarPlane = 110.0f; // Reduce far plane for better performance!
-			}
-			else cameraFarPlane = FAR_PLANE_INITIAL; // Reset far plane
+			snowAmount += deltaTime * growRate;
+			snowAmount  = clamp(snowAmount, 0.0f, 1.0f);
 		}
+
+		// Fog density control
+		if (snowAmount > fogDensity && !forceClearFog) fogDensity = snowAmount;
+		else if (forceClearFog)
+		{
+			fogDensity -= deltaTime * growRate * 10.0f;
+			fogDensity  = clamp(fogDensity, 0.0f, 1.0f);
+		}
+		// Performance optimization...
+		if (fogDensity == 1.0f) cameraFarPlane = 110.0f; // Reduce far plane for better performance!
+		else                    cameraFarPlane = FAR_PLANE_INITIAL; // Reset far plane
 
 		// Control terrain's water speed...
 		float flowSpeed = mix(1.0f, 0.05f, snowAmount);
 		terrainTime    += (deltaTime / 20.0f) * flowSpeed;
 
 		// ===< UPDATE SKY COLOR >=== //
-		vec3 currentSkyColor = mix(skyColor, snowFogColor, snowAmount);
+		currentSkyColor = mix(skyColor, snowFogColor, fogDensity);
 		glClearColor(currentSkyColor.x, currentSkyColor.y, currentSkyColor.z, 0.0f); // Better fog effect!
 
 
@@ -940,6 +953,22 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		else
 			snowAmount = 0.0f; // Remove snow!
 
+	// ---< Fog control >--- //
+	if (key == GLFW_KEY_1 && action == GLFW_PRESS)
+	{
+		if (fogDensity < 1.0f)
+			fogDensity = 1.0f; // Instant full fog!
+		else
+			fogDensity = 0.0f; // Remove fog!
+	}
+	// Clear fog/sky!
+	if (key == GLFW_KEY_C && action == GLFW_PRESS)
+	{
+		forceClearFog = !forceClearFog;
+		snowingActive = false; // Stop snowing too!
+	}
+
+	// Wind power control
 	if (key == GLFW_KEY_X && action == GLFW_PRESS)
 		windPower = (windPower > 1) ? 1 : 6;
 
