@@ -56,6 +56,7 @@ void SnowSource::update()
 
 glm::mat4 SnowSource::snowVP() { return projectionMatrix * viewMatrix; }
 
+// Not working with snow... It makes it flicker!
 void SnowSource::fitToCameraFrustum(const mat4& cameraView, const mat4& cameraProj)
 {
     // Get the 8 corners of the camera frustum in world space

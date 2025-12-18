@@ -24,6 +24,7 @@ uniform mat4 M;
 uniform mat4 light1VP;
 
 out vec4 vertex_position_cameraspace;
+out vec3 vertex_position_worldspace;
 out vec4 vertex_normal_cameraspace;
 out vec3 vertex_normal_worldspace;
 out vec4 light_direction_cameraspace1;
@@ -72,6 +73,7 @@ void main()
     
     // FS
     vertex_position_cameraspace  = V * M * vec4(modifiedPosition, 1);
+    vertex_position_worldspace   = (M * vec4(modifiedPosition, 1)).xyz;
     vertex_normal_cameraspace    = V * M * vec4(vertexNormal_modelspace, 0);
     vertex_normal_worldspace     = normalize(mat3(M) * vertexNormal_modelspace);
     light_direction_cameraspace1 = V * vec4(light1.lightPosition_worldspace, 0);

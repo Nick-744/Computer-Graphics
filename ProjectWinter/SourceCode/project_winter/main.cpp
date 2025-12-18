@@ -547,6 +547,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	forestSystem2->drawOnlyObjects(shadowModelLocation);
 
 	// Meadow
+	glUniform1f(depthTimeLocation, lastFrameTime); // For wind animation!
 	meadowSystem->drawOnlyObjects(shadowModelLocation, depthWindPowerLocation, windPower);
 
 
@@ -966,6 +967,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	{
 		forceClearFog = !forceClearFog;
 		snowingActive = false; // Stop snowing too!
+		windPower     = 0;     // Stop wind!
 	}
 
 	// Wind power control
