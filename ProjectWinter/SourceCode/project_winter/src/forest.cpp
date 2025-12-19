@@ -8,6 +8,7 @@ using namespace std;
 
 extern GLuint depthTextureSamplerLocation;
 extern GLuint depthUseTransparentTexLocation;
+extern GLuint depthWindPowerLocation;
 
 Forest::Forest(GLuint shaderProgram)
 {
@@ -29,6 +30,7 @@ Forest::Forest(GLuint shaderProgram)
     useTextureLocation  = glGetUniformLocation(shaderProgram, "useTexture");
     useTransparentTex   = glGetUniformLocation(shaderProgram, "useTransparentTex");
     diffuseColorSampler = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
+    windPowerLocation   = glGetUniformLocation(shaderProgram, "windPower");
 }
 
 Forest::~Forest()
@@ -59,7 +61,7 @@ void Forest::updateModelMatrix()
                 * scale(mat4(), vec3(scaleFactor));
 }
 
-void Forest::draw()
+void Forest::draw(int windPower)
 {
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
 
@@ -76,6 +78,8 @@ void Forest::draw()
 
     glDisable(GL_CULL_FACE); // Disable Culling: We want to see the back of the leaves!
 
+    glUniform1i(windPowerLocation, windPower); // Enable wind animation
+
     // Bind Texture
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, leavesTexture);
@@ -84,12 +88,13 @@ void Forest::draw()
 
     leavesMesh->bind(); leavesMesh->draw();
 
-    // Restore Culling!
+    // Restore...
     glEnable(GL_CULL_FACE);
     glUniform1i(useTransparentTex, 0);
+    glUniform1i(windPowerLocation, 0); // Disable wind animation
 }
 
-void Forest::drawOnlyObjects(GLuint shadowModelLocation)
+void Forest::drawOnlyObjects(GLuint shadowModelLocation, int windPower)
 {
     glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);
 
@@ -100,6 +105,8 @@ void Forest::drawOnlyObjects(GLuint shadowModelLocation)
     // IMPORTANT: Disable culling for shadows too, otherwise 
     // light hitting the back of a leaf won't cast a shadow!
     glDisable(GL_CULL_FACE);
+
+    glUniform1i(depthWindPowerLocation, windPower); // Enable wind animation
     
     // Bind Texture - leaves have transparency!
     // So the shadow casted should consider that!
@@ -109,8 +116,9 @@ void Forest::drawOnlyObjects(GLuint shadowModelLocation)
     glUniform1i(depthUseTransparentTexLocation, 1);
 
     leavesMesh->bind(); leavesMesh->draw();
-
+    
+    // Restore...
     glEnable(GL_CULL_FACE);
-
     glUniform1i(depthUseTransparentTexLocation, 0);
+    glUniform1i(depthWindPowerLocation, 0); // Disable wind animation
 }

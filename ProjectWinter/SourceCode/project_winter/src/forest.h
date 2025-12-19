@@ -13,8 +13,8 @@ public:
     Forest(GLuint shaderProgram);
     ~Forest();
 
-    void draw();
-	void drawOnlyObjects(GLuint shadowModelLocation); // For depth pass!
+    void draw(int windPower);
+    void drawOnlyObjects(GLuint shadowModelLocation, int windPower); // For depth pass!
 
     void setPosition(vec3 pos);
 	void setRotation(float angle);
@@ -39,6 +39,7 @@ private:
     GLuint useTextureLocation;
     GLuint useTransparentTex;
     GLuint diffuseColorSampler;
+    GLuint windPowerLocation;
 
     void updateModelMatrix();
 };

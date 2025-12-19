@@ -21,7 +21,7 @@ public:
     ~Meadow();
 
     void draw(int windPower);
-    void drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocation, int windPower);
+    void drawOnlyObjects(GLuint shadowModelLocation, int windPower);
     // Passing the enableWindLocation is better than passing the entire DEPTH shader program...
 
 private:

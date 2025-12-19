@@ -543,12 +543,12 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	cabinModel->drawOnlyObjects(shadowModelLocation);
 
 	// Forests
-	forestSystem->drawOnlyObjects(shadowModelLocation);
-	forestSystem2->drawOnlyObjects(shadowModelLocation);
+	glUniform1f(depthTimeLocation, lastFrameTime); // For wind animation!
+	forestSystem->drawOnlyObjects(shadowModelLocation, windPower);
+	forestSystem2->drawOnlyObjects(shadowModelLocation, windPower);
 
 	// Meadow
-	glUniform1f(depthTimeLocation, lastFrameTime); // For wind animation!
-	meadowSystem->drawOnlyObjects(shadowModelLocation, depthWindPowerLocation, windPower);
+	meadowSystem->drawOnlyObjects(shadowModelLocation, windPower + 1);
 
 
 
@@ -660,12 +660,12 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	cabinModel->draw();
 
 	// Draw forests
-	forestSystem->draw();
-	forestSystem2->draw();
+	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
+	forestSystem->draw(windPower);
+	forestSystem2->draw(windPower);
 
 	// Draw meadow
-	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
-	meadowSystem->draw(windPower);
+	meadowSystem->draw(windPower + 1);
 
 
 
@@ -776,12 +776,12 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	cabinModel->draw();
 
 	// Draw forests
-	forestSystem->draw();
-	forestSystem2->draw();
+	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
+	forestSystem->draw(windPower);
+	forestSystem2->draw(windPower);
 
 	// Draw meadow
-	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
-	meadowSystem->draw(windPower);
+	meadowSystem->draw(windPower + 1);
 
 	// Draw clouds
 	if (!forceClearFog)
@@ -967,7 +967,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	{
 		forceClearFog = !forceClearFog;
 		snowingActive = false; // Stop snowing too!
-		windPower     = 0;     // Stop wind!
+		windPower     = -1;    // Stop wind!
 	}
 
 	// Wind power control

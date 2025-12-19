@@ -56,12 +56,13 @@ void main()
 
         float windSpeed     = 3.5;
         float windIntensity = 0.08;
+        if (windPower == 1 || windPower == 6) windIntensity = 0.005; // Wind mode - Trees
 
         vec3 worldPos = (M * vec4(modifiedPosition, 1.0)).xyz;
         float wave    = sin(time * windSpeed + worldPos.x + worldPos.z);
         wave         += sin(time * windSpeed + worldPos.x) * 0.6;
 
-        if (windPower > 1)
+        if (windPower > 2)
             modifiedPosition.x += abs(wave * windIntensity * stiffness) * windPower;
         else
             modifiedPosition.x += wave * windIntensity * stiffness;

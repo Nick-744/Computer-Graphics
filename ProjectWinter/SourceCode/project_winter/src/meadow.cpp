@@ -12,6 +12,7 @@ using namespace glm;
 // Get the global location variables from main.cpp
 extern GLuint depthTextureSamplerLocation;
 extern GLuint depthUseTransparentTexLocation;
+extern GLuint depthWindPowerLocation;
 
 vec3 normalCorrectLighting = normalize(vec3(0.0f, 1.0f, 0.2f)); // SPECIAL NORMAL for lighting...
 
@@ -254,7 +255,7 @@ void Meadow::draw(int windPower)
     glEnable(GL_CULL_FACE);
 }
 
-void Meadow::drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocation, int windPower)
+void Meadow::drawOnlyObjects(GLuint shadowModelLocation, int windPower)
 {
     // The positions of grass/trees are already "baked" into the VBOs in world space!
     glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &mat4()[0][0]);
@@ -267,7 +268,7 @@ void Meadow::drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocati
 
     { // --- DRAW GRASS --- //
 
-        glUniform1i(enableWindLocation, windPower); // Enable wind animation
+        glUniform1i(depthWindPowerLocation, windPower); // Enable wind animation
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTexture);
@@ -278,7 +279,7 @@ void Meadow::drawOnlyObjects(GLuint shadowModelLocation, GLuint enableWindLocati
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
         
-        glUniform1i(enableWindLocation, 0); // Disable wind animation
+        glUniform1i(depthWindPowerLocation, 0); // Disable wind animation
 
     }
 
