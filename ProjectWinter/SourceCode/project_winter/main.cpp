@@ -47,8 +47,8 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 #define TITLE "Project Winter"
 
 #define SHADOW_BUFFER_SIZE     8192
-#define SNOW_BUFFER_SIZE       8192
-#define REFLECTION_BUFFER_SIZE 1024
+#define SNOW_BUFFER_SIZE       16384
+#define REFLECTION_BUFFER_SIZE 512
 
 #define FAR_PLANE_INITIAL 660.0f
 
@@ -828,6 +828,15 @@ void renderPrompt()
 
 void mainLoop()
 {
+	// ===< Snow >=== // ===< Depth Pass >=== //
+	snowSource->update();
+	//snowSource->fitToCameraFrustum(viewMatrix, projectionMatrix); // Not working with snow...
+	// After all, the snow source depth map doesn't need to be update in every frame...
+	// Also, fix the moving snow artifacts (because of wind animation)!
+	mat4 snow_proj = snowSource->projectionMatrix;
+	mat4 snow_view = snowSource->viewMatrix;
+	depth_pass(snow_view, snow_proj, snowDepthFBO, SNOW_BUFFER_SIZE);
+
 	do
 	{
 		float currentFrameTime = glfwGetTime();
@@ -847,13 +856,6 @@ void mainLoop()
 		mat4 light1_proj = light1->projectionMatrix;
 		mat4 light1_view = light1->viewMatrix;
 		depth_pass(light1_view, light1_proj, depthFBO1, SHADOW_BUFFER_SIZE); // Create the depth buffer
-
-		// ===< Snow >=== // ===< Depth Pass >=== //
-		snowSource->update();
-		//snowSource->fitToCameraFrustum(viewMatrix, projectionMatrix); // Not working with snow...
-		mat4 snow_proj = snowSource->projectionMatrix;
-		mat4 snow_view = snowSource->viewMatrix;
-		depth_pass(snow_view, snow_proj, snowDepthFBO, SNOW_BUFFER_SIZE);
 
 
 
