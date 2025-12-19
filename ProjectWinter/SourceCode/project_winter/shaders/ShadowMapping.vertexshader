@@ -25,15 +25,18 @@ uniform mat4 light1VP;
 
 out vec4 vertex_position_cameraspace;
 out vec3 vertex_position_worldspace;
+out vec3 vertex_position_worldspace_s; // Static - WITHOUT wind...
 out vec4 vertex_normal_cameraspace;
 out vec3 vertex_normal_worldspace;
 out vec4 light_direction_cameraspace1;
 out vec2 vertex_UV;
+
 out vec4 vertex_position_lightspace1;
 
 // ===< SNOW >=== //
 uniform mat4 snowVP;
 out vec4 vertex_position_snowspace;
+out vec4 vertex_position_snowspace_s; // Static - WITHOUT wind...
 
 out vec4 vertex_position_clipspace; // Reflection
 
@@ -74,6 +77,7 @@ void main()
     // FS
     vertex_position_cameraspace  = V * M * vec4(modifiedPosition, 1);
     vertex_position_worldspace   = (M * vec4(modifiedPosition, 1)).xyz;
+    vertex_position_worldspace_s = (M * vec4(vertexPosition_modelspace, 1)).xyz;
     vertex_normal_cameraspace    = V * M * vec4(vertexNormal_modelspace, 0);
     vertex_normal_worldspace     = normalize(mat3(M) * vertexNormal_modelspace);
     light_direction_cameraspace1 = V * vec4(light1.lightPosition_worldspace, 0);
@@ -84,5 +88,7 @@ void main()
     vertex_position_lightspace1 = light1VP * M * vec4(modifiedPosition, 1);
 
     // ===< SNOW >=== //
-    vertex_position_snowspace  = snowVP * M * vec4(modifiedPosition, 1);
+    vertex_position_snowspace   = snowVP * M * vec4(modifiedPosition, 1);
+    // Snow anchor WITHOUT wind (so snow sticks to grass)!!!
+    vertex_position_snowspace_s = snowVP * M * vec4(vertexPosition_modelspace, 1);
 }
