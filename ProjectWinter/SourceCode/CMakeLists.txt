@@ -78,12 +78,16 @@ include_directories(
   external/tinyxml2/include/
   external/tinyobjloader/include/
   .
+
+  external/imgui/
+  external/imgui/backends/
   )
 
 set(ALL_LIBS
   ${OPENGL_LIBRARY}
   glfw
   GLEW_1130
+  IMGUI
   SOIL
   TINYXML2
   )
@@ -123,6 +127,11 @@ add_executable(project_winter
 
   project_winter/src/timer.h
 
+  project_winter/src/menuGUI.cpp
+  project_winter/src/menuGUI.h
+
+
+
   common/util.cpp
   common/util.h
   common/shader.cpp
@@ -136,6 +145,8 @@ add_executable(project_winter
   common/light.cpp
   common/light.h
 
+
+  
   project_winter/shaders/ShadowMapping.fragmentshader
   project_winter/shaders/ShadowMapping.vertexshader
   project_winter/shaders/Depth.fragmentshader

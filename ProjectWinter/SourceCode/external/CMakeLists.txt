@@ -45,7 +45,7 @@ set(GLEW_HEADERS
 )
 
 
-add_library( GLEW_1130 STATIC
+add_library(GLEW_1130 STATIC
     ${GLEW_SOURCE}
     ${GLEW_INCLUDE}
 )
@@ -88,4 +88,36 @@ set_target_properties(TINYXML2
     FOLDER "Libraries"
 )
 
+### IMGUI ###
 
+set(IMGUI_DIR "imgui") 
+
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+add_library(IMGUI STATIC 
+    ${IMGUI_SOURCES}
+)
+
+target_include_directories(IMGUI PUBLIC 
+    ${IMGUI_DIR} 
+    ${IMGUI_DIR}/backends
+)
+
+target_link_libraries(IMGUI 
+    glfw 
+    GLEW_1130 
+    ${OPENGL_LIBRARY}
+)
+
+set_target_properties(IMGUI
+    PROPERTIES
+    FOLDER "Libraries"
+)

@@ -31,6 +31,7 @@
 #include "src/snowfall.h"
 #include "src/lakeReflection.h"
 #include "src/timer.h"
+#include "src/menuGUI.h" // ImGui backbone
 
 using namespace std;
 using namespace glm;
@@ -42,13 +43,13 @@ void mainLoop();
 void free();
 void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-#define W_WIDTH 1280
+#define W_WIDTH  1280
 #define W_HEIGHT 720
-#define TITLE "Project Winter"
+#define TITLE    "Project Winter"
 
-#define SHADOW_BUFFER_SIZE     8192
-#define SNOW_BUFFER_SIZE       16384
-#define REFLECTION_BUFFER_SIZE 512
+int currentShadowBufferSize     =  8192;
+int currentSnowBufferSize       = 16384;
+int currentReflectionBufferSize =  1024;
 
 #define FAR_PLANE_INITIAL 660.0f
 
@@ -172,6 +173,8 @@ GLFWwindow* window;
 Camera* camera;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
+MenuGUI myMenu;
+
 float lastFrameTime = 0.0f;
 float terrainTime   = 0.0f; // For terrain's animation control!
 
@@ -193,7 +196,7 @@ MainShader shaderProgram;
 
 // --- depthProgram --- //
 GLuint depthProgram;
-GLuint depthFBO1, depthTexture1;
+GLuint depthFBO1 = 0, depthTexture1 = 0;
 GLuint shadowViewProjectionLocation;
 GLuint shadowModelLocation;
 GLuint depthTextureSamplerLocation;
@@ -230,7 +233,6 @@ CloudRenderer* cloudSystem;
 
 // ===< Snow System >=== //
 SnowSource* snowSource;
-GLuint snowDepthFBO; GLuint snowDepthTexture;
 // Snow state (CPU)
 bool  snowingActive = false;
 float snowAmount    = 0.0f;
@@ -290,6 +292,65 @@ void uploadMaterial(const Material& mtl)
 	glUniform4f(shaderProgram.KdLocation, mtl.Kd.r, mtl.Kd.g, mtl.Kd.b, mtl.Kd.a);
 	glUniform4f(shaderProgram.KsLocation, mtl.Ks.r, mtl.Ks.g, mtl.Ks.b, mtl.Ks.a);
 	glUniform1f(shaderProgram.NsLocation, mtl.Ns);
+}
+
+
+
+// ---------------------------------------------------------------------------- //
+// -  Task 3.2 Create a depth framebuffer and a texture to store the depthmap - //
+// ---------------------------------------------------------------------------- //
+void initDepthFBO(GLuint& fboID, GLuint& textureID, int& currentSizeVariable, int size)
+{
+	// Cleanup existing buffers if they exist...
+	if (fboID != 0)     glDeleteFramebuffers(1, &fboID);
+	if (textureID != 0) glDeleteTextures(1, &textureID);
+
+	currentSizeVariable = size; // Update current size variable
+
+	// Tell opengl to generate a framebuffer
+	glGenFramebuffers(1, &fboID);
+	// Binding the framebuffer, all changes bellow will affect the binded framebuffer
+	// **Don't forget to bind the default framebuffer at the end of initialization
+	glBindFramebuffer(GL_FRAMEBUFFER, fboID);
+
+	// We need a texture to store the depth image
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+	// Telling opengl the required information about the texture
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_DEPTH_COMPONENT,
+		size, size,
+		0,
+		GL_DEPTH_COMPONENT,
+		GL_FLOAT,
+		NULL // Δεν έχουμε εικόνα ακόμα, θα δημιουργηθεί αργότερα!
+	);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	// Task 4.5 Don't shadow area out of light's viewport
+	// Step 1 : (Don't forget to comment out the respective lines above
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+	// Set color to set out of border 
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+	// Next go to fragment shader and add an iff statement, so if the distance in the z-buffer is equal to 1, 
+	// meaning that the fragment is out of the texture border (or further than the far clip plane) 
+	// then the shadow value is 0.
+
+	// Task 3.2 Continue
+	// Attaching the texture to the framebuffer, so that it will monitor the depth component
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureID, 0);
+
+	// Since the depth buffer is only for the generation of the depth texture, 
+	// there is no need to have a color output
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
 }
 
 
@@ -356,7 +417,7 @@ void createContext()
 	);
 
 	// Lake reflection
-	lakeReflection = new LakeReflection(REFLECTION_BUFFER_SIZE);
+	lakeReflection = new LakeReflection(currentReflectionBufferSize);
 	lakeReflection->initialize();
 
 
@@ -396,82 +457,21 @@ void createContext()
 
 
 
-	// ---------------------------------------------------------------------------- //
-	// -  Task 3.2 Create a depth framebuffer and a texture to store the depthmap - //
-	// ---------------------------------------------------------------------------- //
-	// Tell opengl to generate a framebuffer
-	glGenFramebuffers(1, &depthFBO1);
-	// Binding the framebuffer, all changes bellow will affect the binded framebuffer
-	// **Don't forget to bind the default framebuffer at the end of initialization
-	glBindFramebuffer(GL_FRAMEBUFFER, depthFBO1);
-
-	// We need a texture to store the depth image
-	glGenTextures(1, &depthTexture1);
-	glBindTexture(GL_TEXTURE_2D, depthTexture1);
-	// Telling opengl the required information about the texture
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		GL_DEPTH_COMPONENT,
-		SHADOW_BUFFER_SIZE, SHADOW_BUFFER_SIZE,
-		0,
-		GL_DEPTH_COMPONENT,
-		GL_FLOAT,
-		NULL // Δεν έχουμε εικόνα ακόμα, θα δημιουργηθεί αργότερα!
+	// Initialize Shadow FBO
+	initDepthFBO(
+		depthFBO1,
+		depthTexture1,
+		currentShadowBufferSize,
+		currentShadowBufferSize
 	);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	// Task 4.5 Don't shadow area out of light's viewport
-	// Step 1 : (Don't forget to comment out the respective lines above
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-
-	// Set color to set out of border 
-	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-	// Next go to fragment shader and add an iff statement, so if the distance in the z-buffer is equal to 1, 
-	// meaning that the fragment is out of the texture border (or further than the far clip plane) 
-	// then the shadow value is 0.
-
-	// Task 3.2 Continue
-	// Attaching the texture to the framebuffer, so that it will monitor the depth component
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture1, 0);
-
-	// Since the depth buffer is only for the generation of the depth texture, 
-	// there is no need to have a color output
-	glDrawBuffer(GL_NONE); glReadBuffer(GL_NONE);
-
-
-
-	// ===< Snow >=== // ===< Framebuffer >=== //
-	glGenFramebuffers(1, &snowDepthFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, snowDepthFBO);
-
-	glGenTextures(1, &snowDepthTexture);
-	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		GL_DEPTH_COMPONENT,
-		SNOW_BUFFER_SIZE, SNOW_BUFFER_SIZE,
-		0,
-		GL_DEPTH_COMPONENT,
-		GL_FLOAT,
-		NULL
+	// Initialize Snow FBO
+	initDepthFBO(
+		snowSource->snowDepthFBO,
+		snowSource->snowDepthTexture,
+		currentSnowBufferSize,
+		currentSnowBufferSize
 	);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_BORDER);
-
-	float snowBorder[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, snowBorder);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, snowDepthTexture, 0);
-	glDrawBuffer(GL_NONE); glReadBuffer(GL_NONE);
 
 
 
@@ -490,6 +490,8 @@ void createContext()
 
 void free()
 {
+	myMenu.shutdown();
+
 	// Delete Shader Programs
 	glDeleteProgram(shaderProgram.programID);
 	glDeleteProgram(depthProgram);
@@ -624,7 +626,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
 
 	glActiveTexture(GL_TEXTURE25);
-	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
+	glBindTexture(GL_TEXTURE_2D, snowSource->snowDepthTexture);
 	glUniform1i(shaderProgram.snowDepthMapSampler, 25);
 
 	glActiveTexture(GL_TEXTURE26);
@@ -753,7 +755,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
 
 	glActiveTexture(GL_TEXTURE25);
-	glBindTexture(GL_TEXTURE_2D, snowDepthTexture);
+	glBindTexture(GL_TEXTURE_2D, snowSource->snowDepthTexture);
 	glUniform1i(shaderProgram.snowDepthMapSampler, 25);
 
 	glActiveTexture(GL_TEXTURE26);
@@ -835,18 +837,39 @@ void mainLoop()
 	// Also, fix the moving snow artifacts (because of wind animation)!
 	mat4 snow_proj = snowSource->projectionMatrix;
 	mat4 snow_view = snowSource->viewMatrix;
-	depth_pass(snow_view, snow_proj, snowDepthFBO, SNOW_BUFFER_SIZE);
+	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
 
 	do
 	{
 		float currentFrameTime = glfwGetTime();
 		float deltaTime        = currentFrameTime - lastFrameTime;
-		lastFrameTime = currentFrameTime;
 
+		myMenu.render(window, deltaTime,
+			currentShadowBufferSize, currentSnowBufferSize, currentReflectionBufferSize,
+			[&](int newSize) { initDepthFBO(depthFBO1, depthTexture1, currentShadowBufferSize, newSize); },
+			[&](int newSize)
+			{
+				initDepthFBO(snowSource->snowDepthFBO, snowSource->snowDepthTexture, currentSnowBufferSize, newSize);
+				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
+			},
+			[&](int newSize)
+			{
+				// initDepthFBO is not used for lake reflection!
+				// So, the variable has to be updated manually...
+				currentReflectionBufferSize = newSize;
+
+				// Re-create the reflection system with the new size
+				delete lakeReflection;
+				lakeReflection = new LakeReflection(currentReflectionBufferSize);
+				lakeReflection->initialize();
+			}
+		);
+		if (deltaTime > 0.0f) lastFrameTime = currentFrameTime;
+		
 
 
 		// Getting camera information
-		camera->update();
+		if (!myMenu.isMenuOpen) camera->update(); // Only move camera if menu is NOT open!
 		mat4 projectionMatrix = camera->projectionMatrix;
 		mat4 viewMatrix       = camera->viewMatrix;
 
@@ -855,7 +878,7 @@ void mainLoop()
 		light1->fitToCameraFrustum(viewMatrix, projectionMatrix); // Light's projection matrix
 		mat4 light1_proj = light1->projectionMatrix;
 		mat4 light1_view = light1->viewMatrix;
-		depth_pass(light1_view, light1_proj, depthFBO1, SHADOW_BUFFER_SIZE); // Create the depth buffer
+		depth_pass(light1_view, light1_proj, depthFBO1, currentShadowBufferSize); // Create the depth buffer
 
 
 
@@ -911,21 +934,35 @@ void mainLoop()
 		// Door animation update!
 		cabinModel->update(deltaTime);
 		// Render the prompt quad (when the camera is near the cabin door)
-		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f)
-			renderPrompt();
+		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f) renderPrompt();
 
+
+
+		// Render the ImGui frame (myMenu)
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		
+
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(window) == 0);
+	while (glfwWindowShouldClose(window) == 0);
 }
 
 
 
 void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+	// ---< Menu toggle >--- //
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		myMenu.setMenuState(!myMenu.isMenuOpen, window);
+	// Do not process any game keys below this line...
+	ImGuiIO& io = ImGui::GetIO();
+	if (myMenu.isMenuOpen || io.WantCaptureKeyboard) return;
+
+
+
 	// Toggle polygon mode
 	if (key == GLFW_KEY_T && action == GLFW_PRESS)
 	{
@@ -1082,6 +1119,9 @@ void initialize()
 
 	// ===< SNOW SOURCE INIT >=== //
 	snowSource = new SnowSource(vec3(0.0f, 340.0f, 0.0f));
+
+	// ===< Setup ImGui >=== //
+	myMenu.initialize(window);
 }
 
 

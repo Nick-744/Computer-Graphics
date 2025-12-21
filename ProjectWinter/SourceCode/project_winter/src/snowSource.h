@@ -1,6 +1,7 @@
 #ifndef SNOWSOURCE_H
 #define SNOWSOURCE_H
 
+#include <GL/glew.h>
 #include <glm/glm.hpp>
 
 using namespace glm;
@@ -24,8 +25,9 @@ public:
     void update();
 
     mat4 snowVP();
-
-    void fitToCameraFrustum(const mat4& cameraView, const mat4& cameraProj);
+    
+    GLuint snowDepthFBO     = 0;
+    GLuint snowDepthTexture = 0;
 };
 
 #endif

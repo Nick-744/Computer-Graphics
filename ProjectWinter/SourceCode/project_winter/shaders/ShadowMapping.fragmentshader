@@ -29,8 +29,8 @@ uniform sampler2D textureSamplerRiversDirection;
 
 // ---< Cached masks (computed ONCE per fragment when isTerrain == 1) >--- //
 float gaeaSlopeMask   = 0.0;
-float gaeaLakeSmooth  = 0.0; // smoothstep(0.2,  0.8, raw)
-float gaeaRiverSmooth = 0.0; // smoothstep(0.05,0.40, raw)
+float gaeaLakeSmooth  = 0.0; // smoothstep(0.2, 0.8, lakeRaw)
+float gaeaRiverSmooth = 0.0; // smoothstep(0.05, 0.40, riverRaw)
 
 // ============< END TERRAIN TEXTURE CREATOR >============ //
 
@@ -45,7 +45,7 @@ in vec4 vertex_position_clipspace;
 
 // ===< Light & Shadows >=== //
 in vec4 vertex_position_cameraspace;
-in vec4 vertex_position_worldspace;
+in vec3 vertex_position_worldspace;
 in vec3 vertex_position_worldspace_s; // Static - WITHOUT wind...
 in vec4 vertex_normal_cameraspace;
 in vec3 vertex_normal_worldspace;
@@ -334,7 +334,7 @@ vec2 rotate(vec2 uv, float r)
 {
     int k = int(floor(r * 4.0));
 
-    if (k == 0)      return uv;
+    if      (k == 0) return uv;
     else if (k == 1) return vec2(-uv.y,  uv.x);
     else if (k == 2) return vec2(-uv.x, -uv.y);
     else             return vec2( uv.y, -uv.x);
