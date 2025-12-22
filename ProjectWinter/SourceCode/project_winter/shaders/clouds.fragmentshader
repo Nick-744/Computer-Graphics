@@ -51,9 +51,9 @@ void main()
         dist = gl_FragCoord.z / gl_FragCoord.w;
 
         // Same math as main shader!
-        float cloudFogDensity = fogDensity * 1.2;
+        float fogDensityScaled = fogDensity * 0.03;
 
-        float fogFactor = 1.0 / exp( (dist * cloudFogDensity) * (dist * cloudFogDensity) );
+        float fogFactor = 1.0 / exp( (dist * fogDensityScaled) * (dist * fogDensityScaled) );
         fogFactor       = clamp(fogFactor, 0.0, 1.0);
 
         finalColor = mix(fogColor, finalColor, fogFactor);

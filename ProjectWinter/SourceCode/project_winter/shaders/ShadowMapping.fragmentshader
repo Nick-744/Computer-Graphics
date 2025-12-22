@@ -340,9 +340,9 @@ vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce, vec3 movingWater)
         reflection = mix(vec3(0.02, 0.03, 0.05), vec3(0.35, 0.45, 0.6), clamp(reflect(e, norm).y * 0.5 + 0.5, 0.0, 1.0));
     col = mix(col, reflection, 0.22);
 
-    float freezeFactor = smoothstep(0.1, 0.9, snowAmount) * 0.95;
-
-    return mix(movingWater, mix(baseUnderIce, col, 0.85), freezeFactor);
+    // Return the ice surface...
+    vec3 under = mix(baseUnderIce, movingWater, 0.25);
+    return mix(under, col, 0.85);
 }
 
 // ==================== END "Frozen Lake" ==================== //
@@ -451,8 +451,10 @@ void main()
         // Calculate distance from camera
         float dist = length(vertex_position_cameraspace.xyz);
 
+        float fogDensityScaled = fogDensity * 0.03;
+
         // Calculate exponential fog factor
-        float fogFactor = 1.0 / exp( (dist * fogDensity) * (dist * fogDensity) );
+        float fogFactor = 1.0 / exp( (dist * fogDensityScaled) * (dist * fogDensityScaled) );
         fogFactor       = clamp(fogFactor, 0.0, 1.0);
 
         fragmentColor.rgb = mix(fogColor, fragmentColor.rgb, fogFactor);
@@ -690,7 +692,7 @@ vec3 computeTerrainTexture(vec2 UV)
         vec3 sandWater = mix(sand, displacedWater, 0.6);
 
         // ===< ALEKSEEV "Frozen Lake" >=== //
-        if (snowAmount > 0.5) 
+        if (fogDensity < 0.6 && snowAmount > 0.75) 
         {
             // Define the point where the freeze begins
             vec3 freezeOrigin = vec3(0.0, 58.1, 0.0); // Using WATER_HEIGHT from main.cpp
@@ -701,7 +703,7 @@ vec3 computeTerrainTexture(vec2 UV)
             
             // Expansion radius: spreads as snowAmount increases
             // We map the 0.5 -> 1.0 snow range to a 0.0 -> 1.0 expansion
-            float expansionFactor = clamp((snowAmount - 0.5) * 2.0, 0.0, 1.0); 
+            float expansionFactor = clamp(((1.0 - fogDensity) - 0.5) * 2.0, 0.0, 1.0); 
             float maxRadius       = 600.0; // Increased radius to cover the Gaea map extent
             float currentRadius   = expansionFactor * maxRadius;
             

@@ -583,7 +583,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 		currentSkyColor.y,
 		currentSkyColor.z
 	);
-	glUniform1f(shaderProgram.fogDensityLocation, fogDensity * 0.03f);
+	glUniform1f(shaderProgram.fogDensityLocation, fogDensity);
 
 
 
@@ -696,7 +696,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 			projectionMatrix,
 			lastFrameTime / 25.0f,
 			currentSkyColor,
-			fogDensity * 0.03f
+			fogDensity
 		);
 		// Remember to change the parameters in reflection pass too...
 
@@ -794,7 +794,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 			projectionMatrix,
 			lastFrameTime / 25.0f,
 			currentSkyColor,
-			fogDensity * 0.03f
+			fogDensity
 		);
 		if (cull) glEnable(GL_CULL_FACE);
 	}
