@@ -178,6 +178,36 @@ vec2 noise2(in vec2 p)
     );
 }
 
+float noise12_from2(vec2 p) { return noise2(p).x; } // Scalar noise
+
+float getSnowMaskIce(in vec2 p)
+{
+    mat2 m = mat2( 1.6,  1.2,
+                  -1.2,  1.6 );
+
+    float a = 1.0;
+    float w = 1.0;
+
+    float f = abs(noise12_from2(p));
+    for (int i = 0; i < 6; i++)
+    {
+        p  = m * p;
+        a /= 1.5;
+
+        f += a * abs(noise12_from2(p));
+        w += a;
+    }
+
+    f /= w;
+
+    // Patchy threshold -> soft blobs
+    f  = smoothstep(0.55, 0.65, f);
+    f  = pow(f, 0.25);
+    f *= 0.9;
+
+    return f; // 0..1
+}
+
 vec3 voronoi(in vec2 x)
 {
     vec2 n = floor(x);
@@ -339,6 +369,17 @@ vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce, vec3 movingWater)
     else
         reflection = mix(vec3(0.02, 0.03, 0.05), vec3(0.35, 0.45, 0.6), clamp(reflect(e, norm).y * 0.5 + 0.5, 0.0, 1.0));
     col = mix(col, reflection, 0.22);
+
+    {   // Snow patches on top of the ice
+        float depth   = length(vertex_position_worldspace - cameraPos_world);
+        float depth_f = max(depth * 0.01, 1.0);
+
+        float snowPatch = getSnowMaskIce(p.xz * 0.1) / depth_f;
+        snowPatch      *= smoothstep(0.75, 1.0, snowAmount);
+        snowPatch       = clamp(snowPatch, 0.0, 1.0);
+
+        col = mix(col, SNOW_COLOR_ICE, snowPatch);
+    }
 
     // Return the ice surface...
     vec3 under = mix(baseUnderIce, movingWater, 0.25);
@@ -687,6 +728,18 @@ vec3 computeTerrainTexture(vec2 UV)
             displacedWater = mix(displacedWater, reflectionColor, reflectionStrength);
         }
 
+        {   // Snow patches on top of the ice
+            float depth   = length(vertex_position_worldspace - cameraPos_world);
+            float depth_f = max(depth * 0.01, 1.0);
+
+            float snowPatch = getSnowMaskIce((vertex_position_worldspace.xz * CRACKS_SCALE) * 0.1) / depth_f;
+            snowPatch      *= freezeFactor;
+            snowPatch      *= smoothstep(0.75, 1.0, snowAmount);
+            snowPatch       = clamp(snowPatch, 0.0, 1.0);
+
+            displacedWater = mix(displacedWater, SNOW_COLOR_ICE, snowPatch);
+        }
+
         // ... AND SAND!
         vec3 sand      = texture(textureSamplerSand, tileLocal).rgb;
         vec3 sandWater = mix(sand, displacedWater, 0.6);
@@ -722,6 +775,9 @@ vec3 computeTerrainTexture(vec2 UV)
                 sandWater = mix(sandWater, alekseevIce, crackBlend);
             }
         }
+
+        // Expand the sand to the shore area...
+        finalColor = mix(finalColor, sand, smoothstep(0.0, 0.5, lakeRaw));
 
         // Blend only where lake mask is > 0
         finalColor = mix(finalColor, sandWater, gaeaLakeSmooth);
