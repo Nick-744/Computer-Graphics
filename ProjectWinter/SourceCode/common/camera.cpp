@@ -11,7 +11,7 @@ using namespace glm;
 extern float cameraFarPlane; // Optimization for shadow mapping...
 
 Camera::Camera(GLFWwindow* window) : window(window) {
-    position        = vec3(0, 60, 0);
+    position        = vec3(0, 60.243, 0);
     horizontalAngle = 3.14f;
     verticalAngle   = 0.0f;
     FoV             = 45.0f;

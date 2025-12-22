@@ -102,6 +102,253 @@ uniform vec3 fogColor;
 
 
 
+// ===< "Frozen Lake" by Alexander Alekseev aka TDM - 2019 >=== //
+
+flat in vec3 cameraPos_world; 
+
+// Constants
+const float THRESHOLD          = 0.001;
+const float EPSILON            = 5e-3;
+const float HEIGHT_POWER       = 5.0;
+const float CRACKS_SCALE       = 0.6;
+const float CRACKS_THICKNESS   = 0.9;
+const float CRACKS_ALPHA       = 0.8;
+const float REFRACTION         = 0.8;
+const float BUBBLES_BRIGHTNESS = 0.4;
+
+const vec3  SNOW_COLOR_ICE   = vec3(0.85, 0.98, 1.0);
+const vec3  DEEP_COLOR       = vec3(0.0, 0.12, 0.2);
+const vec3  CRACKS_COLOR     = vec3(0.3, 0.95, 1.0) * 1.2;
+const vec3  CRACKS_COLOR_TOP = vec3(1.6);
+#define HASHSCALE3 vec3(.1031, .1030, .0973)
+
+
+
+// Helper functions
+float triangle(float x) { return abs(1.0 - mod(abs(x), 2.0)) * 2.0 - 1.0; }
+
+vec2 hash22(vec2 p)
+{
+    vec3 p3 = fract(vec3(p.xyx) * HASHSCALE3);
+    p3 += dot(p3, p3.yzx + 19.19);
+
+    return fract((p3.xx + p3.yz) * p3.zy);
+}
+
+float hash13(in vec3 p)
+{
+    p  = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float noise13(in vec3 p)
+{
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    vec3 u = f * f * (3.0 - 2.0 * f);
+
+    float a  = hash13(i + vec3(0.0, 0.0, 0.0));
+    float b  = hash13(i + vec3(1.0, 0.0, 0.0));
+    float c  = hash13(i + vec3(0.0, 1.0, 0.0));
+    float d  = hash13(i + vec3(1.0, 1.0, 0.0));
+    float v1 = mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+
+    a = hash13(i + vec3(0.0, 0.0, 1.0));
+    b = hash13(i + vec3(1.0, 0.0, 1.0));
+    c = hash13(i + vec3(0.0, 1.0, 1.0));
+    d = hash13(i + vec3(1.0, 1.0, 1.0));
+
+    float v2 = mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+
+    return abs(mix(v1, v2, u.z));
+}
+
+vec2 noise2(in vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return -1.0 + 2.0 * mix(
+        mix(hash22(i + vec2(0.0, 0.0)), hash22(i + vec2(1.0, 0.0)), u.x),
+        mix(hash22(i + vec2(0.0, 1.0)), hash22(i + vec2(1.0, 1.0)), u.x),
+        u.y
+    );
+}
+
+vec3 voronoi(in vec2 x)
+{
+    vec2 n = floor(x);
+    vec2 f = fract(x);
+
+    vec2 mg, mr;
+    float md = 8.0;
+    for (int j = -1; j <= 1; j++)
+        for (int i = -1; i <= 1; i++)
+        {
+            vec2 g = vec2(float(i), float(j));
+            vec2 o = hash22(n + g);
+            vec2 r = g + o - f;
+            float d = dot(r, r);
+            if (d < md) { md = d; mr = r; mg = g; }
+        }
+
+    md = 8.0;
+    for (int j = -1; j <= 1; j++)
+        for (int i = -1; i <= 1; i++)
+        {
+            vec2 g = mg + vec2(float(i), float(j));
+            vec2 o = hash22(n + g);
+            vec2 r = g + o - f;
+            if (dot(mr - r, mr - r) > 0.00001)
+                md = min(md, dot(0.5 * (mr + r), normalize(r - mr)));
+        }
+
+    return vec3(md, mr);
+}
+
+void intersectionPlaneY(in vec3 o, in vec3 d, in float yPlane, out vec3 p)
+{
+    float denom = (abs(d.y) < 1e-5) ? (d.y < 0.0 ? -1e-5 : 1e-5) : d.y;
+    float t     = (o.y - yPlane) / denom;
+
+    p = o - d * t;
+}
+
+float mapCracks1(vec3 p)
+{
+    const float SCALE = 0.1;
+    p.x += sin(p.z * 0.2) * 2.0;
+    p.x += triangle(p.z * 0.053) * 2.0;
+    p.z += triangle(p.x * 0.103) * 2.0;
+
+    return voronoi(p.xz * SCALE).x / SCALE * 0.9;
+}
+
+float mapCracks2(vec3 p)
+{
+    const float SCALE = 0.25;
+    p.x += triangle(p.z * 0.153) * 1.5;
+    p.z += triangle(p.x * 0.203) * 1.5;
+
+    return voronoi(p.xz * SCALE).x / SCALE * 0.9;
+}
+
+vec2 traceCracks1(vec3 ori, vec3 dir, out vec3 p)
+{
+    float t = 0.0; float d = 0.0;
+    for (int i = 0; i < 10; i++)
+    {
+        p = ori + dir * t; d = mapCracks1(p);
+        if (d < THRESHOLD) break;
+        t += d * 0.9;
+    }
+
+    return vec2(d, t);
+}
+
+vec2 traceCracks2(vec3 ori, vec3 dir, float s, out vec3 p)
+{
+    float t = 0.0; float d = 0.0;
+    for (int i = 0; i < 8; i++)
+    {
+        p = ori + dir * t; d = mapCracks2(p * s);
+        if (d < THRESHOLD) break;
+        t += d * 0.9;
+    }
+
+    return vec2(d, t);
+}
+
+vec2 getNormalCracks1(vec3 p)
+{
+    float t = mapCracks1(p);
+    vec2 n;
+    n.x = mapCracks1(vec3(p.x + EPSILON, p.y, p.z)) - t;
+    n.y = mapCracks1(vec3(p.x, p.y, p.z + EPSILON)) - t;
+
+    return normalize(n);
+}
+
+vec2 getNormalCracks2(vec3 p)
+{
+    float t = mapCracks2(p);
+    vec2 n;
+    n.x = mapCracks2(vec3(p.x + EPSILON, p.y, p.z)) - t;
+    n.y = mapCracks2(vec3(p.x, p.y, p.z + EPSILON)) - t;
+
+    return normalize(n);
+}
+
+
+
+// Frozen Lake - Main function
+vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce, vec3 movingWater)
+{
+    vec3 p = vertex_position_worldspace * CRACKS_SCALE;
+    vec3 e = normalize(vertex_position_worldspace - cameraPos_world);
+
+    float depth   = length(vertex_position_worldspace - cameraPos_world);
+    float depth_f = max(depth * 0.8, 1.0);
+
+    // global thickness modulation
+    float gth = (0.6 + 0.8 * smoothstep(0.2, 0.8, noise13(p * 0.05))) * CRACKS_THICKNESS;
+
+    // crack depth
+    vec3 norm = vec3(1.0, noise2(p.xz * 3.0) * 0.2);
+    norm.yz  += noise2(p.xz * 10.0) * 0.2;
+    norm.x   *= depth_f;
+    norm      = normalize(norm.yxz);
+
+    vec3 et = e;
+    et.xz  += norm.xz * REFRACTION;
+
+    vec3 cp;
+    traceCracks1(p, et, cp);
+    float crack1 = pow(max(1.0 - abs(cp.y - p.y) * 0.2 / gth, 0.0), HEIGHT_POWER) * 0.6;
+    crack1      *= (0.5 + 0.5 * noise13(cp * vec3(0.7, 10.0, 0.7))) * (abs(getNormalCracks1(cp).x) * 0.6 + 0.4);
+
+    traceCracks2(p, et, 1.0, cp);
+    float crack2 = pow(max(1.0 - abs(cp.y - p.y) * 0.4 / gth, 0.0), HEIGHT_POWER) * 0.6;
+    crack2      *= (0.5 + 0.5 * smoothstep(0.2, 0.9, noise13(cp * vec3(12.0, 1.0, 12.0)))) * (abs(getNormalCracks2(cp).x) * 0.6 + 0.4);
+
+    // base color
+    vec3 col    = DEEP_COLOR;
+
+    // bubbles
+    vec3 dirBub = e; dirBub.xz += norm.xz * REFRACTION * 0.3;
+    vec3 bp;
+    intersectionPlaneY(cameraPos_world + vec3(0.0, 0.5, 0.0), dirBub, (vertex_position_worldspace.y - 0.5), bp);
+    col += pow(noise13(bp * 14.0), 20.0) * BUBBLES_BRIGHTNESS * gth;
+    intersectionPlaneY(cameraPos_world + vec3(0.0, 1.0, 0.0), dirBub, (vertex_position_worldspace.y - 1.0), bp);
+    col += pow(noise13(bp * 15.0), 20.0) * BUBBLES_BRIGHTNESS * gth;
+
+    float a = (0.4 + 0.6 * smoothstep(0.2, 0.8, noise13(p * 0.07))) * CRACKS_ALPHA;
+    col     = mix(col, mix(CRACKS_COLOR, CRACKS_COLOR_TOP, crack2), crack2 * a);
+    col     = mix(col, mix(CRACKS_COLOR, CRACKS_COLOR_TOP, crack1), crack1 * a);
+
+    // reflection - NO FRESNEL!
+    vec3 reflection = vec3(0.0);
+    if (useReflection == 1)
+    {
+        vec2 ndc   = (vertex_position_clipspace.xy / max(vertex_position_clipspace.w, 1e-5)) * 0.5 + 0.5;
+        reflection = texture(reflectionTextureSampler, ndc).rgb;
+    }
+    else
+        reflection = mix(vec3(0.02, 0.03, 0.05), vec3(0.35, 0.45, 0.6), clamp(reflect(e, norm).y * 0.5 + 0.5, 0.0, 1.0));
+    col = mix(col, reflection, 0.22);
+
+    float freezeFactor = smoothstep(0.1, 0.9, snowAmount) * 0.95;
+
+    return mix(movingWater, mix(baseUnderIce, col, 0.85), freezeFactor);
+}
+
+// ==================== END "Frozen Lake" ==================== //
+
+
+
 // Helpers
 vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace);
 float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias);
@@ -231,15 +478,15 @@ float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSamp
     float currentDepth = projCoords.z;
 
     // Task 4.6 Make the shadow edges more realistic
-    float shadow = 0.0;
+    float shadow             = 0.0;
     vec2 depthMap_dimensions = textureSize(shadowMapSampler, 0);
-    vec2 texelSize = 1.0 / depthMap_dimensions;
+    vec2 texelSize           = 1.0 / depthMap_dimensions;
 
     for (int x = -1; x <= 1; x++)
         for (int y = -1; y <= 1; y++)
         {
             float pcfDepth = texture(shadowMapSampler, projCoords.xy + vec2(x, y) * texelSize).r;
-            shadow += (currentDepth - bias > pcfDepth) ? 1.0 : 0.0;
+            shadow        += (currentDepth - bias > pcfDepth) ? 1.0 : 0.0;
         }
     shadow /= 9.0;
 
@@ -442,6 +689,38 @@ vec3 computeTerrainTexture(vec2 UV)
         vec3 sand      = texture(textureSamplerSand, tileLocal).rgb;
         vec3 sandWater = mix(sand, displacedWater, 0.6);
 
+        // ===< ALEKSEEV "Frozen Lake" >=== //
+        if (snowAmount > 0.5) 
+        {
+            // Define the point where the freeze begins
+            vec3 freezeOrigin = vec3(0.0, 58.1, 0.0); // Using WATER_HEIGHT from main.cpp
+            
+            // Add jitter to the distance so the ice growth looks "jagged" and organic
+            float organicNoise = hash(vertex_position_worldspace.xz * 0.1) * 20.0;
+            float distToOrigin = distance(vertex_position_worldspace.xz, freezeOrigin.xz) + organicNoise;
+            
+            // Expansion radius: spreads as snowAmount increases
+            // We map the 0.5 -> 1.0 snow range to a 0.0 -> 1.0 expansion
+            float expansionFactor = clamp((snowAmount - 0.5) * 2.0, 0.0, 1.0); 
+            float maxRadius       = 600.0; // Increased radius to cover the Gaea map extent
+            float currentRadius   = expansionFactor * maxRadius;
+            
+            // Blend factor: 1.0 = Cracked Ice, 0.0 = Moving Water
+            float crackBlend = smoothstep(currentRadius, currentRadius - 80.0, distToOrigin);
+            
+            if (crackBlend > 0.001)
+            {
+                // Prep the under-ice color (sand/terrain mix) to keep shore integration
+                vec3 baseUnderIce = mix(sand, finalColor, 0.7);
+                
+                // Calculate the high-fidelity Alekseev cracked ice
+                vec3 alekseevIce = frozenLakeColor_Alekseev(UV, baseUnderIce, movingWater);
+                
+                // Final spatial blend
+                sandWater = mix(sandWater, alekseevIce, crackBlend);
+            }
+        }
+
         // Blend only where lake mask is > 0
         finalColor = mix(finalColor, sandWater, gaeaLakeSmooth);
 
@@ -457,7 +736,7 @@ vec3 computeTerrainTexture(vec2 UV)
         vec2 flowDir = normalize(dirSample.rg * 2.0 - 1.0);
 
         float riverTiling = 12.0;
-        float riverSpeed  = 0.8;
+        float riverSpeed  =  0.8;
 
         vec2 riverUV = UV * riverTiling + flowDir * time * riverSpeed;
 
