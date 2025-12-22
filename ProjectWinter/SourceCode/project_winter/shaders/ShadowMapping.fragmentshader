@@ -672,7 +672,8 @@ vec3 computeTerrainTexture(vec2 UV)
 
     }
 
-    { // WATERRR... (Lakes)
+    if (lakeRaw > 0.0005) // Skip lake code outside the lake mask - PERFORMANCE!!!
+    { // WATERRR... (Lake)
 
         float waterTiling = 120.0; // How many times the water texture repeats across the terrain
         vec2 baseUV       = UV * waterTiling;
@@ -754,10 +755,9 @@ vec3 computeTerrainTexture(vec2 UV)
             float organicNoise = hash(vertex_position_worldspace.xz * 0.1) * 20.0;
             float distToOrigin = distance(vertex_position_worldspace.xz, freezeOrigin.xz) + organicNoise;
             
-            // Expansion radius: spreads as snowAmount increases
-            // We map the 0.5 -> 1.0 snow range to a 0.0 -> 1.0 expansion
-            float expansionFactor = clamp(((1.0 - fogDensity) - 0.5) * 2.0, 0.0, 1.0); 
-            float maxRadius       = 600.0; // Increased radius to cover the Gaea map extent
+            // Expansion radius: spreads as fogDensity decreases...
+            float expansionFactor = clamp(((1.0 - fogDensity) - 0.5) * 2.0, 0.0, 1.0);
+            float maxRadius       = 400.0; // Increased radius to cover the map extent
             float currentRadius   = expansionFactor * maxRadius;
             
             // Blend factor: 1.0 = Cracked Ice, 0.0 = Moving Water
@@ -784,6 +784,7 @@ vec3 computeTerrainTexture(vec2 UV)
 
     }
 
+    if (riverRaw > 0.0005) // Skip river code outside the river mask - PERFORMANCE!!!
     { // RIVERS...
 
         float riverMask = gaeaRiverSmooth;

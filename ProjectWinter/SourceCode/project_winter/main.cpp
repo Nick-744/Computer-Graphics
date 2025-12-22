@@ -895,7 +895,7 @@ void mainLoop()
 		if (snowAmount > fogDensity && !forceClearFog) fogDensity = snowAmount;
 		else if (forceClearFog)
 		{
-			fogDensity -= deltaTime * growRate * 10.0f;
+			fogDensity -= deltaTime * growRate * 6.0f;
 			fogDensity  = clamp(fogDensity, 0.0f, 1.0f);
 		}
 		// Performance optimization...
