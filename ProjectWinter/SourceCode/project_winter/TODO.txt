@@ -1,0 +1,7 @@
+What’s left:
+- 7C: Lake rising
+- 7D: Snowman
+
+To consider:
+- Split the terrain / lake / river into separate meshes...
+(saves polygons and should make 7C easier to implement)!
