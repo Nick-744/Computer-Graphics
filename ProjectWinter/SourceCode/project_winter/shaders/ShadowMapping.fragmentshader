@@ -104,7 +104,7 @@ uniform vec3 fogColor;
 
 // ===< "Frozen Lake" by Alexander Alekseev aka TDM - 2019 >=== //
 
-flat in vec3 cameraPos_world; 
+flat in vec3 cameraPos_world;
 
 // Constants
 const float THRESHOLD          = 0.001;
@@ -130,7 +130,7 @@ float triangle(float x) { return abs(1.0 - mod(abs(x), 2.0)) * 2.0 - 1.0; }
 vec2 hash22(vec2 p)
 {
     vec3 p3 = fract(vec3(p.xyx) * HASHSCALE3);
-    p3 += dot(p3, p3.yzx + 19.19);
+    p3     += dot(p3, p3.yzx + 19.19);
 
     return fract((p3.xx + p3.yz) * p3.zy);
 }
@@ -315,7 +315,7 @@ vec2 getNormalCracks2(vec3 p)
 
 
 // Frozen Lake - Main function
-vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce, vec3 movingWater)
+vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce)
 {
     vec3 p = vertex_position_worldspace * CRACKS_SCALE;
     vec3 e = normalize(vertex_position_worldspace - cameraPos_world);
@@ -326,7 +326,7 @@ vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce, vec3 movingWater)
     // global thickness modulation
     float gth = (0.6 + 0.8 * smoothstep(0.2, 0.8, noise13(p * 0.05))) * CRACKS_THICKNESS;
 
-    // crack depth
+    // crack depth - fake surface normal
     vec3 norm = vec3(1.0, noise2(p.xz * 3.0) * 0.2);
     norm.yz  += noise2(p.xz * 10.0) * 0.2;
     norm.x   *= depth_f;
@@ -345,7 +345,7 @@ vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce, vec3 movingWater)
     crack2      *= (0.5 + 0.5 * smoothstep(0.2, 0.9, noise13(cp * vec3(12.0, 1.0, 12.0)))) * (abs(getNormalCracks2(cp).x) * 0.6 + 0.4);
 
     // base color
-    vec3 col    = DEEP_COLOR;
+    vec3 col = DEEP_COLOR;
 
     // bubbles
     vec3 dirBub = e; dirBub.xz += norm.xz * REFRACTION * 0.3;
@@ -370,20 +370,52 @@ vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce, vec3 movingWater)
         reflection = mix(vec3(0.02, 0.03, 0.05), vec3(0.35, 0.45, 0.6), clamp(reflect(e, norm).y * 0.5 + 0.5, 0.0, 1.0));
     col = mix(col, reflection, 0.22);
 
+
+
+    // ===< Water starts INSIDE crack lines, then expands outward! >=== //
+
+    // The lake can only be frozen if 0.75 < snowAmount < 1.0
+    float freezeAmt  = smoothstep(0.75, 1.0, snowAmount);
+    // Melt starts from cracks first (meltCracks), then the whole surface (meltGlobal)
+    float meltCracks = freezeAmt * smoothstep(0.12, 0.04, fogDensity);
+    float meltGlobal = freezeAmt * smoothstep(0.04, 0.00, fogDensity);
+
+    float meltCoverage = 0.0; // Where the ice has turned back into liquid water!
+    if (meltCracks > 0.0001)
+    {
+        // Distance from the current fragment to the nearest crack...
+        float dLine = min(mapCracks1(p), mapCracks2(p));
+
+        // Identify deeper/heavier cracks
+        float deep = clamp(crack1 + crack2, 0.0, 1.0);
+
+        // Expansion width grows as thaw progresses...
+        float width = mix(0.02, 8.0, meltCracks * meltCracks);
+
+        // Normalize distance so deep cracks expand faster!
+        float dn = dLine / (0.20 + 0.80 * deep);
+
+        // 1 near crack center -> expands outward
+        meltCoverage = 1.0 - smoothstep(0.0, width, dn);
+
+        // Final stage - Fully return to water!
+        meltCoverage = clamp(max(meltCoverage, meltGlobal), 0.0, 1.0);
+    }
+
     {   // Snow patches on top of the ice
-        float depth   = length(vertex_position_worldspace - cameraPos_world);
         float depth_f = max(depth * 0.01, 1.0);
 
         float snowPatch = getSnowMaskIce(p.xz * 0.1) / depth_f;
-        snowPatch      *= smoothstep(0.75, 1.0, snowAmount);
+        snowPatch      *= freezeAmt;
+        snowPatch      *= (1.0 - meltCoverage); // Disappear as water returns...
         snowPatch       = clamp(snowPatch, 0.0, 1.0);
 
         col = mix(col, SNOW_COLOR_ICE, snowPatch);
     }
 
-    // Return the ice surface...
-    vec3 under = mix(baseUnderIce, movingWater, 0.25);
-    return mix(under, col, 0.85);
+    // Return the surface...
+    float iceWeight = 0.85 * (1.0 - meltCoverage);
+    return mix(baseUnderIce, col, iceWeight);
 }
 
 // ==================== END "Frozen Lake" ==================== //
@@ -675,6 +707,9 @@ vec3 computeTerrainTexture(vec2 UV)
     if (lakeRaw > 0.0005) // Skip lake code outside the lake mask - PERFORMANCE!!!
     { // WATERRR... (Lake)
 
+        float freezeAmt  = smoothstep(0.75, 1.0, snowAmount);
+        float meltGlobal = freezeAmt * smoothstep(0.04, 0.00, fogDensity);
+
         float waterTiling = 120.0; // How many times the water texture repeats across the terrain
         vec2 baseUV       = UV * waterTiling;
 
@@ -698,6 +733,7 @@ vec3 computeTerrainTexture(vec2 UV)
         // ===< FREEZING LAKE EFFECT >=== //
         vec3 iceColor      = vec3(0.95, 0.98, 1.0);
         float freezeFactor = smoothstep(0.1, 0.9, snowAmount) * 0.95; // Non-linear freeze!
+        freezeFactor      *= (1.0 - meltGlobal); // Even if it is snowy -> fogDensity can melt the ice...
         movingWater        = mix(movingWater, iceColor, freezeFactor);
 
         // Displacement texture for more detail (WATER)
@@ -713,7 +749,7 @@ vec3 computeTerrainTexture(vec2 UV)
             vec2 reflectionUV = ndc * 0.5 + 0.5;
 
             // DISTORTION: Apply the SAME wave distortion to the reflection!
-            float freezeDampen = 1.0 - snowAmount; // Reduce distortion
+            float freezeDampen = mix(1.0 - snowAmount, 1.0, meltGlobal); // Reduce distortion
 
             vec2 reflectionDistortion = vec2(wave, wave) * waveStrength * 0.5; // Less distortion...
             reflectionDistortion     += (displacementTexture.xy - 0.5) * 0.01; // Add high-frequency noise
@@ -724,7 +760,7 @@ vec3 computeTerrainTexture(vec2 UV)
             vec3 reflectionColor = texture(reflectionTextureSampler, reflectionUV + reflectionDistortion).rgb;
 
             // Mix the water texture with the reflection...
-            float reflectionStrength = mix(0.2, 0.8, snowAmount); // Stronger Reflection
+            float reflectionStrength = mix(0.2, 0.8, snowAmount * (1.0 - meltGlobal)); // Stronger Reflection
             
             displacedWater = mix(displacedWater, reflectionColor, reflectionStrength);
         }
@@ -736,6 +772,7 @@ vec3 computeTerrainTexture(vec2 UV)
             float snowPatch = getSnowMaskIce((vertex_position_worldspace.xz * CRACKS_SCALE) * 0.1) / depth_f;
             snowPatch      *= freezeFactor;
             snowPatch      *= smoothstep(0.75, 1.0, snowAmount);
+            snowPatch      *= (1.0 - meltGlobal);
             snowPatch       = clamp(snowPatch, 0.0, 1.0);
 
             displacedWater = mix(displacedWater, SNOW_COLOR_ICE, snowPatch);
@@ -743,10 +780,10 @@ vec3 computeTerrainTexture(vec2 UV)
 
         // ... AND SAND!
         vec3 sand      = texture(textureSamplerSand, tileLocal).rgb;
-        vec3 sandWater = mix(sand, displacedWater, 0.6);
+        vec3 sandWater = mix(sand, displacedWater, 0.6); // Final color fragment for lake!
 
         // ===< ALEKSEEV "Frozen Lake" >=== //
-        if (fogDensity < 0.6 && snowAmount > 0.75) 
+        if (fogDensity < 0.6 && snowAmount > 0.6 && meltGlobal < 0.999)
         {
             // Define the point where the freeze begins
             vec3 freezeOrigin = vec3(0.0, 58.1, 0.0); // Using WATER_HEIGHT from main.cpp
@@ -761,15 +798,12 @@ vec3 computeTerrainTexture(vec2 UV)
             float currentRadius   = expansionFactor * maxRadius;
             
             // Blend factor: 1.0 = Cracked Ice, 0.0 = Moving Water
-            float crackBlend = smoothstep(currentRadius, currentRadius - 80.0, distToOrigin);
+            float crackBlend = 1.0 - smoothstep(currentRadius - 80.0, currentRadius, distToOrigin);
             
             if (crackBlend > 0.001)
             {
-                // Prep the under-ice color (sand/terrain mix) to keep shore integration
-                vec3 baseUnderIce = mix(sand, finalColor, 0.7);
-                
                 // Calculate the high-fidelity Alekseev cracked ice
-                vec3 alekseevIce = frozenLakeColor_Alekseev(UV, baseUnderIce, movingWater);
+                vec3 alekseevIce = frozenLakeColor_Alekseev(UV, sandWater);
                 
                 // Final spatial blend
                 sandWater = mix(sandWater, alekseevIce, crackBlend);

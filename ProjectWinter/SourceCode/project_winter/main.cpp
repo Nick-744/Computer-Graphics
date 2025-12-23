@@ -903,7 +903,7 @@ void mainLoop()
 		else                    cameraFarPlane = FAR_PLANE_INITIAL; // Reset far plane
 
 		// Control terrain's water speed...
-		float flowSpeed = mix(1.0f, 0.05f, snowAmount);
+		float flowSpeed = mix(1.0f, 0.05f, fogDensity);
 		terrainTime    += (deltaTime / 20.0f) * flowSpeed;
 
 		// ===< UPDATE SKY COLOR >=== //
@@ -987,7 +987,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		snowStartTimer.start();
 		snowingActive = !snowingActive;
 	}
-	if (key == GLFW_KEY_LEFT_CONTROL && action == GLFW_PRESS)
+	if (key == GLFW_KEY_Q && action == GLFW_PRESS)
 		if (snowAmount < 1.0f)
 			snowAmount = 1.0f; // Instant full snow!
 		else
