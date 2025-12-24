@@ -357,7 +357,8 @@ vec3 frozenLakeColor_Alekseev(vec3 baseUnderIce)
     vec3 reflection = vec3(0.0);
     if (useReflection == 1)
     {
-        vec2 ndc   = (vertex_position_clipspace.xy / max(vertex_position_clipspace.w, 1e-5)) * 0.5 + 0.5;
+        float w    = max(vertex_position_clipspace.w, 1e-5);
+        vec2 ndc   = (vertex_position_clipspace.xy / w) * 0.5 + 0.5;
         reflection = texture(reflectionTextureSampler, ndc).rgb;
     }
     else
@@ -444,12 +445,14 @@ void main()
 
 
     // ===< SNOW ACCUMULATION >=== //
-    if (snowAmount > 0.0)
+    if (snowAmount > 0.0 && terrainType != 2 && terrainType != 3)
     {
         // Vegetation bends in wind: sample snow using the NO-WIND anchor so it doesn't slide in world space...
         vec4 snowPosition  = (terrainType == 1) ? vertex_position_snowspace : vertex_position_snowspace_s;
         float snowBlocked  = ShadowCalculation(snowPosition, snowDepthMapSampler, 0.001);
-        float snowExposure = 1.0 - snowBlocked;
+
+        // When snowAmount > 0.95, ignore shadow blocking and make everything white!
+        float snowExposure = (snowAmount > 0.5) ? 1.0 : (1.0 - snowBlocked);
 
         // Prevent snow from accumulating on very steep slopes!
         {
@@ -478,7 +481,7 @@ void main()
         float snowVisibility = snowExposure * snowAmount; // FINAL SNOW MASK
         snowVisibility       = clamp(snowVisibility, 0.0, 1.0);
 
-        if (snowVisibility > 0.001 && terrainType != 2 && terrainType != 3)
+        if (snowVisibility > 0.001)
         {
             // Pixel-by-pixel snow accumulation using noise
             vec2 snowUV      = (terrainType == 1) ? vertex_position_worldspace.xz : vertex_position_worldspace_s.xz;
@@ -735,8 +738,9 @@ vec3 computeLakeTexture()
     if (useReflection == 1)
     {
         // Calculate reflection texture coordinates from clip space
-        vec2 ndc          = (vertex_position_clipspace.xy / vertex_position_clipspace.w);
-        vec2 reflectionUV = ndc * 0.5 + 0.5;
+        float w           = max(vertex_position_clipspace.w, 1e-5);
+        vec2 ndc          = (vertex_position_clipspace.xy / w) * 0.5 + 0.5;
+        vec2 reflectionUV = ndc;
 
         // DISTORTION: Apply the SAME wave distortion to the reflection!
         float freezeDampen = mix(1.0 - snowAmount, 1.0, meltGlobal); // Reduce distortion
@@ -769,8 +773,8 @@ vec3 computeLakeTexture()
     }
 
     // ... AND SAND!
-    vec3 sand         = texture(textureSamplerSand, getTileUV()).rgb;
-    vec3 sandWater    = mix(sand, displacedWater, 0.6); // Final color fragment for lake!
+    vec3 sand      = texture(textureSamplerSand, getTileUV()).rgb;
+    vec3 sandWater = mix(sand, displacedWater, 0.6); // Final color fragment for lake!
 
     // ===< ALEKSEEV "Frozen Lake" >=== //
     if (fogDensity < 0.6 && snowAmount > 0.6 && meltGlobal < 0.999)

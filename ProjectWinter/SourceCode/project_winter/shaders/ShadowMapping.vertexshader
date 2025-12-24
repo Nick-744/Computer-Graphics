@@ -39,6 +39,10 @@ flat out vec3 cameraPos_world;
 uniform mat4 snowVP;
 out vec4 vertex_position_snowspace;
 out vec4 vertex_position_snowspace_s; // Static - WITHOUT wind...
+// Taubin Smoothing - Realistic snow!
+uniform sampler2D textureSamplerSnowMask; 
+uniform int terrainType;
+uniform float snowAmount;
 
 out vec4 vertex_position_clipspace; // Reflection
 
@@ -69,6 +73,28 @@ void main()
         else
             modifiedPosition.x += wave * windIntensity * stiffness;
         modifiedPosition.z += wave * windIntensity * stiffness;
+    }
+    // ===< TAUBIN SMOOTHING / TIME-BASED INFLATION >=== //
+    if (terrainType == 1 && snowAmount >= 1.0)
+    {
+        float gaeaSnowValue = texture(textureSamplerSnowMask, vertexUV).r;
+        
+        if (gaeaSnowValue > 0.5)
+        {
+            // Smooth transition over time (e.g., 5 seconds)
+            float transitionDuration = 5.0; // Seconds for full inflation
+            float transitionProgress = clamp(time / transitionDuration, 0.0, 1.0);
+            
+            // Apply smoothstep for smoother acceleration/deceleration
+            transitionProgress = smoothstep(0.0, 1.0, transitionProgress);
+            
+            // Calculate inflationMu: smoothly goes from 0.0 to 0.0006
+            float maxInflation = 0.0006;
+            float inflationMu  = transitionProgress * maxInflation;
+            
+            // Apply the inflation along the normal
+            modifiedPosition += vertexNormal_modelspace * inflationMu;
+        }
     }
 
 

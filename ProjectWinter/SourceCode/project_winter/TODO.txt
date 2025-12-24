@@ -3,6 +3,8 @@ What’s left:
 - 7D: Snowman
 
 To consider:
+= I need to refactor how time / time passed is fed into the shaders (make it consistent everywhere)!!! ***
+- Also, take a look at fixing the Taubin smoothing (have to fix shader time first...)
 
 DONE:
 - Split the terrain / lake / river into separate meshes...
