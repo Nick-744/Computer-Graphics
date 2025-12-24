@@ -7,8 +7,8 @@ using namespace glm;
 
 TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderProgram_)
 {
-	// Special flag to indicate terrain rendering (ShadowMapping.fragmentshader)
-	isTerrain = glGetUniformLocation(shaderProgram, "isTerrain");
+    // Special flag to indicate terrain rendering (ShadowMapping.fragmentshader)
+    terrainType = glGetUniformLocation(shaderProgram, "terrainType");
 
     // Get Uniform Locations
     vpLocation   = glGetUniformLocation(shaderProgram, "VP");
@@ -18,9 +18,7 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     // Texture sampler locations in the shader
     textureSamplerWorld = glGetUniformLocation(shaderProgram, "textureSamplerWorld");
 
-    textureSamplerSlope  = glGetUniformLocation(shaderProgram, "textureSamplerSlope");
-    textureSamplerLake   = glGetUniformLocation(shaderProgram, "textureSamplerLake");
-    textureSamplerRivers = glGetUniformLocation(shaderProgram, "textureSamplerRivers");
+    textureSamplerSlope = glGetUniformLocation(shaderProgram, "textureSamplerSlope");
 
     textureSamplerRock  = glGetUniformLocation(shaderProgram, "textureSamplerRock");
     textureSamplerGrass = glGetUniformLocation(shaderProgram, "textureSamplerGrass");
@@ -33,9 +31,7 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     // Load Textures
     textureWorld = loadBMP("assets/worldmap_gaea/worldmap_texture_NO-BLUE.bmp");
 
-    textureSlope  = loadBMP("assets/worldmap_gaea/slope_texture.bmp");
-    textureLake   = loadBMP("assets/worldmap_gaea/lake_texture.bmp");
-    textureRivers = loadBMP("assets/worldmap_gaea/rivers_texture.bmp");
+    textureSlope = loadBMP("assets/worldmap_gaea/slope_texture.bmp");
 
     textureRock  = loadBMP("assets/world_textures/rock_face_03_diff_4k.bmp");
     textureGrass = loadBMP("assets/world_textures/brown_mud_leaves_01_diff_4k.bmp");
@@ -50,16 +46,10 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glBindTexture(GL_TEXTURE_2D, textureLake);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glBindTexture(GL_TEXTURE_2D, textureRivers);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
     // Load Mesh
-    terrain = new Drawable("assets/worldmap_gaea/ultra_low_poly_worldmap.obj");
+    land  = new Drawable("assets/worldmap_gaea/terrain_land.obj");
+    lake  = new Drawable("assets/worldmap_gaea/terrain_lake.obj");
+    river = new Drawable("assets/worldmap_gaea/terrain_river.obj");
 }
 
 TerrainRenderer::~TerrainRenderer()
@@ -68,9 +58,7 @@ TerrainRenderer::~TerrainRenderer()
     glDeleteTextures(1, &textureWorld);
     
     glDeleteTextures(1, &textureSlope);
-    glDeleteTextures(1, &textureLake);
-    glDeleteTextures(1, &textureRivers);
-    
+
     glDeleteTextures(1, &textureRock);
     glDeleteTextures(1, &textureGrass);
     glDeleteTextures(1, &textureSand);
@@ -79,14 +67,14 @@ TerrainRenderer::~TerrainRenderer()
     glDeleteTextures(1, &textureDisplacement);
     glDeleteTextures(1, &textureRiversDirection);
 
-    delete terrain;
+    delete land;
+    delete lake;
+    delete river;
 }
 
 void TerrainRenderer::draw(const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix, float time)
 {
-	glUseProgram(shaderProgram); // Just to be sure...
-
-    glUniform1i(isTerrain, 1); // ShadowMapping bs...
+    glUseProgram(shaderProgram); // Just to be sure...
 
     // Bind Textures to Units
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, textureWorld);
@@ -95,32 +83,26 @@ void TerrainRenderer::draw(const glm::mat4& viewMatrix, const glm::mat4& project
     // Bind terrain attribute textures
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, textureSlope);
     glUniform1i(textureSamplerSlope, 1);
-    
-    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, textureLake);
-    glUniform1i(textureSamplerLake, 2);
-    
-    glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, textureRivers);
-    glUniform1i(textureSamplerRivers, 3);
 
     // Bind detailed terrain textures
-    glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, textureRock);
-    glUniform1i(textureSamplerRock, 4);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, textureRock);
+    glUniform1i(textureSamplerRock, 2);
     
-    glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, textureGrass);
-    glUniform1i(textureSamplerGrass, 5);
+    glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, textureGrass);
+    glUniform1i(textureSamplerGrass, 3);
     
-    glActiveTexture(GL_TEXTURE6); glBindTexture(GL_TEXTURE_2D, textureSand);
-    glUniform1i(textureSamplerSand, 6);
+    glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, textureSand);
+    glUniform1i(textureSamplerSand, 4);
     
     // Bind water and displacement textures
-    glActiveTexture(GL_TEXTURE7); glBindTexture(GL_TEXTURE_2D, textureWater);
-    glUniform1i(textureSamplerWater, 7);
+    glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, textureWater);
+    glUniform1i(textureSamplerWater, 5);
 
-    glActiveTexture(GL_TEXTURE8); glBindTexture(GL_TEXTURE_2D, textureDisplacement);
-    glUniform1i(textureSamplerDisplacement, 8);
+    glActiveTexture(GL_TEXTURE6); glBindTexture(GL_TEXTURE_2D, textureDisplacement);
+    glUniform1i(textureSamplerDisplacement, 6);
     
-    glActiveTexture(GL_TEXTURE9); glBindTexture(GL_TEXTURE_2D, textureRiversDirection);
-    glUniform1i(textureSamplerRiversDirection, 9);
+    glActiveTexture(GL_TEXTURE7); glBindTexture(GL_TEXTURE_2D, textureRiversDirection);
+    glUniform1i(textureSamplerRiversDirection, 7);
 
     // Set Uniforms
     glUniform1f(timeLocation, time);
@@ -132,8 +114,17 @@ void TerrainRenderer::draw(const glm::mat4& viewMatrix, const glm::mat4& project
     glUniformMatrix4fv(mLocation,  1, GL_FALSE, &modelMatrix[0][0]);
 
     // Draw
-    terrain->bind();
-    terrain->draw();
+    glUniform1i(terrainType, 1); // ShadowMapping bs...
+    land->bind();
+    land->draw();
 
-	glUniform1i(isTerrain, 0); // ShadowMapping bs...
+    glUniform1i(terrainType, 2); // ShadowMapping bs...
+    lake->bind();
+    lake->draw();
+
+    glUniform1i(terrainType, 3); // ShadowMapping bs...
+    river->bind();
+    river->draw();
+    
+    glUniform1i(terrainType, 0); // ShadowMapping bs...
 }
