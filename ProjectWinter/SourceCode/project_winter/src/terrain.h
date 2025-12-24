@@ -22,7 +22,7 @@ public:
     // The main function to render the terrain
     void draw(const mat4& viewMatrix, const mat4& projectionMatrix, float time);
 
-	Drawable* getTerrainMesh() { return terrain; }
+    Drawable* getTerrainMesh() { return land; }
 
     mat4 getTerrainModelMatrix() { return scale(mat4(), vec3(200.0f)); }
 
@@ -30,21 +30,23 @@ private:
     // Shader Program
     GLuint shaderProgram;
 
-	GLuint isTerrain; // ShadowMapping bs...
+    GLuint terrainType; // ShadowMapping bs...
 
     // Uniform Locations
     GLuint vpLocation, mLocation, timeLocation;
 
     // Texture Sampler Locations
-    GLuint textureSamplerWorld, textureSamplerSlope, textureSamplerLake, textureSamplerRivers;
-    GLuint textureSamplerRock, textureSamplerGrass, textureSamplerSand, textureSamplerWater, textureSamplerDisplacement, textureSamplerRiversDirection;
+    GLuint textureSamplerWorld, textureSamplerSlope;
+    GLuint textureSamplerRock, textureSamplerGrass, textureSamplerSand, textureSamplerWater, textureSamplerRiversDirection, textureSamplerDisplacement;
 
     // Actual Texture IDs
-    GLuint textureWorld, textureSlope, textureLake, textureRivers;
+    GLuint textureWorld, textureSlope;
     GLuint textureRock, textureGrass, textureSand, textureWater, textureRiversDirection, textureDisplacement;
 
-    // The 3D Mesh
-    Drawable* terrain;
+    // The 3D Meshes
+    Drawable* land;
+    Drawable* lake;
+    Drawable* river;
 };
 
 #endif

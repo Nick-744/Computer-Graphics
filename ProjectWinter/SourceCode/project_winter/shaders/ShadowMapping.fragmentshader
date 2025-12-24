@@ -1,47 +1,9 @@
 #version 330 core
 
-// ============< TERRAIN TEXTURE CREATOR >============ //
-
-// Precomputed terrain base color!!!
-vec3 terrainBaseColor = vec3(0.0);
-uniform int isTerrain = 0;
-
-// Main terrain texture
-uniform sampler2D textureSamplerWorld;
-
-// Gaea terrain masks
-uniform sampler2D textureSamplerSlope;
-uniform sampler2D textureSamplerLake;
-uniform sampler2D textureSamplerRivers;
-
-// High-resolution material textures
-uniform sampler2D textureSamplerRock;
-uniform sampler2D textureSamplerGrass;
-uniform sampler2D textureSamplerSand;
-
-// Moving water texture + displacement
-uniform float time;
-uniform sampler2D textureSamplerWater;
-uniform sampler2D displacementTextureSampler;
-
-// Rivers direction!!! Όχι μούφα κίνηση με height gradient από το Peaks texture...
-uniform sampler2D textureSamplerRiversDirection;
-
-// ---< Cached masks (computed ONCE per fragment when isTerrain == 1) >--- //
-float gaeaSlopeMask   = 0.0;
-float gaeaLakeSmooth  = 0.0; // smoothstep(0.2, 0.8, lakeRaw)
-float gaeaRiverSmooth = 0.0; // smoothstep(0.05, 0.40, riverRaw)
-
-// ============< END TERRAIN TEXTURE CREATOR >============ //
-
-
-
 // ===< Reflection >=== //
 uniform sampler2D reflectionTextureSampler;
 uniform int useReflection = 0;
 in vec4 vertex_position_clipspace;
-
-
 
 // ===< Light & Shadows >=== //
 in vec4 vertex_position_cameraspace;
@@ -85,8 +47,6 @@ out vec4 fragmentColor;
 
 uniform int ChampionOfLight;
 
-
-
 // ===< SNOW >=== //
 uniform sampler2D snowDepthMapSampler;
 in vec4 vertex_position_snowspace;
@@ -94,11 +54,45 @@ in vec4 vertex_position_snowspace_s;      // Static - WITHOUT wind...
 uniform sampler2D textureSamplerSnowMask; // Gaea mask
 uniform float snowAmount; // Snow state
 
-
-
 // ===< Fog >=== //
 uniform float fogDensity;
 uniform vec3 fogColor;
+
+
+
+// ============< TERRAIN TEXTURE CREATOR >============ //
+
+// Precomputed terrain base color!!!
+vec3 terrainBaseColor   = vec3(0.0);
+uniform int terrainType = 0;
+// 1 -> Land | 2 -> Lake | 3 -> River //
+
+// Tile scale
+float tileScale = 200.0f;
+
+// Main terrain texture
+uniform sampler2D textureSamplerWorld;
+
+// Gaea terrain masks
+uniform sampler2D textureSamplerSlope;
+
+// High-resolution material textures
+uniform sampler2D textureSamplerRock;
+uniform sampler2D textureSamplerGrass;
+uniform sampler2D textureSamplerSand;
+
+// Moving water texture + displacement
+uniform float time;
+uniform sampler2D textureSamplerWater;
+uniform sampler2D displacementTextureSampler;
+
+// Rivers direction!!! Όχι μούφα κίνηση με height gradient από το Peaks texture...
+uniform sampler2D textureSamplerRiversDirection;
+
+// ---< Cached masks (computed ONCE per fragment when terrainType == 1) >--- //
+float gaeaSlopeMask = 0.0;
+
+// ============< END TERRAIN TEXTURE CREATOR >============ //
 
 
 
@@ -315,7 +309,7 @@ vec2 getNormalCracks2(vec3 p)
 
 
 // Frozen Lake - Main function
-vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce)
+vec3 frozenLakeColor_Alekseev(vec3 baseUnderIce)
 {
     vec3 p = vertex_position_worldspace * CRACKS_SCALE;
     vec3 e = normalize(vertex_position_worldspace - cameraPos_world);
@@ -426,7 +420,9 @@ vec3 frozenLakeColor_Alekseev(vec2 UV, vec3 baseUnderIce)
 vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace);
 float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias);
 
-vec3 computeTerrainTexture(vec2 UV);
+vec3 computeLandTexture();
+vec3 computeLakeTexture();
+vec3 computeRiverTexture();
 float hash(vec2 p);
 
 void main()
@@ -435,7 +431,9 @@ void main()
     fragmentColor = vec4(0.0);
 
     // Compute terrain texture ONCE per fragment!!!
-    if (isTerrain == 1) terrainBaseColor = computeTerrainTexture(vertex_UV);
+    if      (terrainType == 1) terrainBaseColor = computeLandTexture();
+    else if (terrainType == 2) terrainBaseColor = computeLakeTexture();
+    else if (terrainType == 3) terrainBaseColor = computeRiverTexture();
 
     // ===< light 1 >=== //
     float visibility = 1.0 - ShadowCalculation(vertex_position_lightspace1, shadowMapSampler1, 0.0004);
@@ -449,7 +447,7 @@ void main()
     if (snowAmount > 0.0)
     {
         // Vegetation bends in wind: sample snow using the NO-WIND anchor so it doesn't slide in world space...
-        vec4 snowPosition  = (isTerrain == 1) ? vertex_position_snowspace : vertex_position_snowspace_s;
+        vec4 snowPosition  = (terrainType == 1) ? vertex_position_snowspace : vertex_position_snowspace_s;
         float snowBlocked  = ShadowCalculation(snowPosition, snowDepthMapSampler, 0.001);
         float snowExposure = 1.0 - snowBlocked;
 
@@ -470,13 +468,9 @@ void main()
             snowExposure       *= slopeSnowMask;
         }
 
-        // If this is terrain, use the masks to prevent snow
-        if (isTerrain == 1)
+        // If this is land terrain, use the mask to prevent snow...
+        if (terrainType == 1)
         {
-            // Reuse cached masks from computeTerrainTexture()!
-            snowExposure *= (1.0 - gaeaLakeSmooth);
-            snowExposure *= (1.0 - gaeaRiverSmooth);
-
             float gaeaSnowMask = texture(textureSamplerSnowMask, vertex_UV).r;
             snowExposure      *= gaeaSnowMask;
         }
@@ -484,10 +478,10 @@ void main()
         float snowVisibility = snowExposure * snowAmount; // FINAL SNOW MASK
         snowVisibility       = clamp(snowVisibility, 0.0, 1.0);
 
-        if (snowVisibility > 0.001)
+        if (snowVisibility > 0.001 && terrainType != 2 && terrainType != 3)
         {
             // Pixel-by-pixel snow accumulation using noise
-            vec2 snowUV      = (isTerrain == 1) ? vertex_position_worldspace.xz : vertex_position_worldspace_s.xz;
+            vec2 snowUV      = (terrainType == 1) ? vertex_position_worldspace.xz : vertex_position_worldspace_s.xz;
             snowUV          *= 4.0; // Small snow pixels!
             float pixelNoise = hash(floor(snowUV));
 
@@ -503,7 +497,7 @@ void main()
             vec3 snowColor = vec3(1.0, 1.0, 0.9); // The light source has blut tint!
 
             vec3 albedo = terrainBaseColor; // Base color before lighting...
-            if (isTerrain == 0)
+            if (terrainType == 0)
             {
                 if (useTexture == 1 || useTransparentTex == 1)
                     albedo = texture(diffuseColorSampler, vertex_UV).rgb;
@@ -534,8 +528,6 @@ void main()
 
     }
 }
-
-
 
 float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias)
 {
@@ -571,8 +563,6 @@ float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSamp
     return shadow;
 }
 
-
-
 vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
 {
     vec4 _Ks = mtl.Ks;
@@ -580,35 +570,47 @@ vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
     vec4 _Ka = mtl.Ka;
     float _Ns = mtl.Ns;
 
-    if (isTerrain == 1)
+    if (terrainType == 0) // Just to be sure...
     {
-        // ===< FREEZING GLARE >=== //
-        float iceSpecular = mix(0.3, 1.0, snowAmount);
+        if (useTexture == 1) // use texture for materials
+        {
+            _Ks = vec4(texture(specularColorSampler, vertex_UV).rgb, 1.0);
+            _Kd = vec4(texture(diffuseColorSampler,  vertex_UV).rgb, 1.0);
+            _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
+            _Ns = 10.0;
+        }
+        
+        if (useTransparentTex == 1)
+        {
+            // === REMOVE WHITE BACKGROUND === //
+            vec4 texColor = texture(diffuseColorSampler, vertex_UV);
+            if (texColor.r > 0.35 && texColor.g > 0.6 && texColor.b > 0.35) { discard; }
 
-        _Ks = iceSpecular * vec4(gaeaLakeSmooth);
-        _Kd = vec4(terrainBaseColor, 1.0);
-        _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
-
-        _Ns = mix(200.0, 600.0, snowAmount); // Smoother ice...
+            _Ks = vec4(0.0); // No specular for transparent textures...
+            _Kd = vec4(texture(diffuseColorSampler, vertex_UV).rgb, 1.0);
+            _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
+            _Ns = 10.0;
+        }
     }
-    else if (useTexture == 1) // use texture for materials
+    else
     {
-        _Ks = vec4(texture(specularColorSampler, vertex_UV).rgb, 1.0);
-        _Kd = vec4(texture(diffuseColorSampler,  vertex_UV).rgb, 1.0);
-        _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
-        _Ns = 10.0;
-    }
+        if (terrainType == 2)
+        {
+            // ===< FREEZING GLARE >=== //
+            float iceSpecular = mix(0.3, 1.0, snowAmount);
 
-    if (useTransparentTex == 1)
-    {
-        // === REMOVE WHITE BACKGROUND === //
-        vec4 texColor = texture(diffuseColorSampler, vertex_UV);
-        if (texColor.r > 0.35 && texColor.g > 0.6 && texColor.b > 0.35) { discard; }
-
-        _Ks = vec4(0.0); // No specular for transparent textures...
-        _Kd = vec4(texture(diffuseColorSampler, vertex_UV).rgb, 1.0);
-        _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
-        _Ns = 10.0;
+            _Ks = iceSpecular * vec4(1.0, 1.0, 1.0, 1.0);
+            _Kd = vec4(terrainBaseColor, 1.0);
+            _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
+            _Ns = mix(200.0, 600.0, snowAmount); // Smoother ice...
+        }
+        else
+        {
+            _Ks = vec4(0);
+            _Kd = vec4(terrainBaseColor, 1.0);
+            _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
+            _Ns = 10.0;
+        }
     }
 
     // model ambient intensity (Ia)
@@ -652,206 +654,181 @@ float hash(vec2 p) // Cheap ALU-only hash functions for GLSL
     return fract(37.0 * p.x * p.y);
 }
 
-vec2 rotate(vec2 uv, float r)
+vec2 getTileUV() // Get randomized UVs...
 {
-    int k = int(floor(r * 4.0));
+    vec2 tiled = vertex_UV * tileScale;
+    vec2 local = fract(tiled); // 0..1 inside tile
+    vec2 grid  = floor(tiled);
+    
+    float r = hash(grid);
+    int k   = int(floor(r * 4.0));
 
-    if      (k == 0) return uv;
-    else if (k == 1) return vec2(-uv.y,  uv.x);
-    else if (k == 2) return vec2(-uv.x, -uv.y);
-    else             return vec2( uv.y, -uv.x);
+    local = local - 0.5; // Center Pivot
+    
+    // Apply rotation to break tiling
+    if      (k == 1) local = vec2(-local.y,  local.x);
+    else if (k == 2) local = vec2(-local.x, -local.y);
+    else if (k == 3) local = vec2( local.y, -local.x);
+
+    return local + 0.5;
 }
 
-vec3 computeTerrainTexture(vec2 UV)
+// ROCK, GRASS... (Land)
+vec3 computeLandTexture()
 {
     // ---< Cache Gaea terrain masks ONCE >--- //
-    gaeaSlopeMask = texture(textureSamplerSlope, UV).r;
-
-    float lakeRaw  = texture(textureSamplerLake, UV).r;
-    gaeaLakeSmooth = smoothstep(0.2, 0.8, lakeRaw);
-
-    float riverRaw  = texture(textureSamplerRivers, UV).r;
-    gaeaRiverSmooth = smoothstep(0.05, 0.40, riverRaw);
-
-    vec3 worldColor = texture(textureSamplerWorld, UV).rgb;
-
-    vec3 finalColor = vec3(0.0); // Final output color
-    vec3 rock       = vec3(0.0);
-
-    // Tile scale
-    float tileScale = 200.0f;
-    vec2 uvTile     = UV * tileScale;
-    vec2 tileLocal  = fract(uvTile); // 0..1 inside tile
-
-    { // ROCK, GRASS... (Land)
-
-        vec2  tile       = floor(uvTile);
-        float tileRandom = hash(tile);
-
-        tileLocal = tileLocal - 0.5; // Center Pivot
-        tileLocal = rotate(tileLocal, tileRandom);
-        tileLocal = tileLocal + 0.5;
-
-        // Sample materials using tile-local UVs!
-        rock       = texture(textureSamplerRock,  tileLocal).rgb;
-        vec3 grass = texture(textureSamplerGrass, tileLocal).rgb;
-
-        // Blending logic
-        vec3 details = mix(rock, grass, gaeaSlopeMask * 1.2);
-
-        // Blend with Gaea terrain texture
-        finalColor = mix(details, worldColor, 0.5);
-
-    }
-
-    if (lakeRaw > 0.0005) // Skip lake code outside the lake mask - PERFORMANCE!!!
-    { // WATERRR... (Lake)
-
-        float freezeAmt  = smoothstep(0.75, 1.0, snowAmount);
-        float meltGlobal = freezeAmt * smoothstep(0.04, 0.00, fogDensity);
-
-        float waterTiling = 120.0; // How many times the water texture repeats across the terrain
-        vec2 baseUV       = UV * waterTiling;
-
-        // Scroll speed for the water
-        vec2 waterScroll = vec2(time * 0.075, -time * 0.15);
-        vec2 waterUV     = baseUV + waterScroll;
-
-        // Wave pattern depending on position + time
-        float waveSpeed     = 1.5;
-        float waveFrequency = 20.0;
-        float waveStrength  = 0.02;
-
-        float wave = sin(baseUV.x * waveFrequency + time * waveSpeed) *
-                     cos(baseUV.y * waveFrequency + time * waveSpeed);
-
-        // Distort UV slightly by the wave
-        waterUV += vec2(wave, wave) * waveStrength;
-
-        vec3 movingWater = texture(textureSamplerWater, waterUV).rgb;
-
-        // ===< FREEZING LAKE EFFECT >=== //
-        vec3 iceColor      = vec3(0.95, 0.98, 1.0);
-        float freezeFactor = smoothstep(0.1, 0.9, snowAmount) * 0.95; // Non-linear freeze!
-        freezeFactor      *= (1.0 - meltGlobal); // Even if it is snowy -> fogDensity can melt the ice...
-        movingWater        = mix(movingWater, iceColor, freezeFactor);
-
-        // Displacement texture for more detail (WATER)
-        vec3 displacementTexture = texture(displacementTextureSampler, UV + 0.9*sin(time)).rgb;
-        vec3 surfaceTexture      = mix(movingWater, displacementTexture, 0.2);
-        vec3 displacedWater      = texture(textureSamplerWater, waterUV + length(surfaceTexture)*0.05).rgb;
-
-        // ===< LAKE REFLECTION >=== //
-        if (useReflection == 1)
-        {
-            // Calculate reflection texture coordinates from clip space
-            vec2 ndc          = (vertex_position_clipspace.xy / vertex_position_clipspace.w);
-            vec2 reflectionUV = ndc * 0.5 + 0.5;
-
-            // DISTORTION: Apply the SAME wave distortion to the reflection!
-            float freezeDampen = mix(1.0 - snowAmount, 1.0, meltGlobal); // Reduce distortion
-
-            vec2 reflectionDistortion = vec2(wave, wave) * waveStrength * 0.5; // Less distortion...
-            reflectionDistortion     += (displacementTexture.xy - 0.5) * 0.01; // Add high-frequency noise
-
-            reflectionDistortion *= freezeDampen; // Apply dampening
-
-            // Sample reflection texture with distortion!
-            vec3 reflectionColor = texture(reflectionTextureSampler, reflectionUV + reflectionDistortion).rgb;
-
-            // Mix the water texture with the reflection...
-            float reflectionStrength = mix(0.2, 0.8, snowAmount * (1.0 - meltGlobal)); // Stronger Reflection
-            
-            displacedWater = mix(displacedWater, reflectionColor, reflectionStrength);
-        }
-
-        {   // Snow patches on top of the ice
-            float depth   = length(vertex_position_worldspace - cameraPos_world);
-            float depth_f = max(depth * 0.01, 1.0);
-
-            float snowPatch = getSnowMaskIce((vertex_position_worldspace.xz * CRACKS_SCALE) * 0.1) / depth_f;
-            snowPatch      *= freezeFactor;
-            snowPatch      *= smoothstep(0.75, 1.0, snowAmount);
-            snowPatch      *= (1.0 - meltGlobal);
-            snowPatch       = clamp(snowPatch, 0.0, 1.0);
-
-            displacedWater = mix(displacedWater, SNOW_COLOR_ICE, snowPatch);
-        }
-
-        // ... AND SAND!
-        vec3 sand      = texture(textureSamplerSand, tileLocal).rgb;
-        vec3 sandWater = mix(sand, displacedWater, 0.6); // Final color fragment for lake!
-
-        // ===< ALEKSEEV "Frozen Lake" >=== //
-        if (fogDensity < 0.6 && snowAmount > 0.6 && meltGlobal < 0.999)
-        {
-            // Define the point where the freeze begins
-            vec3 freezeOrigin = vec3(0.0, 58.1, 0.0); // Using WATER_HEIGHT from main.cpp
-            
-            // Add jitter to the distance so the ice growth looks "jagged" and organic
-            float organicNoise = hash(vertex_position_worldspace.xz * 0.1) * 20.0;
-            float distToOrigin = distance(vertex_position_worldspace.xz, freezeOrigin.xz) + organicNoise;
-            
-            // Expansion radius: spreads as fogDensity decreases...
-            float expansionFactor = clamp(((1.0 - fogDensity) - 0.5) * 2.0, 0.0, 1.0);
-            float maxRadius       = 400.0; // Increased radius to cover the map extent
-            float currentRadius   = expansionFactor * maxRadius;
-            
-            // Blend factor: 1.0 = Cracked Ice, 0.0 = Moving Water
-            float crackBlend = 1.0 - smoothstep(currentRadius - 80.0, currentRadius, distToOrigin);
-            
-            if (crackBlend > 0.001)
-            {
-                // Calculate the high-fidelity Alekseev cracked ice
-                vec3 alekseevIce = frozenLakeColor_Alekseev(UV, sandWater);
-                
-                // Final spatial blend
-                sandWater = mix(sandWater, alekseevIce, crackBlend);
-            }
-        }
-
-        // Expand the sand to the shore area...
-        finalColor = mix(finalColor, sand, smoothstep(0.0, 0.5, lakeRaw));
-
-        // Blend only where lake mask is > 0
-        finalColor = mix(finalColor, sandWater, gaeaLakeSmooth);
-
-    }
-
-    if (riverRaw > 0.0005) // Skip river code outside the river mask - PERFORMANCE!!!
-    { // RIVERS...
-
-        float riverMask = gaeaRiverSmooth;
-
-        vec3 dirSample = texture(textureSamplerRiversDirection, UV).rgb;
-
-        // Μετατροπή στο διάστημα [-1,1]
-        vec2 flowDir = normalize(dirSample.rg * 2.0 - 1.0);
-
-        float riverTiling = 12.0;
-        float riverSpeed  =  0.8;
-
-        vec2 riverUV = UV * riverTiling + flowDir * time * riverSpeed;
-
-        // Displacement & Wobble μέσα στη ροή
-        vec2 disp = texture(displacementTextureSampler, UV * 4.0 + flowDir * time * 0.2).rg - vec2(0.5);
-        riverUV  += disp * 0.05;
-
-        float wobble = sin(time * 0.5 + dot(UV, vec2(20.0))) * 0.003;
-        riverUV     += flowDir * wobble;
-
-        vec3 riverWater = texture(textureSamplerWater, riverUV).rgb;
-        vec3 rockyRiver = mix(rock, riverWater, 0.6);
-
-        // Όχι ποτάμια εκεί που υπάρχει λίμνη!
-        float riverBlend = riverMask * (1.0 - gaeaLakeSmooth);
-
-        finalColor = mix(finalColor, rockyRiver, riverBlend);
-
-    }
+    gaeaSlopeMask   = texture(textureSamplerSlope, vertex_UV).r;
+    vec3 worldColor = texture(textureSamplerWorld, vertex_UV).rgb;
+    
+    vec2 randomizedUV = getTileUV();
+    
+    // Sample materials using tile-local UVs!
+    vec3 rock  = texture(textureSamplerRock,  randomizedUV).rgb;
+    vec3 grass = texture(textureSamplerGrass, randomizedUV).rgb;
+    
+    // Blending logic
+    float slopeBlend = clamp(gaeaSlopeMask * 1.2, 0.0, 1.0);
+    vec3 details     = mix(rock, grass, slopeBlend); 
 
     // Output
-    return finalColor;
+    return mix(details, worldColor, 0.5); // Blend with Gaea terrain texture
+}
+
+// WATERRR... (Lake)
+vec3 computeLakeTexture()
+{
+    float freezeAmt  = smoothstep(0.75, 1.0, snowAmount);
+    float meltGlobal = freezeAmt * smoothstep(0.04, 0.00, fogDensity);
+
+    float waterTiling = 120.0; // How many times the water texture repeats across the terrain
+    vec2 baseUV       = vertex_UV * waterTiling;
+
+    // Scroll speed for the water
+    vec2 waterScroll = vec2(time * 0.075, -time * 0.15);
+    vec2 waterUV     = baseUV + waterScroll;
+
+    // Wave pattern depending on position + time
+    float waveSpeed     = 1.5;
+    float waveFrequency = 20.0;
+    float waveStrength  = 0.02;
+
+    float wave = sin(baseUV.x * waveFrequency + time * waveSpeed) *
+                 cos(baseUV.y * waveFrequency + time * waveSpeed);
+
+    // Distort UV slightly by the wave
+    waterUV += vec2(wave, wave) * waveStrength;
+
+    vec3 movingWater = texture(textureSamplerWater, waterUV).rgb;
+
+    // ===< FREEZING LAKE EFFECT >=== //
+    vec3 iceColor      = vec3(0.95, 0.98, 1.0);
+    float freezeFactor = smoothstep(0.1, 0.9, snowAmount) * 0.95; // Non-linear freeze!
+    freezeFactor      *= (1.0 - meltGlobal); // Even if it is snowy -> fogDensity can melt the ice...
+    movingWater        = mix(movingWater, iceColor, freezeFactor);
+
+    // Displacement texture for more detail (WATER)
+    vec3 displacementTexture = texture(displacementTextureSampler, vertex_UV + 0.9*sin(time)).rgb;
+    vec3 surfaceTexture      = mix(movingWater, displacementTexture, 0.2);
+    vec3 displacedWater      = texture(textureSamplerWater, waterUV + length(surfaceTexture)*0.05).rgb;
+
+    // ===< LAKE REFLECTION >=== //
+    if (useReflection == 1)
+    {
+        // Calculate reflection texture coordinates from clip space
+        vec2 ndc          = (vertex_position_clipspace.xy / vertex_position_clipspace.w);
+        vec2 reflectionUV = ndc * 0.5 + 0.5;
+
+        // DISTORTION: Apply the SAME wave distortion to the reflection!
+        float freezeDampen = mix(1.0 - snowAmount, 1.0, meltGlobal); // Reduce distortion
+
+        vec2 reflectionDistortion = vec2(wave, wave) * waveStrength * 0.5; // Less distortion...
+        reflectionDistortion     += (displacementTexture.xy - 0.5) * 0.01; // Add high-frequency noise
+
+        reflectionDistortion *= freezeDampen; // Apply dampening
+
+        // Sample reflection texture with distortion!
+        vec3 reflectionColor = texture(reflectionTextureSampler, reflectionUV + reflectionDistortion).rgb;
+
+        // Mix the water texture with the reflection...
+        float reflectionStrength = mix(0.2, 0.8, snowAmount * (1.0 - meltGlobal)); // Stronger Reflection
+        
+        displacedWater = mix(displacedWater, reflectionColor, reflectionStrength);
+    }
+
+    {   // Snow patches on top of the ice
+        float depth   = length(vertex_position_worldspace - cameraPos_world);
+        float depth_f = max(depth * 0.01, 1.0);
+
+        float snowPatch = getSnowMaskIce((vertex_position_worldspace.xz * CRACKS_SCALE) * 0.1) / depth_f;
+        snowPatch      *= freezeFactor;
+        snowPatch      *= smoothstep(0.75, 1.0, snowAmount);
+        snowPatch      *= (1.0 - meltGlobal);
+        snowPatch       = clamp(snowPatch, 0.0, 1.0);
+
+        displacedWater = mix(displacedWater, SNOW_COLOR_ICE, snowPatch);
+    }
+
+    // ... AND SAND!
+    vec3 sand         = texture(textureSamplerSand, getTileUV()).rgb;
+    vec3 sandWater    = mix(sand, displacedWater, 0.6); // Final color fragment for lake!
+
+    // ===< ALEKSEEV "Frozen Lake" >=== //
+    if (fogDensity < 0.6 && snowAmount > 0.6 && meltGlobal < 0.999)
+    {
+        // Define the point where the freeze begins
+        vec3 freezeOrigin = vec3(0.0, 58.1, 0.0); // Using WATER_HEIGHT from main.cpp
+        
+        // Add jitter to the distance so the ice growth looks "jagged" and organic
+        float organicNoise = hash(vertex_position_worldspace.xz * 0.1) * 20.0;
+        float distToOrigin = distance(vertex_position_worldspace.xz, freezeOrigin.xz) + organicNoise;
+        
+        // Expansion radius: spreads as fogDensity decreases...
+        float expansionFactor = clamp(((1.0 - fogDensity) - 0.5) * 2.0, 0.0, 1.0);
+        float maxRadius       = 400.0; // Increased radius to cover the map extent
+        float currentRadius   = expansionFactor * maxRadius;
+        
+        // Blend factor: 1.0 = Cracked Ice, 0.0 = Moving Water
+        float crackBlend = 1.0 - smoothstep(currentRadius - 80.0, currentRadius, distToOrigin);
+        
+        if (crackBlend > 0.001)
+        {
+            // Calculate the high-fidelity Alekseev cracked ice
+            vec3 alekseevIce = frozenLakeColor_Alekseev(sandWater);
+            
+            // Final spatial blend
+            sandWater = mix(sandWater, alekseevIce, crackBlend);
+        }
+    }
+
+    // Blend only where lake mask is > 0
+    return sandWater;
+}
+
+// RIVERS...
+vec3 computeRiverTexture()
+{
+    vec3 dirSample = texture(textureSamplerRiversDirection, vertex_UV).rgb;
+    vec3 rock      = texture(textureSamplerRock, getTileUV()).rgb;
+
+    // Μετατροπή στο διάστημα [-1,1]
+    vec2 flowDir = normalize(dirSample.rg * 2.0 - 1.0);
+
+    float riverTiling = 20.0;
+    float riverSpeed  =  0.8;
+
+    vec2 riverUV = vertex_UV * riverTiling + flowDir * time * riverSpeed;
+
+    // Displacement & Wobble μέσα στη ροή
+    vec2 disp = texture(displacementTextureSampler, vertex_UV * 4.0 + flowDir * time * 0.2).rg - vec2(0.5);
+    riverUV  += disp * 0.05;
+
+    float wobble = sin(time * 0.5 + dot(vertex_UV, vec2(20.0))) * 0.003;
+    riverUV     += flowDir * wobble;
+
+    vec3 riverWater = texture(textureSamplerWater, riverUV).rgb;
+    vec3 rockyRiver = mix(rock, riverWater, 0.6);
+
+    return rockyRiver;
 }
 
 // ============< END TERRAIN TEXTURE CREATOR >============ //
