@@ -43,6 +43,7 @@ out vec4 vertex_position_snowspace_s; // Static - WITHOUT wind...
 uniform sampler2D textureSamplerSnowMask; 
 uniform int terrainType;
 uniform float snowAmount;
+uniform float snowInflate;
 
 out vec4 vertex_position_clipspace; // Reflection
 
@@ -56,6 +57,7 @@ void main()
 {
     // ===< WIND EFFECT >=== //
     vec3 modifiedPosition = vertexPosition_modelspace;
+
     if (windPower > 0)
     {
         float stiffness = vertexUV.y; // Root -> 0 & Top -> 1
@@ -74,27 +76,15 @@ void main()
             modifiedPosition.x += wave * windIntensity * stiffness;
         modifiedPosition.z += wave * windIntensity * stiffness;
     }
-    // ===< TAUBIN SMOOTHING / TIME-BASED INFLATION >=== //
-    if (terrainType == 1 && snowAmount >= 1.0)
+
+    // ===< TAUBIN SMOOTHING / SNOW INFLATION >=== //
+    if (snowInflate > 0.0f && terrainType == 1)
     {
         float gaeaSnowValue = texture(textureSamplerSnowMask, vertexUV).r;
         
-        if (gaeaSnowValue > 0.5)
-        {
-            // Smooth transition over time (e.g., 5 seconds)
-            float transitionDuration = 5.0; // Seconds for full inflation
-            float transitionProgress = clamp(time / transitionDuration, 0.0, 1.0);
-            
-            // Apply smoothstep for smoother acceleration/deceleration
-            transitionProgress = smoothstep(0.0, 1.0, transitionProgress);
-            
-            // Calculate inflationMu: smoothly goes from 0.0 to 0.0006
-            float maxInflation = 0.0006;
-            float inflationMu  = transitionProgress * maxInflation;
-            
-            // Apply the inflation along the normal
-            modifiedPosition += vertexNormal_modelspace * inflationMu;
-        }
+        // Apply the inflation along the normal
+        float inflationMu = 0.0008 * snowInflate;
+        modifiedPosition += vertexNormal_modelspace * inflationMu * gaeaSnowValue;
     }
 
 

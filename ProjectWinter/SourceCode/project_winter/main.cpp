@@ -101,6 +101,7 @@ struct MainShader // Shadow Mapping Shader...
 	GLuint textureSnowMask;
 	// Snow state
 	GLuint snowAmountLocation;
+	GLuint snowInflateLocation;
 
 	// --- Lake Reflection --- //
 	GLuint reflectionTextureSamplerLocation;
@@ -152,7 +153,8 @@ struct MainShader // Shadow Mapping Shader...
 		textureSamplerSnowMask = glGetUniformLocation(programID, "textureSamplerSnowMask");
 		textureSnowMask        = loadBMP("assets/worldmap_gaea/snow_mask.bmp");
 		// Snow state
-		snowAmountLocation = glGetUniformLocation(programID, "snowAmount");
+		snowAmountLocation  = glGetUniformLocation(programID, "snowAmount");
+		snowInflateLocation = glGetUniformLocation(programID, "snowInflate");
 
 		// Lake reflection
 		reflectionTextureSamplerLocation = glGetUniformLocation(programID, "reflectionTextureSampler");
@@ -239,6 +241,7 @@ SnowSource* snowSource;
 // Snow state (CPU)
 bool  snowingActive = false;
 float snowAmount    = 0.0f;
+float snowInflate   = 0.0f;
 Timer snowStartTimer;
 // Snow particles
 Snowfall* snowfallSystem;
@@ -627,6 +630,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 		snowSource->snowSourcePosition_worldspace.z
 	);
 	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
+	glUniform1f(shaderProgram.snowInflateLocation, snowInflate);
 
 	glActiveTexture(GL_TEXTURE25);
 	glBindTexture(GL_TEXTURE_2D, snowSource->snowDepthTexture);
@@ -754,8 +758,10 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glUniform3f(shaderProgram.snowPositionLocation,
 		snowSource->snowSourcePosition_worldspace.x,
 		snowSource->snowSourcePosition_worldspace.y,
-		snowSource->snowSourcePosition_worldspace.z);
+		snowSource->snowSourcePosition_worldspace.z
+	);
 	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
+	glUniform1f(shaderProgram.snowInflateLocation, snowInflate);
 
 	glActiveTexture(GL_TEXTURE25);
 	glBindTexture(GL_TEXTURE_2D, snowSource->snowDepthTexture);
@@ -775,7 +781,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// ===< Render scene objects (reflected) >=== //
 
 	// Draw terrain
-	terrainSystem->draw(mirroredView, projectionMatrix, terrainTime);
+	terrainSystem->draw(mirroredView, projectionMatrix, terrainTime, false);
 
 	// Draw cabin
 	cabinModel->draw();
@@ -905,6 +911,11 @@ void mainLoop()
 			snowAmount += simulatedDeltaTime * growRate;
 			snowAmount  = clamp(snowAmount, 0.0f, 1.0f);
 		}
+		if (snowAmount == 1.0f && snowingActive)
+		{
+			snowInflate += simulatedDeltaTime * growRate * 3.0f;
+			snowInflate  = clamp(snowInflate, 0.0f, 1.0f);
+		}
 
 		// Fog density control
 		if (snowAmount > fogDensity && !forceClearFog) fogDensity = snowAmount;
@@ -1002,7 +1013,11 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		if (snowAmount < 1.0f)
 			snowAmount = 1.0f; // Instant full snow!
 		else
-			snowAmount = 0.0f; // Remove snow!
+		{
+			// Remove snow!
+			snowAmount  = 0.0f;
+			snowInflate = 0.0f;
+		}
 
 	// ---< Fog control >--- //
 	if (key == GLFW_KEY_1 && action == GLFW_PRESS)

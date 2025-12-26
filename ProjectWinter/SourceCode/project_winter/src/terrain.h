@@ -20,7 +20,7 @@ public:
     ~TerrainRenderer();
 
     // The main function to render the terrain
-    void draw(const mat4& viewMatrix, const mat4& projectionMatrix, float time);
+    void draw(const mat4& viewMatrix, const mat4& projectionMatrix, float time, bool renderWall = true);
 
     Drawable* getTerrainMesh() { return land; }
 
@@ -47,6 +47,8 @@ private:
     Drawable* land;
     Drawable* lake;
     Drawable* river;
+
+    Drawable* snowWall;
 };
 
 #endif

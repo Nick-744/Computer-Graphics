@@ -49,6 +49,7 @@ def save_triangles_to_obj(path: str, triangles: list) -> None:
     # Map (v_tuple, vt_tuple, vn_tuple) -> index
     vertex_map   = {}
     face_indices = []
+    UP_NORMAL    = "vn 0.000000 1.000000 0.000000\n"
 
     for tri in triangles:
         current_face = []
@@ -70,8 +71,9 @@ def save_triangles_to_obj(path: str, triangles: list) -> None:
     with open(path, 'w') as f:
         for v in unique_v: f.write(f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
         for vt in unique_vt: f.write(f"vt {vt[0]:.6f} {vt[1]:.6f}\n")
-        for vn in unique_vn: f.write(f"vn {vn[0]:.6f} {vn[1]:.6f} {vn[2]:.6f}\n")
-        for fi in face_indices: f.write(f"f {fi[0]}/{fi[0]}/{fi[0]} {fi[1]}/{fi[1]}/{fi[1]} {fi[2]}/{fi[2]}/{fi[2]}\n")
+        f.write(UP_NORMAL)
+
+        for fi in face_indices: f.write(f"f {fi[0]}/{fi[0]}/{1} {fi[1]}/{fi[1]}/{1} {fi[2]}/{fi[2]}/{1}\n")
 
     return;
 

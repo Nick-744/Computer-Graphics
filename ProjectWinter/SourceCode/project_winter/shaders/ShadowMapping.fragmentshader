@@ -53,6 +53,7 @@ in vec4 vertex_position_snowspace;
 in vec4 vertex_position_snowspace_s;      // Static - WITHOUT wind...
 uniform sampler2D textureSamplerSnowMask; // Gaea mask
 uniform float snowAmount; // Snow state
+uniform float snowInflate;
 
 // ===< Fog >=== //
 uniform float fogDensity;
@@ -450,9 +451,13 @@ void main()
         // Vegetation bends in wind: sample snow using the NO-WIND anchor so it doesn't slide in world space...
         vec4 snowPosition  = (terrainType == 1) ? vertex_position_snowspace : vertex_position_snowspace_s;
         float snowBlocked  = ShadowCalculation(snowPosition, snowDepthMapSampler, 0.001);
+        float snowExposure = 1.0 - snowBlocked;
 
-        // When snowAmount > 0.95, ignore shadow blocking and make everything white!
-        float snowExposure = (snowAmount > 0.5) ? 1.0 : (1.0 - snowBlocked);
+        if (snowInflate > 0.0f && terrainType == 1) // Now snow starts covering the whole land terrain!
+        {
+            snowBlocked -= snowInflate * 2.0;
+            snowExposure = 1.0 - snowBlocked;
+        }
 
         // Prevent snow from accumulating on very steep slopes!
         {

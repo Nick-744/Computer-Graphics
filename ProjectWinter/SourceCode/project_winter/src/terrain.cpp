@@ -5,6 +5,8 @@
 
 using namespace glm;
 
+extern float snowInflate;
+
 TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderProgram_)
 {
     // Special flag to indicate terrain rendering (ShadowMapping.fragmentshader)
@@ -50,6 +52,9 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     land  = new Drawable("assets/worldmap_gaea/terrain_land.obj");
     lake  = new Drawable("assets/worldmap_gaea/terrain_lake.obj");
     river = new Drawable("assets/worldmap_gaea/terrain_river.obj");
+    
+    // Load snow wall mesh!
+    snowWall = new Drawable("assets/worldmap_gaea/terrain_wall.obj");
 }
 
 TerrainRenderer::~TerrainRenderer()
@@ -72,7 +77,7 @@ TerrainRenderer::~TerrainRenderer()
     delete river;
 }
 
-void TerrainRenderer::draw(const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix, float time)
+void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix, float time, bool renderWall)
 {
     glUseProgram(shaderProgram); // Just to be sure...
 
@@ -117,6 +122,14 @@ void TerrainRenderer::draw(const glm::mat4& viewMatrix, const glm::mat4& project
     glUniform1i(terrainType, 1); // ShadowMapping bs...
     land->bind();
     land->draw();
+    
+    if (snowInflate > 0.001f && renderWall) // Snow wall is special...
+    {
+        glDisable(GL_CULL_FACE);
+        snowWall->bind();
+        snowWall->draw();
+        glEnable(GL_CULL_FACE);
+    }
 
     glUniform1i(terrainType, 2); // ShadowMapping bs...
     lake->bind();
