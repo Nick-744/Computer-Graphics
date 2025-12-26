@@ -38,7 +38,7 @@ public:
     float getTerrainHeight(float x, float z);
 
     Camera(GLFWwindow* window);
-    void update();
+    void update(float deltaTime);
 };
 
 #endif

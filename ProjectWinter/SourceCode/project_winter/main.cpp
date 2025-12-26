@@ -177,6 +177,9 @@ MenuGUI myMenu;
 
 float lastFrameTime = 0.0f;
 float terrainTime   = 0.0f; // For terrain's animation control!
+float cloudTime     = 0.0f; // For cloud movement!
+
+float simulatedFrameTime = 0.0f;
 
 // Light
 Light* light1;
@@ -545,7 +548,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	cabinModel->drawOnlyObjects(shadowModelLocation);
 
 	// Forests
-	glUniform1f(depthTimeLocation, lastFrameTime); // For wind animation!
+	glUniform1f(depthTimeLocation, simulatedFrameTime); // For wind animation!
 	forestSystem->drawOnlyObjects(shadowModelLocation, windPower);
 	forestSystem2->drawOnlyObjects(shadowModelLocation, windPower);
 
@@ -662,7 +665,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	cabinModel->draw();
 
 	// Draw forests
-	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
+	glUniform1f(shaderProgram.timeLocation, simulatedFrameTime); // For wind animation!
 	forestSystem->draw(windPower);
 	forestSystem2->draw(windPower);
 
@@ -694,7 +697,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 		cloudSystem->draw(
 			viewMatrix,
 			projectionMatrix,
-			lastFrameTime / 25.0f,
+			cloudTime,
 			currentSkyColor,
 			fogDensity
 		);
@@ -778,7 +781,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	cabinModel->draw();
 
 	// Draw forests
-	glUniform1f(shaderProgram.timeLocation, lastFrameTime); // For wind animation!
+	glUniform1f(shaderProgram.timeLocation, simulatedFrameTime); // For wind animation!
 	forestSystem->draw(windPower);
 	forestSystem2->draw(windPower);
 
@@ -792,7 +795,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 		cloudSystem->draw(
 			mirroredView,
 			projectionMatrix,
-			lastFrameTime / 25.0f,
+			cloudTime,
 			currentSkyColor,
 			fogDensity
 		);
@@ -841,10 +844,12 @@ void mainLoop()
 
 	do
 	{
+		// Real Time Control
 		float currentFrameTime = glfwGetTime();
 		float deltaTime        = currentFrameTime - lastFrameTime;
+		lastFrameTime          = currentFrameTime;
 
-		myMenu.render(window, deltaTime,
+		myMenu.render(window,
 			currentShadowBufferSize, currentSnowBufferSize, currentReflectionBufferSize,
 			[&](int newSize) { initDepthFBO(depthFBO1, depthTexture1, currentShadowBufferSize, newSize); },
 			[&](int newSize)
@@ -864,14 +869,24 @@ void mainLoop()
 				lakeReflection->initialize();
 			}
 		);
-		if (deltaTime > 0.0f) lastFrameTime = currentFrameTime;
-		
 
+		// ===< HANDLE TIME >=== //
+
+		// Simulated Time Control (for pausing the gameplay)
+		float simulatedDeltaTime = myMenu.isMenuOpen ? 0.0f : deltaTime;
+		simulatedFrameTime      += simulatedDeltaTime;
 
 		// Getting camera information
-		if (!myMenu.isMenuOpen) camera->update(); // Only move camera if menu is NOT open!
+		if (!myMenu.isMenuOpen) camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
 		mat4 projectionMatrix = camera->projectionMatrix;
-		mat4 viewMatrix       = camera->viewMatrix;
+		mat4 viewMatrix = camera->viewMatrix;
+
+		// Control terrain's water speed...
+		float flowSpeed = mix(1.0f, 0.05f, fogDensity);
+		terrainTime    += (simulatedDeltaTime / 20.0f) * flowSpeed;
+		cloudTime       =  simulatedFrameTime / 25.0f;
+
+
 
 		// Light Depth Pass
 		light1->update(); // Light's view matrix
@@ -887,7 +902,7 @@ void mainLoop()
 		// Snow accumulation
 		if (snowingActive && snowStartTimer.hasFinished(3.5f))
 		{
-			snowAmount += deltaTime * growRate;
+			snowAmount += simulatedDeltaTime * growRate;
 			snowAmount  = clamp(snowAmount, 0.0f, 1.0f);
 		}
 
@@ -895,16 +910,12 @@ void mainLoop()
 		if (snowAmount > fogDensity && !forceClearFog) fogDensity = snowAmount;
 		else if (forceClearFog)
 		{
-			fogDensity -= deltaTime * growRate * 6.0f;
+			fogDensity -= simulatedDeltaTime * growRate * 6.0f;
 			fogDensity  = clamp(fogDensity, 0.0f, 1.0f);
 		}
 		// Performance optimization...
 		if (fogDensity == 1.0f) cameraFarPlane = 110.0f; // Reduce far plane for better performance!
 		else                    cameraFarPlane = FAR_PLANE_INITIAL; // Reset far plane
-
-		// Control terrain's water speed...
-		float flowSpeed = mix(1.0f, 0.05f, fogDensity);
-		terrainTime    += (deltaTime / 20.0f) * flowSpeed;
 
 		// ===< UPDATE SKY COLOR >=== //
 		currentSkyColor = mix(skyColor, snowFogColor, fogDensity);
@@ -926,13 +937,13 @@ void mainLoop()
 
 		// Render SNOW PARTICLES - AFTER the lighting pass!
 		snowfallSystem->setActive(snowingActive);
-		snowfallSystem->update(deltaTime, viewMatrix, projectionMatrix, windPower);
+		snowfallSystem->update(simulatedDeltaTime, viewMatrix, projectionMatrix, windPower);
 		snowfallSystem->draw(viewMatrix, projectionMatrix);
 
 
 
 		// Door animation update!
-		cabinModel->update(deltaTime);
+		cabinModel->update(simulatedDeltaTime);
 		// Render the prompt quad (when the camera is near the cabin door)
 		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f) renderPrompt();
 

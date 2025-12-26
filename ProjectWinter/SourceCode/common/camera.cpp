@@ -23,16 +23,10 @@ Camera::Camera(GLFWwindow* window) : window(window) {
     loadTerrain("assets/terrain_triangles_geometry_final.txt");
 }
 
-void Camera::update()
+void Camera::update(float deltaTime)
 {
-    // glfwGetTime is called only once, the first time this function is called
-    static double lastTime = glfwGetTime();
     // Static variable to track walking time for head bobbing...
     static float walkTimer = 0.0f;
-
-    // Compute time difference between current and last frame
-    double currentTime = glfwGetTime();
-    float deltaTime    = float(currentTime - lastTime);
 
 
 
@@ -186,9 +180,6 @@ void Camera::update()
         eyePosition + direction,
         up
     );
-
-    // For the next frame, the "last time" will be "now"
-    lastTime = currentTime;
 }
 
 

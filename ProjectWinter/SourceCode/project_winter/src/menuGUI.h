@@ -25,7 +25,6 @@ public:
     // Main Render Function
     // Uses callbacks (std::function) to handle the complex logic of resizing buffers in main.cpp!
     void render(GLFWwindow* window,
-        float& deltaTime,
         int& currentShadowSize, int& currentSnowSize, int& currentReflectionSize,
         std::function<void(int)> onShadowResolutionChange,
         std::function<void(int)> onSnowResolutionChange,

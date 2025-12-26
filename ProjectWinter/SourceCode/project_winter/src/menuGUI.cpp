@@ -25,7 +25,6 @@ void MenuGUI::shutdown()
 }
 
 void MenuGUI::render(GLFWwindow* window,
-    float& deltaTime,
     int& currentShadowSize, int& currentSnowSize, int& currentReflectionSize,
     std::function<void(int)> onShadowResolutionChange,
     std::function<void(int)> onSnowResolutionChange,
@@ -143,8 +142,6 @@ void MenuGUI::render(GLFWwindow* window,
         ImGui::PopStyleColor(2);
 
         ImGui::End();
-
-        deltaTime = 0; // Pause game logic
     }
 }
 
