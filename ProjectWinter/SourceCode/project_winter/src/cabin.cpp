@@ -34,7 +34,6 @@ Cabin::Cabin(GLuint shaderProgram)
     supportStrMesh  = new Drawable("assets/cabin/model/SupportStr.obj");
     wallsFrBackMesh = new Drawable("assets/cabin/model/Walls_FrBack.obj");
     wallsSideMesh   = new Drawable("assets/cabin/model/Walls_Side.obj");
-    windowsMesh     = new Drawable("assets/cabin/model/Windows.obj");
 
     // Load Textures
     baseTexture        = loadBMP("assets/cabin/textures/Building Base_BaseColor_10.bmp");
@@ -45,7 +44,6 @@ Cabin::Cabin(GLuint shaderProgram)
     supportStrTexture  = loadBMP("assets/cabin/textures/Wooden Support Struct_BaseColor_7.bmp");
     wallsFrBackTexture = loadBMP("assets/cabin/textures/Walls Front and Back_BaseColor_13.bmp");
     wallsSideTexture   = loadBMP("assets/cabin/textures/Walls Sides_BaseColor_16.bmp");
-    windowsTexture     = loadBMP("assets/cabin/textures/DoorAndWindows_BaseColor_1.bmp");
     
     // Door initial parameters
     doorOpenAngle     = 0.0f;
@@ -64,7 +62,6 @@ Cabin::~Cabin()
     delete supportStrMesh;
     delete wallsFrBackMesh;
     delete wallsSideMesh;
-    delete windowsMesh;
 
     // Cleanup Textures
     glDeleteTextures(1, &baseTexture);
@@ -75,7 +72,6 @@ Cabin::~Cabin()
     glDeleteTextures(1, &supportStrTexture);
     glDeleteTextures(1, &wallsFrBackTexture);
     glDeleteTextures(1, &wallsSideTexture);
-    glDeleteTextures(1, &windowsTexture);
 }
 
 void Cabin::updateModelMatrix()
@@ -141,19 +137,6 @@ void Cabin::draw()
     doorMesh->bind(); doorMesh->draw();
 
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]); // Reset model matrix...
-    
-    
-    
-    // --- WINDOWS WITH GLASS MATERIAL --- //
-    glUniform1i(useTextureLocation, 0); // Disable Texture usage
-    
-    // Glass Material properties
-    glUniform4f(KaLocation, 0.0f,   0.0f,   0.0f,   0.0f);
-    glUniform4f(KdLocation, 0.588f, 0.588f, 0.588f, 0.0f);
-    glUniform4f(KsLocation, 0.9f,   0.9f,   0.9f,   0.0f);
-    glUniform1f(NsLocation, 20.0f);
-    
-    //windowsMesh->bind(); windowsMesh->draw(); // No windows until I figure out transparency sorting...
 }
 
 void Cabin::drawOnlyObjects(GLuint shadowModelLocation)
@@ -170,7 +153,6 @@ void Cabin::drawOnlyObjects(GLuint shadowModelLocation)
     roofMesh->bind();        roofMesh->draw();
     supportStrMesh->bind();  supportStrMesh->draw();
     doorWinMesh->bind();     doorWinMesh->draw();
-    //windowsMesh->bind();     windowsMesh->draw();
 
     // --- DRAW DOOR SHADOWS --- //
     mat4 doorMatrix = getDoorMatrix();

@@ -38,6 +38,7 @@ private:
     void resetParticle(Particle& p);
 
     vector<Particle> particles;
+    vector<vec3> gpuPositions; // Fixed-size buffer to prevent per-frame allocation!
 
     int   maxParticles;
     float minSpeed;

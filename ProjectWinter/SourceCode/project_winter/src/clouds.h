@@ -22,6 +22,10 @@ private:
         vec3 scale;
     };
 
+    // Instancing...
+    GLuint instanceVBO; // Buffer for model matrices
+    std::vector<mat4> instanceMatrices; // Fixed-size buffer for updates
+
     GLuint shaderProgram;
     GLuint vao, vbo, ebo;
     GLsizei indexCount;
@@ -31,10 +35,8 @@ private:
 
     // Uniform Locations
     GLint vpLocation;
-    GLint modelLocation;
     GLint cameraRightLocation; // NEEDED: To make clouds face camera
     GLint cameraUpLocation;    // NEEDED: To make clouds face camera
-    GLint timeLocation;
     GLint cloudBaseLocation;
     GLint cloudDetailLocation;
 

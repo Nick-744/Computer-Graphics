@@ -33,7 +33,6 @@ private:
     Drawable* supportStrMesh;
     Drawable* wallsFrBackMesh;
     Drawable* wallsSideMesh;
-    Drawable* windowsMesh;
 
     // --- TEXTURES --- //
     GLuint baseTexture;
@@ -44,7 +43,6 @@ private:
     GLuint supportStrTexture;
     GLuint wallsFrBackTexture;
     GLuint wallsSideTexture;
-    GLuint windowsTexture;
 
     // --- TRANSFORMS --- //
     vec3 position;

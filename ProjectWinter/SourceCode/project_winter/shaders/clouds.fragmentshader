@@ -7,7 +7,6 @@ out vec4 color;
 
 uniform sampler2D cloudBase;
 uniform sampler2D cloudDetail;
-uniform float time;
 
 // Fog
 uniform vec3 fogColor;
@@ -15,13 +14,9 @@ uniform float fogDensity;
 
 void main()
 {
-    // Texture Sampling with movement
-    vec2 baseUV   = UV + vec2(time * 0.005, time * 0.002);
-    vec2 detailUV = UV * 3.0 + vec2(time * 0.01, -time * 0.005);
-    
     // Combine noise for density
-    float baseNoise   = texture(cloudBase,   baseUV).r;
-    float detailNoise = texture(cloudDetail, detailUV).r;
+    float baseNoise   = texture(cloudBase,   UV).r;
+    float detailNoise = texture(cloudDetail, UV).r;
     float noise       = baseNoise * 0.6 + detailNoise * 0.4;
     
     // Circular Puff Shape

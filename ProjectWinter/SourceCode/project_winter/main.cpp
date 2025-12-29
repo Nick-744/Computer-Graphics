@@ -418,8 +418,8 @@ void createContext()
 	// ===< Snow >=== // ===< Particles >=== //
 	snowfallSystem = new Snowfall(
 		3000, // max particles
-		2.0f,  // min fall speed
-		5.0f   // max fall speed
+		2.0f, // min fall speed
+		5.0f  // max fall speed
 	);
 
 	// Lake reflection

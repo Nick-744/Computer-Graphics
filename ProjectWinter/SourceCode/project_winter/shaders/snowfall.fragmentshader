@@ -5,9 +5,10 @@ out vec4 fragmentColor;
 void main()
 {
     vec2 coord = gl_PointCoord - vec2(0.5);
-    if(length(coord) > 0.5) discard; // Cut into circle
+    float len  = dot(coord, coord); // Faster than length()
+    if (len > 0.4) discard;         // Cut into circle
     
-    float alpha = 1.0 - smoothstep(0.3, 0.5, length(coord)); // Soft edge
+    float alpha = 1.0 - smoothstep(0.3, 0.5, len); // Soft edge
 
     fragmentColor = vec4(1.0, 1.0, 1.0, alpha);
 }

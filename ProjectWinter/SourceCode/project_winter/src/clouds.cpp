@@ -38,10 +38,8 @@ CloudRenderer::CloudRenderer()
 
     // Get Uniform Locations
     vpLocation          = glGetUniformLocation(shaderProgram, "VP");
-    modelLocation       = glGetUniformLocation(shaderProgram, "M");
     cameraRightLocation = glGetUniformLocation(shaderProgram, "CameraRight");
     cameraUpLocation    = glGetUniformLocation(shaderProgram, "CameraUp");
-    timeLocation        = glGetUniformLocation(shaderProgram, "time");
     cloudBaseLocation   = glGetUniformLocation(shaderProgram, "cloudBase");
     cloudDetailLocation = glGetUniformLocation(shaderProgram, "cloudDetail");
     
@@ -51,18 +49,6 @@ CloudRenderer::CloudRenderer()
 
     // Build a cluster of 50 billboards (puffs)
     buildCloudMesh(50, 15.0f);
-
-    cloudBaseTexture   = loadBMP("assets/clouds_textures/cloud_base.bmp");
-    cloudDetailTexture = loadBMP("assets/clouds_textures/cloud_detail.bmp");
-
-    // Better texture wrapping for noise
-    glBindTexture(GL_TEXTURE_2D, cloudBaseTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-
-    glBindTexture(GL_TEXTURE_2D, cloudDetailTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 
     // --- GENERATE RANDOM CLOUDS --- //
     // Variation: +/- 5 clouds (so 15 to 25 clouds)
@@ -88,6 +74,36 @@ CloudRenderer::CloudRenderer()
 
         clouds.push_back(c);
     }
+
+    // Initialize Instancing Buffer
+    instanceMatrices.resize(clouds.size()); // Pre-allocate CPU buffer
+
+    glGenBuffers(1, &instanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    // Pre-allocate space for all cloud matrices
+    glBufferData(GL_ARRAY_BUFFER, clouds.size() * sizeof(mat4), nullptr, GL_DYNAMIC_DRAW);
+
+    // Bind instance attributes to VAO
+    glBindVertexArray(vao);
+    for (int i = 0; i < 4; i++)
+    {
+        glEnableVertexAttribArray(2 + i);
+        glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) (sizeof(vec4) * i));
+        glVertexAttribDivisor(2 + i, 1); // IMPORTANT: Advance once per INSTANCE!
+    }
+    glBindVertexArray(0);
+
+    cloudBaseTexture   = loadBMP("assets/clouds_textures/cloud_base.bmp");
+    cloudDetailTexture = loadBMP("assets/clouds_textures/cloud_detail.bmp");
+
+    // Better texture wrapping for noise
+    glBindTexture(GL_TEXTURE_2D, cloudBaseTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+
+    glBindTexture(GL_TEXTURE_2D, cloudDetailTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 }
 
 void CloudRenderer::buildCloudMesh(int numParticles, float radius)
@@ -179,8 +195,6 @@ void CloudRenderer::draw(const mat4& view, const mat4& proj, float time, vec3 fo
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, cloudDetailTexture);
     glUniform1i(cloudDetailLocation, 1);
-
-    glUniform1f(timeLocation, time);
     
     // --- FOG UNIFORMS --- //
     glUniform3fv(fogColorLocation, 1, &fogColor[0]);
@@ -197,14 +211,17 @@ void CloudRenderer::draw(const mat4& view, const mat4& proj, float time, vec3 fo
     glUniformMatrix4fv(vpLocation, 1, GL_FALSE, &vp[0][0]);
 
     // --- MOVEMENT CALCULATION --- //
-    float zMin = -AREA_LENGTH / 2.0f;
-    float zMax =  AREA_LENGTH / 2.0f;
+    float zMin      = -AREA_LENGTH / 2.0f;
+    float zMax      =  AREA_LENGTH / 2.0f;
     float mapLength = AREA_LENGTH;
+    
+    float globalZOffset = time * CLOUD_SPEED; // So movement is noticeable!
 
-	float globalZOffset = time * CLOUD_SPEED; // So movement is noticeable!
-
-    for (const CloudInstance& c : clouds)
+    // Update all matrices in the local buffer
+    for (size_t i = 0; i < clouds.size(); i++)
     {
+        const CloudInstance& c = clouds[i];
+
         // Calculate new Z
         // We subtract offset because we want to move along -Z
         float currentZ = c.startPosition.z - globalZOffset;
@@ -218,16 +235,18 @@ void CloudRenderer::draw(const mat4& view, const mat4& proj, float time, vec3 fo
         // Handle negative result of fmod
         if (wrappedZ < zMin) wrappedZ += mapLength;
 
-        vec3 currentPos = vec3(c.startPosition.x, c.startPosition.y, wrappedZ);
-
-        mat4 model = translate(mat4(1.0f), currentPos) * scale(mat4(1.0f), c.scale);
-        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, &model[0][0]);
-        glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+        vec3 currentPos     = vec3(c.startPosition.x, c.startPosition.y, wrappedZ);
+        instanceMatrices[i] = translate(mat4(1.0f), currentPos) * scale(mat4(1.0f), c.scale);
     }
 
-    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, instanceMatrices.size() * sizeof(mat4), instanceMatrices.data());
 
-    // Restore depth writing
+    // Single Instanced Draw Call...
+    glDrawElementsInstanced(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0, (GLsizei) clouds.size());
+
+    // Restore
+    glBindVertexArray(0);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 }

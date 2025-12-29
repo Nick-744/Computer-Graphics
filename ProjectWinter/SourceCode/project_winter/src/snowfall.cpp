@@ -23,6 +23,7 @@ Snowfall::Snowfall(
     firstFrame(true)
 {
     particles.resize(maxParticles);
+    gpuPositions.resize(maxParticles);
 
     // Initial values (will be overwritten by firstFrame scatter...)
     for (int i = 0; i < maxParticles; ++i)
@@ -59,9 +60,9 @@ Snowfall::~Snowfall()
 
 void Snowfall::resetParticle(Particle& p)
 {
-    p.life      = 2.0f + rand01() * 3.0f;
-    float speed = minSpeed + rand01() * (maxSpeed - minSpeed);
-    p.vel       = vec3(0.0f, -speed, 0.0f);
+    p.life        = 2.0f + rand01() * 3.0f;
+    float speed   = minSpeed + rand01() * (maxSpeed - minSpeed);
+    p.vel         = vec3(0.0f, -speed, 0.0f);
     p.wobblePhase = rand01() * 6.28f; // Random starting angle for wobble
 }
 
@@ -180,12 +181,10 @@ void Snowfall::draw(const mat4& view, const mat4& proj)
     if (!active) return;
 
     // Upload positions to GPU
-    vector<vec3> positions;
-    positions.reserve(maxParticles);
-    for (int i = 0; i < maxParticles; ++i) positions.push_back(particles[i].pos);
+    for (int i = 0; i < maxParticles; ++i) gpuPositions[i] = particles[i].pos;
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() * sizeof(vec3), positions.data());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, maxParticles * sizeof(vec3), gpuPositions.data());
 
     // Render points
     glUseProgram(shader);
