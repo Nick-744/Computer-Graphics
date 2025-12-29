@@ -21,12 +21,27 @@ public:
 
     mat4 getViewMatrix();
 
+    void update(float deltaTime);
     void steer(float deltaTime);
-    float getRotationAngle() { return rotationAngle; }
 
     // Setters for positioning the boat in the world
     void setPosition(vec3  pos)   { position      = pos;   updateModelMatrix(); }
     void setRotation(float angle) { rotationAngle = angle; updateModelMatrix(); }
+
+    vec3  getWorldPosition() { return position;      }
+    float getRotationAngle() { return rotationAngle; }
+    
+
+
+    // ===< Boat porting >=== //
+    const vec3  INITIAL_POSITION = vec3(-58.0f, 58.065f, 8.0f);
+    const float INITIAL_ROTATION = 1.6f;
+
+    void setToPort1()
+    {
+        setPosition(INITIAL_POSITION);
+        setRotation(INITIAL_ROTATION);
+    }
 
 private:
     // --- Meshes --- //
@@ -47,6 +62,11 @@ private:
     GLuint modelMatrixLocation;
     GLuint useTextureLocation;
     GLuint diffuseColorSampler;
+    
+    // --- Animation Timers --- //
+    float totalTime;
+    float leftPaddleTimer;
+    float rightPaddleTimer;
 
     void updateModelMatrix();
 };

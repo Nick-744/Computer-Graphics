@@ -176,6 +176,10 @@ GLFWwindow* window;
 Camera* camera;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
+// ---< Player interactions >--- //
+bool onBoat;
+bool isBoatClose;
+bool isDoorClose;
 MenuGUI myMenu;
 
 float lastFrameTime = 0.0f;
@@ -902,7 +906,7 @@ void mainLoop()
 		// Getting camera information
 		mat4 projectionMatrix = camera->projectionMatrix;
 		mat4 viewMatrix;
-		if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+		if (onBoat)
 		{
 			if (!myMenu.isMenuOpen) boatModel->steer(simulatedDeltaTime);
 			viewMatrix = boatModel->getViewMatrix();
@@ -974,10 +978,20 @@ void mainLoop()
 
 
 
+		// ---< Player interactions >--- //
+		isDoorClose = distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f;
+		isBoatClose = distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
+			       && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
+
 		// Door animation update!
 		cabinModel->update(simulatedDeltaTime);
 		// Render the prompt quad (when the camera is near the cabin door)
-		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f) renderPrompt();
+		if (isDoorClose) renderPrompt();
+
+		// Boat animation update!
+		boatModel->update(simulatedDeltaTime);
+		// Render the prompt quad (when the camera is near the boat)
+		if (isBoatClose) renderPrompt();
 
 
 
@@ -1020,8 +1034,13 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	// ---< Player interactions >--- //
 	if (key == GLFW_KEY_E && action == GLFW_PRESS)
 	{
-		if (distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f)
-			cabinModel->toggleDoor();
+		if (isDoorClose) cabinModel->toggleDoor();
+
+		if (isBoatClose)
+		{
+			if (onBoat) boatModel->setToPort1();
+			onBoat = !onBoat;
+		}
 	}
 
 	// ---< Snow control >--- //

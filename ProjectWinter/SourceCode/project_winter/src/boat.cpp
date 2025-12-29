@@ -2,12 +2,19 @@
 #include <common/texture.h>
 #include <glm/gtc/matrix_transform.hpp>
 
+// Constructor now correctly assigns the window pointer to prevent crashes
 Boat::Boat(GLuint shaderProgram, GLFWwindow* window) : window(window)
 {
-    // Initial position
-    position      = vec3(-58.0f, 58.04f, 8.0f);
-    rotationAngle = 1.6f;
+    // Initial world placement
+    position      = INITIAL_POSITION;
+    rotationAngle = INITIAL_ROTATION;
     scaleFactor   = 2.0f;
+
+    // Initialize animation timers
+    totalTime        = 0.0f;
+    leftPaddleTimer  = 0.0f;
+    rightPaddleTimer = 0.0f;
+
     updateModelMatrix();
 
     // Link shader uniforms
@@ -15,12 +22,11 @@ Boat::Boat(GLuint shaderProgram, GLFWwindow* window) : window(window)
     useTextureLocation  = glGetUniformLocation(shaderProgram, "useTexture");
     diffuseColorSampler = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
 
-    // Load Meshes
+    // Load Assets
     boatMesh = new Drawable("assets/boat/boat.obj");
     paddleL  = new Drawable("assets/boat/paddle_left.obj");
     paddleR  = new Drawable("assets/boat/paddle_right.obj");
 
-    // Load Texture
     boatTexture = loadBMP("assets/boat/wood_BaseColor.bmp");
 }
 
@@ -35,9 +41,15 @@ Boat::~Boat()
 
 void Boat::updateModelMatrix()
 {
+    // Apply a procedural wobble to simulate water waves
+    float pitch = sin(totalTime * 1.5f) * 0.04f; // Forward/Backward tip
+    float roll  = cos(totalTime * 1.0f) * 0.03f; // Side-to-side tip
+
     modelMatrix = translate(mat4(), position)
                 * rotate(mat4(), rotationAngle, vec3(0, 1, 0))
-                * scale(mat4(), vec3(scaleFactor));;
+                * rotate(mat4(), pitch, vec3(1, 0, 0))
+                * rotate(mat4(), roll, vec3(0, 0, 1))
+                * scale(mat4(), vec3(scaleFactor));
 }
 
 void Boat::draw()
@@ -52,18 +64,46 @@ void Boat::draw()
 
     boatMesh->bind(); boatMesh->draw();
 
-    // Bind and Draw Paddle (sharing the same model matrix for now...)
+    // Helper to calculate the circular rowing transformation
+    auto getPaddleMatrix = [&](float timer, bool isLeft)
+    {
+        float swing = sin(timer) * 0.5f; // Horizontal rowing swing
+        float dip   = cos(timer) * 0.2f; // Vertical dip into water
+
+        return modelMatrix
+            * rotate(mat4(), swing, vec3(0, 1, 0))
+            * rotate(mat4(), isLeft ? dip : -dip, vec3(1, 0, 0));
+     };
+
+    // Draw Animated Paddles
+    mat4 mLeft = getPaddleMatrix(leftPaddleTimer, true);
+    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &mLeft[0][0]);
     paddleL->bind(); paddleL->draw();
+
+    mat4 mRight = getPaddleMatrix(rightPaddleTimer, false);
+    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &mRight[0][0]);
     paddleR->bind(); paddleR->draw();
 }
 
 void Boat::drawOnlyObjects(GLuint shadowModelLocation)
 {
-    // Shadow mapping
+    // Ensure animated shadows match the rendered models
     glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);
     boatMesh->bind(); boatMesh->draw();
-    paddleL->bind();  paddleL->draw();
-    paddleR->bind();  paddleR->draw();
+
+    auto getPaddleMatrix = [&](float timer, bool isLeft) {
+        float swing = sin(timer) * 0.5f;
+        float dip   = cos(timer) * 0.2f;
+        return modelMatrix * rotate(mat4(), swing, vec3(0, 1, 0)) * rotate(mat4(), isLeft ? dip : -dip, vec3(1, 0, 0));
+        };
+
+    mat4 mLeft = getPaddleMatrix(leftPaddleTimer, true);
+    glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &mLeft[0][0]);
+    paddleL->bind(); paddleL->draw();
+
+    mat4 mRight = getPaddleMatrix(rightPaddleTimer, false);
+    glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &mRight[0][0]);
+    paddleR->bind(); paddleR->draw();
 }
 
 mat4 Boat::getViewMatrix()
@@ -77,22 +117,39 @@ mat4 Boat::getViewMatrix()
     return lookAt(eye, eye + direction, vec3(0, 1, 0));
 }
 
+// Wobble effect update - keeps the boat animated even when idle!
+void Boat::update(float deltaTime)
+{
+    totalTime += deltaTime;
+    updateModelMatrix();
+}
+
 void Boat::steer(float deltaTime)
 {
-    float speed     = 2.0f; // Movement speed
-    float turnSpeed = 0.1f; // Rotation speed
+    float speed     = 2.5f; // Movement speed
+    float turnSpeed = 0.3f; // Rotation speed
+    float animSpeed = 5.0f;
 
-    // Handle Rotation
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) rotationAngle += turnSpeed * deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) rotationAngle -= turnSpeed * deltaTime;
+    bool movingForward  = glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS;
+    bool movingBackward = glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS;
+    bool steeringLeft   = glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS;
+    bool steeringRight  = glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS;
 
     // Calculate Direction Vector from current rotation
-    // Note: Adjust sin/cos based on your model's initial orientation
     vec3 direction = vec3(sin(rotationAngle), 0, cos(rotationAngle));
 
-    // Handle Forward/Backward (W/S or Up/Down)
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) position += direction * speed * deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) position -= direction * speed * deltaTime;
+    // Movement updates
+    if (movingForward) position += direction * speed * deltaTime;
+	if (movingBackward) position -= direction * speed * deltaTime;
+    if (steeringLeft)  rotationAngle += turnSpeed * deltaTime;
+    if (steeringRight) rotationAngle -= turnSpeed * deltaTime;
+
+    // Selective Animation: Only move the paddles needed for the current action!
+    if (movingForward || movingBackward || steeringRight)
+        leftPaddleTimer += deltaTime * animSpeed;
+
+    if (movingForward || movingBackward || steeringLeft)
+        rightPaddleTimer += deltaTime * animSpeed;
 
     // Finalize by updating the model matrix so the changes render
     updateModelMatrix();
