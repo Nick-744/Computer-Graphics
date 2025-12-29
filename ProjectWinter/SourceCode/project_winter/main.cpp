@@ -27,6 +27,7 @@
 #include "src/forest.h"
 #include "src/meadow.h"
 #include "src/cabin.h"
+#include "src/boat.h"
 #include "src/snowSource.h"
 #include "src/snowfall.h"
 #include "src/lakeReflection.h"
@@ -226,6 +227,9 @@ TerrainRenderer* terrainSystem;
 // Cabin model
 Cabin* cabinModel;
 
+// Boat model
+Boat* boatModel;
+
 // Forest system
 Forest* forestSystem;
 Forest* forestSystem2;
@@ -262,7 +266,7 @@ const Material gold
 };
 
 // For testing new models positioning!
-vec3 tempPosition       = vec3(-0.37f, 0.0f, 2.85f);
+vec3 tempPosition       = vec3(0.0f, 59.0f, 0.0f);
 float tempRotationAngle = 0.0f;
 mat4 tempModelMatrix    = translate(mat4(), tempPosition)
                         * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
@@ -400,6 +404,9 @@ void createContext()
 
 	// Cabin
 	cabinModel = new Cabin(shaderProgram.programID);
+
+	// Boat
+	boatModel = new Boat(shaderProgram.programID, window);
 
 	// Forests
 	forestSystem = new Forest(shaderProgram.programID);
@@ -550,6 +557,10 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	// Cabin
 	cabinModel->drawOnlyObjects(shadowModelLocation);
 
+	// Boat
+	if (cameraFarPlane < FAR_PLANE_INITIAL) // Optimization for shadow mapping
+		boatModel->drawOnlyObjects(shadowModelLocation);
+
 	// Forests
 	glUniform1f(depthTimeLocation, simulatedFrameTime); // For wind animation!
 	forestSystem->drawOnlyObjects(shadowModelLocation, windPower);
@@ -667,6 +678,9 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw the cabin
 	cabinModel->draw();
+
+	// Draw the boat
+	boatModel->draw();
 
 	// Draw forests
 	glUniform1f(shaderProgram.timeLocation, simulatedFrameTime); // For wind animation!
@@ -786,6 +800,9 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw cabin
 	cabinModel->draw();
 
+	// Draw boat
+	boatModel->draw();
+
 	// Draw forests
 	glUniform1f(shaderProgram.timeLocation, simulatedFrameTime); // For wind animation!
 	forestSystem->draw(windPower);
@@ -883,9 +900,18 @@ void mainLoop()
 		simulatedFrameTime      += simulatedDeltaTime;
 
 		// Getting camera information
-		if (!myMenu.isMenuOpen) camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
 		mat4 projectionMatrix = camera->projectionMatrix;
-		mat4 viewMatrix = camera->viewMatrix;
+		mat4 viewMatrix;
+		if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+		{
+			if (!myMenu.isMenuOpen) boatModel->steer(simulatedDeltaTime);
+			viewMatrix = boatModel->getViewMatrix();
+		}
+		else
+		{
+			if (!myMenu.isMenuOpen) camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
+			viewMatrix = camera->viewMatrix;
+		}
 
 		// Control terrain's water speed...
 		float flowSpeed = mix(1.0f, 0.05f, fogDensity);
@@ -936,13 +962,8 @@ void mainLoop()
 
 		// Lake Reflection Pass
 		reflection_pass(viewMatrix, projectionMatrix);
-
-		if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS)
-			lighting_pass(light1_view, light1_proj); // View from Sun!
-		else if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS)
-			lighting_pass(snow_view, snow_proj); // View from Snow Source!
-		else
-			lighting_pass(viewMatrix, projectionMatrix); // Render the scene from camera's perspective!
+		
+		lighting_pass(viewMatrix, projectionMatrix); // Render the scene from camera's perspective!
 
 
 

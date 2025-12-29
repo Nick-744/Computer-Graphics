@@ -36,14 +36,13 @@ Cabin::Cabin(GLuint shaderProgram)
     wallsSideMesh   = new Drawable("assets/cabin/model/Walls_Side.obj");
 
     // Load Textures
-    baseTexture        = loadBMP("assets/cabin/textures/Building Base_BaseColor_10.bmp");
-    doorTexture        = loadBMP("assets/cabin/textures/DoorAndWindows_BaseColor_1.bmp");
+    baseTexture        = loadBMP("assets/cabin/textures/BuildingBase_BaseColor_10.bmp");
     doorWinTexture     = loadBMP("assets/cabin/textures/DoorAndWindows_BaseColor_1.bmp");
     floorTexture       = loadBMP("assets/cabin/textures/Floor_BaseColor_4.bmp");
     roofTexture        = loadBMP("assets/cabin/textures/Roof_BaseColor_19.bmp");
-    supportStrTexture  = loadBMP("assets/cabin/textures/Wooden Support Struct_BaseColor_7.bmp");
-    wallsFrBackTexture = loadBMP("assets/cabin/textures/Walls Front and Back_BaseColor_13.bmp");
-    wallsSideTexture   = loadBMP("assets/cabin/textures/Walls Sides_BaseColor_16.bmp");
+    supportStrTexture  = loadBMP("assets/cabin/textures/WoodenSupportStruct_BaseColor_7.bmp");
+    wallsFrBackTexture = loadBMP("assets/cabin/textures/WallsFrontandBack_BaseColor_13.bmp");
+    wallsSideTexture   = loadBMP("assets/cabin/textures/WallsSides_BaseColor_16.bmp");
     
     // Door initial parameters
     doorOpenAngle     = 0.0f;
@@ -65,7 +64,6 @@ Cabin::~Cabin()
 
     // Cleanup Textures
     glDeleteTextures(1, &baseTexture);
-    glDeleteTextures(1, &doorTexture);
     glDeleteTextures(1, &doorWinTexture);
     glDeleteTextures(1, &floorTexture);
     glDeleteTextures(1, &roofTexture);
@@ -131,10 +129,8 @@ void Cabin::draw()
     // --- DRAW DYNAMIC DOOR --- //
     mat4 doorMatrix = getDoorMatrix();
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &doorMatrix[0][0]);
-
-    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, doorTexture);
-    glUniform1i(diffuseColorSampler, 0);
-    doorMesh->bind(); doorMesh->draw();
+    
+    doorMesh->bind(); doorMesh->draw(); // The texture is already bound - doorWinTexture!
 
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]); // Reset model matrix...
 }
