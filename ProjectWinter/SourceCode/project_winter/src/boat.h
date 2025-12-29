@@ -16,10 +16,10 @@ public:
     Boat(GLuint shaderProgram, GLFWwindow* window);
     ~Boat();
 
+    mat4 getViewMatrix();
+
     void draw();
     void drawOnlyObjects(GLuint shadowModelLocation); // For depth pass
-
-    mat4 getViewMatrix();
 
     void update(float deltaTime);
     void steer(float deltaTime);
@@ -69,6 +69,7 @@ private:
     float rightPaddleTimer;
 
     void updateModelMatrix();
+    mat4 getPaddleTransform(float timer, bool isLeft);
 };
 
 #endif
