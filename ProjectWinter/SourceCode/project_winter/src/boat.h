@@ -31,6 +31,9 @@ public:
     vec3  getWorldPosition() { return position;      }
     float getRotationAngle() { return rotationAngle; }
     
+    void invertOnBoat() { onBoat = !onBoat; }
+    bool isOnBoat()     { return onBoat;    }
+
 
 
     // ===< Boat porting >=== //
@@ -44,6 +47,8 @@ public:
     }
 
 private:
+    bool onBoat = false;
+
     // --- Meshes --- //
     Drawable* boatMesh;
     Drawable* paddleL;

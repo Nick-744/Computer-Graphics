@@ -28,6 +28,7 @@
 #include "src/meadow.h"
 #include "src/cabin.h"
 #include "src/boat.h"
+#include "src/marina.h"
 #include "src/snowSource.h"
 #include "src/snowfall.h"
 #include "src/lakeReflection.h"
@@ -177,7 +178,6 @@ Camera* camera;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
 // ---< Player interactions >--- //
-bool onBoat;
 bool isBoatClose;
 bool isDoorClose;
 MenuGUI myMenu;
@@ -233,6 +233,9 @@ Cabin* cabinModel;
 
 // Boat model
 Boat* boatModel;
+
+// Marine model
+Marina* marinaModel;
 
 // Forest system
 Forest* forestSystem;
@@ -412,6 +415,13 @@ void createContext()
 	// Boat
 	boatModel = new Boat(shaderProgram.programID, window);
 
+	// Marina
+	marinaModel = new Marina(
+		shaderProgram.programID,
+		vec3(-58.2f, 58.7f, 4.5f),
+		1.6f
+	);
+
 	// Forests
 	forestSystem = new Forest(shaderProgram.programID);
 	forestSystem->setPosition(vec3(26.5f, 60.2f, 30.5f));
@@ -565,6 +575,9 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	if (cameraFarPlane < FAR_PLANE_INITIAL) // Optimization for shadow mapping
 		boatModel->drawOnlyObjects(shadowModelLocation);
 
+	// Marina
+	marinaModel->drawOnlyObjects(shadowModelLocation);
+
 	// Forests
 	glUniform1f(depthTimeLocation, simulatedFrameTime); // For wind animation!
 	forestSystem->drawOnlyObjects(shadowModelLocation, windPower);
@@ -685,6 +698,9 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw the boat
 	boatModel->draw();
+
+	// Draw the marina
+	marinaModel->draw();
 
 	// Draw forests
 	glUniform1f(shaderProgram.timeLocation, simulatedFrameTime); // For wind animation!
@@ -807,6 +823,9 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw boat
 	boatModel->draw();
 
+	// Draw marina
+	marinaModel->draw();
+
 	// Draw forests
 	glUniform1f(shaderProgram.timeLocation, simulatedFrameTime); // For wind animation!
 	forestSystem->draw(windPower);
@@ -906,7 +925,7 @@ void mainLoop()
 		// Getting camera information
 		mat4 projectionMatrix = camera->projectionMatrix;
 		mat4 viewMatrix;
-		if (onBoat)
+		if (boatModel->isOnBoat())
 		{
 			if (!myMenu.isMenuOpen) boatModel->steer(simulatedDeltaTime);
 			viewMatrix = boatModel->getViewMatrix();
@@ -1039,8 +1058,8 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 
 		if (isBoatClose)
 		{
-			if (onBoat) boatModel->setToPort1();
-			onBoat = !onBoat;
+			if (boatModel->isOnBoat()) boatModel->setToPort1();
+			boatModel->invertOnBoat();
 		}
 	}
 

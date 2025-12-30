@@ -174,11 +174,26 @@ void Boat::steer(float deltaTime)
 // Paddles animation...
 mat4 Boat::getPaddleTransform(float timer, bool isLeft)
 {
+    if (!onBoat) // Idle position!
+    {
+        if (isLeft)
+            return modelMatrix
+                 * translate(mat4(), vec3(0.0f, -0.221f, -0.5f))
+                 * rotate(mat4(), radians(-15.0f), vec3(1, 0, 0))
+                 * rotate(mat4(), radians(-120.0f), vec3(0, 1, 0));
+
+        return modelMatrix
+             * translate(mat4(), vec3(-0.2f, -0.228f, -0.5f))
+             * rotate(mat4(), radians(5.0f), vec3(1, 0, 0))
+             * rotate(mat4(), radians(140.0f), vec3(0, 1, 0))
+             * rotate(mat4(), radians(-25.0f), vec3(0, 0, 1));
+    }
+
     float swing =  sin(timer) * 0.5f; // Horizontal rowing swing
     float dip   = -cos(timer) * 0.4f; // Vertical dip into water
 
     return modelMatrix
+         * translate(mat4(), vec3(isLeft ? 0.1f : -0.1f, 0.0f, 0.0f))
          * rotate(mat4(), swing, vec3(0, isLeft? 1 : -1, 0))
-         * rotate(mat4(), dip,   vec3(1, 0, 0))
-         * translate(mat4(),     vec3(0.0f, 0.05f, 0.0f));
+         * rotate(mat4(), dip,   vec3(1, 0, 0));
 }
