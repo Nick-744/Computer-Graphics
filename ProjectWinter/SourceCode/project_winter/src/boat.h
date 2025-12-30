@@ -67,6 +67,16 @@ private:
     float totalTime;
     float leftPaddleTimer;
     float rightPaddleTimer;
+    // Physics/Inertia state
+    float currentSpeed     = 0.0f;
+    float currentTurnSpeed = 0.0f;
+    // Constants
+    const float MAX_SPEED      = 4.0f;
+    const float ACCELERATION   = 3.0f;
+    const float FRICTION       = 1.5f;
+    const float MAX_TURN_SPEED = 1.0f;
+    const float TURN_ACCEL     = 2.0f;
+    const float TURN_FRICTION  = 2.5f;
 
     void updateModelMatrix();
     mat4 getPaddleTransform(float timer, bool isLeft);

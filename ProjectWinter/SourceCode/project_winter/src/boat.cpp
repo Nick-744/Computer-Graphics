@@ -109,25 +109,51 @@ void Boat::update(float deltaTime)
 
 void Boat::steer(float deltaTime)
 {
-    float speed     = 2.5f; // Movement speed
-    float turnSpeed = 0.3f; // Rotation speed
-    float animSpeed = 5.0f;
-
+    // Capture Input
     bool movingForward  = glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS;
     bool movingBackward = glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS;
     bool steeringLeft   = glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS;
     bool steeringRight  = glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS;
 
-    // Calculate Direction Vector from current rotation
-    vec3 direction = vec3(sin(rotationAngle), 0, cos(rotationAngle));
+    // --- BOAT INERTIA (Linear) --- //
+    float targetSpeed = 0.0f;
+    if (movingForward)  targetSpeed =  MAX_SPEED;
+    if (movingBackward) targetSpeed = -MAX_SPEED;
 
-    // Movement updates
-    if (movingForward)  position += direction * speed * deltaTime;
-    if (movingBackward) position -= direction * speed * deltaTime;
-    if (steeringLeft)   rotationAngle += turnSpeed * deltaTime;
-    if (steeringRight)  rotationAngle -= turnSpeed * deltaTime;
+    if (abs(targetSpeed) > 0.1f)
+    {
+        // Accelerate toward target
+        if (currentSpeed < targetSpeed) currentSpeed += ACCELERATION * deltaTime;
+        if (currentSpeed > targetSpeed) currentSpeed -= ACCELERATION * deltaTime;
+    }
+    else
+    {
+        // Apply friction when no input
+        if (currentSpeed > 0) currentSpeed = std::max(0.0f, currentSpeed - FRICTION * deltaTime);
+        if (currentSpeed < 0) currentSpeed = std::min(0.0f, currentSpeed + FRICTION * deltaTime);
+    }
+
+    // --- STEERING INERTIA (Angular) --- //
+    float targetTurn = 0.0f;
+    if (steeringLeft)  targetTurn =  MAX_TURN_SPEED;
+    if (steeringRight) targetTurn = -MAX_TURN_SPEED;
+
+    if (abs(targetTurn) > 0.1f)
+        currentTurnSpeed += (targetTurn > 0 ? TURN_ACCEL : -TURN_ACCEL) * deltaTime;
+    else
+    {
+        if (currentTurnSpeed > 0) currentTurnSpeed = std::max(0.0f, currentTurnSpeed - TURN_FRICTION * deltaTime);
+        if (currentTurnSpeed < 0) currentTurnSpeed = std::min(0.0f, currentTurnSpeed + TURN_FRICTION * deltaTime);
+    }
+    currentTurnSpeed = glm::clamp(currentTurnSpeed, -MAX_TURN_SPEED, MAX_TURN_SPEED);
+
+    // Update World Transforms
+    rotationAngle += currentTurnSpeed * deltaTime;
+    vec3 direction = vec3(sin(rotationAngle), 0, cos(rotationAngle));
+    position      += direction * currentSpeed * deltaTime;
 
     // --- SYNCHRONIZATION LOGIC --- //
+    float animSpeed = 4.0f;
     if (movingForward || movingBackward)
     {
         // When moving straight, both paddles must use the same timer...
