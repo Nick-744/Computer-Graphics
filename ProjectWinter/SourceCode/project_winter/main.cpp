@@ -932,7 +932,18 @@ void mainLoop()
 		}
 		else
 		{
+			vec3 oldPosition = camera->position;
+
 			if (!myMenu.isMenuOpen) camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
+
+			// --- COLLISION CHECKS --- //
+			if (cabinModel->checkCollision(camera->position, 0.5f))
+				camera->position = oldPosition; // Hit a wall/door, stop movement!
+
+			if (forestSystem->checkCollision(camera->position, 0.5f)
+			 || forestSystem2->checkCollision(camera->position, 0.5f))
+				camera->position = oldPosition; // Hit a tree, stop movement!
+
 			viewMatrix = camera->viewMatrix;
 		}
 

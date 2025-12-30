@@ -11,6 +11,13 @@ static std::vector<unsigned int> VEC_UINT_DEFAUTL_VALUE{};
 static std::vector<glm::vec3> VEC_VEC3_DEFAUTL_VALUE{};
 static std::vector<glm::vec2> VEC_VEC2_DEFAUTL_VALUE{};
 static std::map<std::string, GLuint> MAP_STRING_GLUINT_DEFAULT_VALUE{};
+
+struct AABB
+{
+    glm::vec3 min;
+    glm::vec3 max;
+};
+
 /**
 * A very simple .obj loader. Use only for teaching purposes. Use loadOBJWithTiny()
 * instead.
@@ -76,6 +83,12 @@ public:
 
     /* Bind VAO before calling draw */
     void draw(int mode = GL_TRIANGLES);
+
+    // ===< Collision Detection >=== //
+    AABB aabb;
+    void updateAABB();
+    // First AABB, then precise Triangle check
+    bool checkCollision(const glm::vec3& position, float radius, const glm::mat4& modelMatrix);
 
 public:
     std::vector<glm::vec3> vertices, normals, indexedVertices, indexedNormals;

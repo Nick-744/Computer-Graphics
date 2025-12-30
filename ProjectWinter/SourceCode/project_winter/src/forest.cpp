@@ -122,3 +122,10 @@ void Forest::drawOnlyObjects(GLuint shadowModelLocation, int windPower)
     glUniform1i(depthUseTransparentTexLocation, 0);
     glUniform1i(depthWindPowerLocation, 0); // Disable wind animation
 }
+
+bool Forest::checkCollision(const vec3& position, float radius)
+{
+    if (trunkMesh->checkCollision(position, radius, modelMatrix)) return true;
+
+    return false;
+}

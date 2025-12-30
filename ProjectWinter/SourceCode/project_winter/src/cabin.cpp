@@ -190,3 +190,12 @@ void Cabin::toggleDoor()
     if (targetDoorAngle < 45.0f) targetDoorAngle = 90.0f;
     else targetDoorAngle = 0.0f;
 }
+
+bool Cabin::checkCollision(const vec3& position, float radius)
+{
+    if (wallsSideMesh->checkCollision(position, radius, modelMatrix)) return true;
+    if (doorMesh->checkCollision(position, radius, getDoorMatrix()))  return true;
+
+    // We do NOT check floor/roof here (handled by gravity/terrain logic usually)
+    return false;
+}

@@ -7,6 +7,8 @@
 #include "util.h"
 #include "model.h"
 #include "texture.h"
+#include <limits>
+#include <algorithm>
 
 using namespace glm;
 using namespace std;
@@ -327,6 +329,107 @@ void indexVBO(
     }
 }
 
+// ===< Collision Detection >=== //
+vec3 closestPointOnTriangle(const vec3& p, const vec3& a, const vec3& b, const vec3& c)
+{
+    vec3 ab  = b - a;
+    vec3 ac  = c - a;
+    vec3 ap  = p - a;
+    float d1 = dot(ab, ap);
+    float d2 = dot(ac, ap);
+    if (d1 <= 0.0f && d2 <= 0.0f) return a;
+
+    vec3 bp  = p - b;
+    float d3 = dot(ab, bp);
+    float d4 = dot(ac, bp);
+    if (d3 >= 0.0f && d4 <= d3) return b;
+
+    float vc = d1 * d4 - d3 * d2;
+    if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
+    {
+        float v = d1 / (d1 - d3);
+        return a + v * ab;
+    }
+
+    vec3 cp  = p - c;
+    float d5 = dot(ab, cp);
+    float d6 = dot(ac, cp);
+    if (d6 >= 0.0f && d5 <= d6) return c;
+
+    float vb = d5 * d2 - d1 * d6;
+    if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
+    {
+        float w = d2 / (d2 - d6);
+        return a + w * ac;
+    }
+
+    float va = d3 * d6 - d5 * d4;
+    if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f)
+    {
+        float w = (d4 - d3) / ((d4 - d3) + (d5 - d6) + va);
+        return b + w * (c - b);
+    }
+
+    float denom = 1.0f / (va + vb + vc);
+    float v     = vb * denom;
+    float w     = vc * denom;
+    return a + v * ab + w * ac;
+}
+
+void Drawable::updateAABB()
+{
+    aabb.min = vec3(std::numeric_limits<float>::max());
+    aabb.max = vec3(std::numeric_limits<float>::lowest());
+
+    for (const auto& v : vertices)
+    {
+        aabb.min = min(aabb.min, v);
+        aabb.max = max(aabb.max, v);
+    }
+}
+
+bool Drawable::checkCollision(const glm::vec3& position, float radius, const glm::mat4& modelMatrix)
+{
+    mat4 invModel = inverse(modelMatrix);
+    vec3 localPos = vec3(invModel * vec4(position, 1.0f));
+
+    vec3 scaleVec(
+        length(vec3(modelMatrix[0])),
+        length(vec3(modelMatrix[1])),
+        length(vec3(modelMatrix[2]))
+    );
+    float localRadius = radius / std::max(scaleVec.x, std::max(scaleVec.y, scaleVec.z));
+
+    // Expand AABB by radius for the check
+    if (localPos.x < aabb.min.x - localRadius || localPos.x > aabb.max.x + localRadius ||
+        localPos.y < aabb.min.y - localRadius || localPos.y > aabb.max.y + localRadius ||
+        localPos.z < aabb.min.z - localRadius || localPos.z > aabb.max.z + localRadius)
+        return false; // No collision with AABB
+
+    for (size_t i = 0; i < indices.size(); i += 3)
+    {
+        // Get triangle vertices
+        vec3 v0 = vertices[indices[i]];
+        vec3 v1 = vertices[indices[i + 1]];
+        vec3 v2 = vertices[indices[i + 2]];
+
+        // Transform vertices to World Space 
+        vec3 w0 = vec3(modelMatrix * vec4(v0, 1.0f));
+        vec3 w1 = vec3(modelMatrix * vec4(v1, 1.0f));
+        vec3 w2 = vec3(modelMatrix * vec4(v2, 1.0f));
+
+        // Find closest point on this triangle to the camera
+        vec3 closest = closestPointOnTriangle(position, w0, w1, w2);
+
+        // Check distance
+        float dist = distance(position, closest);
+        if (dist < radius)
+            return true; // Collision detected!
+    }
+
+    return false;
+}
+
 Drawable::Drawable(string path) {
     if (path.substr(path.size() - 3, 3) == "obj") {
         loadOBJWithTiny(path.c_str(), vertices, uvs, normals, VEC_UINT_DEFAUTL_VALUE);
@@ -337,11 +440,13 @@ Drawable::Drawable(string path) {
     }
 
     createContext();
+    updateAABB(); // Calculate AABB on load
 }
 
 Drawable::Drawable(const vector<vec3>& vertices, const vector<vec2>& uvs,
                    const vector<vec3>& normals) : vertices(vertices), uvs(uvs), normals(normals) {
     createContext();
+    updateAABB(); // Calculate AABB on init
 }
 
 Drawable::~Drawable() {
