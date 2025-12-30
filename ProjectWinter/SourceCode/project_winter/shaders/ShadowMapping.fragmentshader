@@ -705,6 +705,8 @@ vec3 computeLandTexture()
 // WATERRR... (Lake)
 vec3 computeLakeTexture()
 {
+    float effectiveTime = (fogDensity > 0.4) ? 0.0 : time; // ===< STILLNESS LOGIC >=== //
+
     float freezeAmt  = smoothstep(0.75, 1.0, snowAmount);
     float meltGlobal = freezeAmt * smoothstep(0.04, 0.00, fogDensity);
 
@@ -712,7 +714,7 @@ vec3 computeLakeTexture()
     vec2 baseUV       = vertex_UV * waterTiling;
 
     // Scroll speed for the water
-    vec2 waterScroll = vec2(time * 0.5, -time * 0.8);
+    vec2 waterScroll = vec2(effectiveTime * 0.5, -effectiveTime * 0.8);
     vec2 waterUV     = baseUV + waterScroll;
 
     // Wave pattern depending on position + time
@@ -720,8 +722,8 @@ vec3 computeLakeTexture()
     float waveFrequency = 20.0;
     float waveStrength  = 0.02;
 
-    float wave = sin(baseUV.x * waveFrequency + time * waveSpeed) *
-                 cos(baseUV.y * waveFrequency + time * waveSpeed);
+    float wave = sin(baseUV.x * waveFrequency + effectiveTime * waveSpeed) *
+                 cos(baseUV.y * waveFrequency + effectiveTime * waveSpeed);
 
     // Distort UV slightly by the wave
     waterUV += vec2(wave, wave) * waveStrength;
@@ -735,7 +737,7 @@ vec3 computeLakeTexture()
     movingWater        = mix(movingWater, iceColor, freezeFactor);
 
     // Displacement texture for more detail (WATER)
-    vec3 displacementTexture = texture(displacementTextureSampler, vertex_UV + 0.9*sin(time)).rgb;
+    vec3 displacementTexture = texture(displacementTextureSampler, vertex_UV + 0.9*sin(effectiveTime)).rgb;
     vec3 surfaceTexture      = mix(movingWater, displacementTexture, 0.2);
     vec3 displacedWater      = texture(textureSamplerWater, waterUV + length(surfaceTexture)*0.05).rgb;
 
@@ -823,7 +825,7 @@ vec3 computeRiverTexture()
     vec2 flowDir = normalize(dirSample.rg * 2.0 - 1.0);
 
     float riverTiling = 20.0;
-    float riverSpeed  =  1.0;
+    float riverSpeed  =  1.2;
 
     vec2 riverUV = vertex_UV * riverTiling + flowDir * time * riverSpeed;
 

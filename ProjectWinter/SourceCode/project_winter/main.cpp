@@ -988,8 +988,9 @@ void mainLoop()
 		// Render the prompt quad (when the camera is near the cabin door)
 		if (isDoorClose) renderPrompt();
 
-		// Boat animation update!
-		boatModel->update(simulatedDeltaTime);
+		// Boat animation update! Take into account the frozen lake...
+		if      (fogDensity < 0.4f && !forceClearFog) boatModel->update(simulatedDeltaTime);
+		else if (fogDensity < 0.1f)                   boatModel->update(simulatedDeltaTime);
 		// Render the prompt quad (when the camera is near the boat)
 		if (isBoatClose) renderPrompt();
 
