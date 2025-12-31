@@ -6,6 +6,7 @@ import os
 # Paths
 TERRAIN_OBJ     = "../project_winter/assets/worldmap_gaea/ultra_low_poly_worldmap.obj"
 CABIN_FLOOR_OBJ = "../project_winter/assets/cabin/model/Floor.obj"
+# MARINA_OBJ      = "../project_winter/assets/marina/plank_port.obj"
 OUTPUT_TXT      = "../project_winter/assets/terrain_triangles_geometry.txt"
 
 # Scale Factor - C++
@@ -15,6 +16,11 @@ TERRAIN_SCALE = 200.0
 CABIN_POS   = [7.0, 59.2, -0.5]
 CABIN_ROT   = 3.0
 CABIN_SCALE = 1.0
+
+'''# Marina Transformation Parameters (from C++)
+MARINA_POS   = [-58.2, 58.7, 4.5]
+MARINA_ROT   = 1.6
+MARINA_SCALE = 0.5'''
 # ================================================= #
 
 def get_model_matrix(pos: np.ndarray, rot_y: float, scale: float) -> np.ndarray:
@@ -122,6 +128,17 @@ def main():
 
     floor_tris = load_obj_triangles(CABIN_FLOOR_OBJ, cabin_transform) # Add later to beginning...
 
+    '''# Load Marina Base (Planks)
+    print("Loading Marina Base...")
+    marina_matrix = get_model_matrix(MARINA_POS, MARINA_ROT, MARINA_SCALE)
+
+    def marina_transform(v):
+        vec4 = np.array([v[0], v[1], v[2], 1.0])
+        res  = marina_matrix @ vec4
+        return [res[0], res[1], res[2]];
+
+    marina_tris = load_obj_triangles(MARINA_OBJ, marina_transform)'''
+
     # Load Terrain (Apply Scale 200!)
     print("Loading Terrain...")
     def terrain_transform(v):
@@ -130,7 +147,7 @@ def main():
     all_triangles += load_obj_triangles(TERRAIN_OBJ, terrain_transform)
     all_triangles  = list_optimization(all_triangles)
 
-    # Add cabin floor triangles to the BEGINNING of the list!!!!
+    # Add floor triangles to the BEGINNING of the list!!!!
     all_triangles = generate_floor_hull(floor_tris) + all_triangles
 
     # Save

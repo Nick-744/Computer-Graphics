@@ -54,6 +54,7 @@ int currentSnowBufferSize       = 16384;
 int currentReflectionBufferSize =  1024;
 
 #define FAR_PLANE_INITIAL 660.0f
+#define PLAYER_RADIUS 0.3f // Approximate the player as a sphere!
 
 
 
@@ -177,8 +178,6 @@ GLFWwindow* window;
 Camera* camera;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
-float playerRadius = 0.3f; // Approximate the player as a sphere!
-
 // ---< Player interactions >--- //
 bool isBoatClose;
 bool isDoorClose;
@@ -253,6 +252,7 @@ CloudRenderer* cloudSystem;
 SnowSource* snowSource;
 // Snow state (CPU)
 bool  snowingActive = false;
+bool  isLakeFrozen  = false;
 float snowAmount    = 0.0f;
 float snowInflate   = 0.0f;
 Timer snowStartTimer;
@@ -540,7 +540,7 @@ void free()
 
 
 
-void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size)
+void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size, bool isSnowPass = false)
 {
 	// Task 3.3
 
@@ -574,7 +574,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	cabinModel->drawOnlyObjects(shadowModelLocation);
 
 	// Boat
-	if (cameraFarPlane < FAR_PLANE_INITIAL) // Optimization for shadow mapping
+	if (!isSnowPass && cameraFarPlane < FAR_PLANE_INITIAL) // Optimization for shadow mapping
 		boatModel->drawOnlyObjects(shadowModelLocation);
 
 	// Marina
@@ -698,9 +698,6 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw the cabin
 	cabinModel->draw();
 
-	// Draw the boat
-	boatModel->draw();
-
 	// Draw the marina
 	marinaModel->draw();
 
@@ -725,6 +722,11 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	sphere->bind(); sphere->draw();
 
 	glUniform1i(shaderProgram.ChampionOfLight, 0); // End of sun rendering
+
+
+
+	// Draw the boat - Always on Front trick (draw last)!
+	boatModel->draw();
 
 
 
@@ -822,9 +824,6 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw cabin
 	cabinModel->draw();
 
-	// Draw boat
-	boatModel->draw();
-
 	// Draw marina
 	marinaModel->draw();
 
@@ -835,6 +834,9 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw meadow
 	meadowSystem->draw(windPower + 1);
+
+	// Draw boat - Always on Front trick (draw last)!
+	boatModel->draw();
 
 	// Draw clouds
 	if (!forceClearFog)
@@ -888,7 +890,7 @@ void mainLoop()
 	// Also, fix the moving snow artifacts (because of wind animation)!
 	mat4 snow_proj = snowSource->projectionMatrix;
 	mat4 snow_view = snowSource->viewMatrix;
-	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
+	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
 
 	do
 	{
@@ -903,7 +905,7 @@ void mainLoop()
 			[&](int newSize)
 			{
 				initDepthFBO(snowSource->snowDepthFBO, snowSource->snowDepthTexture, currentSnowBufferSize, newSize);
-				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
+				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
 			},
 			[&](int newSize)
 			{
@@ -929,7 +931,16 @@ void mainLoop()
 		mat4 viewMatrix;
 		if (boatModel->isOnBoat())
 		{
+			vec3 oldPosition = boatModel->getWorldPosition();
+
 			if (!myMenu.isMenuOpen) boatModel->steer(simulatedDeltaTime);
+
+			// --- COLLISION CHECKS --- //
+			if (terrainSystem->checkCollisionBoat(boatModel->getWorldPosition(), PLAYER_RADIUS * 3.0f))
+				boatModel->setPosition(oldPosition);
+			if (marinaModel ->checkCollision(boatModel->getWorldPosition(), PLAYER_RADIUS * 5.0f))
+				boatModel->setPosition(oldPosition);
+
 			viewMatrix = boatModel->getViewMatrix();
 		}
 		else
@@ -939,12 +950,24 @@ void mainLoop()
 			if (!myMenu.isMenuOpen) camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
 
 			// --- COLLISION CHECKS --- //
-			if (cabinModel->checkCollision(camera->position, playerRadius))
-				camera->position = oldPosition; // Hit a wall/door, stop movement!
+			if (!camera->flyingMode)
+			{
+				if (cabinModel->checkCollision(camera->position, PLAYER_RADIUS))
+					camera->position = oldPosition;
 
-			if (forestSystem->checkCollision(camera->position, playerRadius)
-			 || forestSystem2->checkCollision(camera->position, playerRadius))
-				camera->position = oldPosition; // Hit a tree, stop movement!
+				if (forestSystem->checkCollision(camera->position, PLAYER_RADIUS)
+				 || forestSystem2->checkCollision(camera->position, PLAYER_RADIUS))
+					camera->position = oldPosition;
+
+				if (marinaModel->checkCollision(camera->position, PLAYER_RADIUS * 4.0f))
+					camera->position = oldPosition;
+
+				if (boatModel->checkCollision(camera->position, PLAYER_RADIUS * 4.0f))
+					camera->position = oldPosition;
+
+				if (terrainSystem->checkCollision(camera->position, PLAYER_RADIUS, isLakeFrozen))
+					camera->position = oldPosition;
+			}
 
 			viewMatrix = camera->viewMatrix;
 		}
@@ -986,6 +1009,7 @@ void mainLoop()
 			fogDensity -= simulatedDeltaTime * growRate * 6.0f;
 			fogDensity  = clamp(fogDensity, 0.0f, 1.0f);
 		}
+		isLakeFrozen = fogDensity > 0.4f; // Lake freezes when fog is dense enough!
 		// Performance optimization...
 		if (fogDensity == 1.0f) cameraFarPlane = 110.0f; // Reduce far plane for better performance!
 		else                    cameraFarPlane = FAR_PLANE_INITIAL; // Reset far plane
@@ -1012,7 +1036,8 @@ void mainLoop()
 
 		// ---< Player interactions >--- //
 		isDoorClose = distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f;
-		isBoatClose = distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
+		isBoatClose = fogDensity < 0.1f // DETAIL - When fog clears, the lake melts/cracks...
+			       && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
 			       && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
 
 		// Door animation update!
@@ -1021,8 +1046,8 @@ void mainLoop()
 		if (isDoorClose) renderPrompt();
 
 		// Boat animation update! Take into account the frozen lake...
-		if      (fogDensity < 0.4f && !forceClearFog) boatModel->update(simulatedDeltaTime);
-		else if (fogDensity < 0.1f)                   boatModel->update(simulatedDeltaTime);
+		if      (!isLakeFrozen && !forceClearFog) boatModel->update(simulatedDeltaTime);
+		else if (fogDensity < 0.1f)               boatModel->update(simulatedDeltaTime);
 		// Render the prompt quad (when the camera is near the boat)
 		if (isBoatClose) renderPrompt();
 

@@ -55,6 +55,11 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     
     // Load snow wall mesh!
     snowWall = new Drawable("assets/worldmap_gaea/terrain_wall.obj");
+
+    // Dedicated collision mesh!
+    lakeWall     = new Drawable("assets/collision_walls/lake_invisible_wall.obj");
+    worldWall    = new Drawable("assets/collision_walls/world_invisible_wall.obj");
+    lakeBoatWall = new Drawable("assets/collision_walls/lake_boat_inv_wall.obj");
 }
 
 TerrainRenderer::~TerrainRenderer()
@@ -140,4 +145,22 @@ void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix,
     river->draw();
     
     glUniform1i(terrainType, 0); // ShadowMapping bs...
+}
+
+bool TerrainRenderer::checkCollision(const vec3& position, float radius, bool isLakeFrozen)
+{
+    if (worldWall->checkCollision(position, radius, getTerrainModelMatrix()))
+        return true;
+    if (!isLakeFrozen && lakeWall->checkCollision(position, radius, getTerrainModelMatrix()))
+        return true;
+	
+    return false;
+}
+
+bool TerrainRenderer::checkCollisionBoat(const vec3& position, float radius)
+{
+    if (lakeWall->checkCollision(position, radius, getTerrainModelMatrix()))     return true;
+    if (lakeBoatWall->checkCollision(position, radius, getTerrainModelMatrix())) return true;
+
+    return false;
 }

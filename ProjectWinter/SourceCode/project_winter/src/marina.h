@@ -16,6 +16,8 @@ public:
     void draw();
     void drawOnlyObjects(GLuint shadowModelLocation);
 
+    bool checkCollision(const vec3& position, float radius);
+
 private:
     // Meshes
     Drawable* logsMesh;

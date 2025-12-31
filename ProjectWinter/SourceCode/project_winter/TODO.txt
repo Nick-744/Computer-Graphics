@@ -3,8 +3,10 @@ What’s left:
 - 7D: Snowman
 
 To consider:
-- Throw rocks
-- Add invisible walls + boat collision
+- Throw rocks?
+- Story?
+- Sound effects?
+- What to do with marine?
 
 DONE:
 - Split the terrain / lake / river into separate meshes...
@@ -14,3 +16,4 @@ DONE:
 - Optimize clouds & snowfall
 - BOAT!!!
 - Collision system!!!
+- Add invisible walls + boat collision

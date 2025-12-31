@@ -20,6 +20,8 @@ public:
 
     void draw();
     void drawOnlyObjects(GLuint shadowModelLocation); // For depth pass
+    
+    bool checkCollision(const vec3& position, float radius);
 
     void update(float deltaTime);
     void steer(float deltaTime);
@@ -37,7 +39,7 @@ public:
 
 
     // ===< Boat porting >=== //
-    const vec3  INITIAL_POSITION = vec3(-58.0f, 58.065f, 8.0f);
+    const vec3  INITIAL_POSITION = vec3(-57.5f, 58.065f, 7.6f);
     const float INITIAL_ROTATION = 1.6f;
 
     void setToPort1()

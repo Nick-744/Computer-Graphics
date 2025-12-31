@@ -53,3 +53,11 @@ void Marina::drawOnlyObjects(GLuint shadowModelLocation)
     logsMesh->bind();   logsMesh->draw();
     planksMesh->bind(); planksMesh->draw();
 }
+
+bool Marina::checkCollision(const vec3& position, float radius)
+{
+    if (logsMesh->checkCollision(position, radius, modelMatrix))   return true;
+    if (planksMesh->checkCollision(position, radius, modelMatrix)) return true;
+
+    return false;
+}

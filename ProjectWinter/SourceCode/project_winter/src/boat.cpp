@@ -65,6 +65,9 @@ void Boat::updateModelMatrix()
 
 void Boat::draw()
 {
+    // Render boat over everything when player is on it!
+    if (onBoat) glClear(GL_DEPTH_BUFFER_BIT);
+
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
     glUniform1i(useTextureLocation, 1);
 
@@ -196,4 +199,11 @@ mat4 Boat::getPaddleTransform(float timer, bool isLeft)
          * translate(mat4(), vec3(isLeft ? 0.1f : -0.1f, 0.0f, 0.0f))
          * rotate(mat4(), swing, vec3(0, isLeft? 1 : -1, 0))
          * rotate(mat4(), dip,   vec3(1, 0, 0));
+}
+
+bool Boat::checkCollision(const vec3& position, float radius)
+{
+    if (boatMesh->checkCollision(position, radius, modelMatrix)) return true;
+
+    return false;
 }
