@@ -390,41 +390,39 @@ void Drawable::updateAABB()
 
 bool Drawable::checkCollision(const glm::vec3& position, float radius, const glm::mat4& modelMatrix)
 {
+    // Move player to Local Space
     mat4 invModel = inverse(modelMatrix);
     vec3 localPos = vec3(invModel * vec4(position, 1.0f));
 
+    // Adjust radius for scale
     vec3 scaleVec(
         length(vec3(modelMatrix[0])),
         length(vec3(modelMatrix[1])),
         length(vec3(modelMatrix[2]))
     );
-    float localRadius = radius / std::max(scaleVec.x, std::max(scaleVec.y, scaleVec.z));
+    float maxScale    = std::max({ scaleVec.x, scaleVec.y, scaleVec.z });
+    float localRadius = radius / maxScale;
 
-    // Expand AABB by radius for the check
+    // AABB Check (Local Space) - Quick exit
     if (localPos.x < aabb.min.x - localRadius || localPos.x > aabb.max.x + localRadius ||
         localPos.y < aabb.min.y - localRadius || localPos.y > aabb.max.y + localRadius ||
         localPos.z < aabb.min.z - localRadius || localPos.z > aabb.max.z + localRadius)
         return false; // No collision with AABB
 
+    // Precise Triangle Check...
     for (size_t i = 0; i < indices.size(); i += 3)
     {
-        // Get triangle vertices
-        vec3 v0 = vertices[indices[i]];
-        vec3 v1 = vertices[indices[i + 1]];
-        vec3 v2 = vertices[indices[i + 2]];
+        // USE indexedVertices...
+        vec3 v0 = indexedVertices[indices[i]];
+        vec3 v1 = indexedVertices[indices[i + 1]];
+        vec3 v2 = indexedVertices[indices[i + 2]];
 
-        // Transform vertices to World Space 
-        vec3 w0 = vec3(modelMatrix * vec4(v0, 1.0f));
-        vec3 w1 = vec3(modelMatrix * vec4(v1, 1.0f));
-        vec3 w2 = vec3(modelMatrix * vec4(v2, 1.0f));
+        // Find closest point on triangle in local space
+        vec3 closestLocal = closestPointOnTriangle(localPos, v0, v1, v2);
 
-        // Find closest point on this triangle to the camera
-        vec3 closest = closestPointOnTriangle(position, w0, w1, w2);
-
-        // Check distance
-        float dist = distance(position, closest);
-        if (dist < radius)
-            return true; // Collision detected!
+        // Check distance in local space
+        float dist = distance(localPos, closestLocal);
+        if (dist < localRadius) return true; // Collision detected!
     }
 
     return false;

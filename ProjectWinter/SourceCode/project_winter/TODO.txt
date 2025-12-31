@@ -4,7 +4,7 @@ What’s left:
 
 To consider:
 - Throw rocks
-- Collision
+- Add invisible walls + boat collision
 
 DONE:
 - Split the terrain / lake / river into separate meshes...
@@ -13,3 +13,4 @@ DONE:
 - Also, take a look at fixing the Taubin smoothing (have to fix shader time first...)
 - Optimize clouds & snowfall
 - BOAT!!!
+- Collision system!!!

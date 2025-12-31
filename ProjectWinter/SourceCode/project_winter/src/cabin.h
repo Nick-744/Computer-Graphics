@@ -34,6 +34,8 @@ private:
     Drawable* supportStrMesh;
     Drawable* wallsFrBackMesh;
     Drawable* wallsSideMesh;
+    
+    Drawable* supportStrMeshCollision; // Dedicated collision mesh!
 
     // --- TEXTURES --- //
     GLuint baseTexture;

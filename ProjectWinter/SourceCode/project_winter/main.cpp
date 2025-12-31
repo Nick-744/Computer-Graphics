@@ -177,6 +177,8 @@ GLFWwindow* window;
 Camera* camera;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
+float playerRadius = 0.3f; // Approximate the player as a sphere!
+
 // ---< Player interactions >--- //
 bool isBoatClose;
 bool isDoorClose;
@@ -937,11 +939,11 @@ void mainLoop()
 			if (!myMenu.isMenuOpen) camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
 
 			// --- COLLISION CHECKS --- //
-			if (cabinModel->checkCollision(camera->position, 0.5f))
+			if (cabinModel->checkCollision(camera->position, playerRadius))
 				camera->position = oldPosition; // Hit a wall/door, stop movement!
 
-			if (forestSystem->checkCollision(camera->position, 0.5f)
-			 || forestSystem2->checkCollision(camera->position, 0.5f))
+			if (forestSystem->checkCollision(camera->position, playerRadius)
+			 || forestSystem2->checkCollision(camera->position, playerRadius))
 				camera->position = oldPosition; // Hit a tree, stop movement!
 
 			viewMatrix = camera->viewMatrix;

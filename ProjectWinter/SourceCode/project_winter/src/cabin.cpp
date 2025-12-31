@@ -35,6 +35,9 @@ Cabin::Cabin(GLuint shaderProgram)
     wallsFrBackMesh = new Drawable("assets/cabin/model/Walls_FrBack.obj");
     wallsSideMesh   = new Drawable("assets/cabin/model/Walls_Side.obj");
 
+    // Dedicated collision mesh!
+    supportStrMeshCollision = new Drawable("assets/cabin/model/SupportStr_collision.obj");
+
     // Load Textures
     baseTexture        = loadBMP("assets/cabin/textures/BuildingBase_BaseColor_10.bmp");
     doorWinTexture     = loadBMP("assets/cabin/textures/DoorAndWindows_BaseColor_1.bmp");
@@ -193,8 +196,10 @@ void Cabin::toggleDoor()
 
 bool Cabin::checkCollision(const vec3& position, float radius)
 {
-    if (wallsSideMesh->checkCollision(position, radius, modelMatrix)) return true;
-    if (doorMesh->checkCollision(position, radius, getDoorMatrix()))  return true;
+    if (wallsSideMesh->checkCollision(position, radius, modelMatrix))           return true;
+    if (wallsFrBackMesh->checkCollision(position, radius, modelMatrix))         return true;
+    if (supportStrMeshCollision->checkCollision(position, radius, modelMatrix)) return true;
+    if (doorMesh->checkCollision(position, radius, getDoorMatrix()))            return true;
 
     // We do NOT check floor/roof here (handled by gravity/terrain logic usually)
     return false;
