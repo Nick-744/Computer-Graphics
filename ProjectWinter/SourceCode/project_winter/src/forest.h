@@ -17,7 +17,9 @@ public:
     void drawOnlyObjects(GLuint shadowModelLocation, int windPower); // For depth pass!
 
     void setPosition(vec3 pos);
-	void setRotation(float angle);
+    void setRotation(float angle);
+
+    bool checkCollision(const vec3& position, float radius);
 
 private:
     // Meshes

@@ -19,6 +19,7 @@ public:
     // For the door animation!
     void update(float deltaTime);
     void toggleDoor();
+    bool checkCollision(const vec3& position, float radius);
 
     // For player interaction distance check!
     vec3 getHingeWorldPosition() { return vec3(8.15f, 61.03f, - 3.06f); }
@@ -33,6 +34,8 @@ private:
     Drawable* supportStrMesh;
     Drawable* wallsFrBackMesh;
     Drawable* wallsSideMesh;
+    
+    Drawable* supportStrMeshCollision; // Dedicated collision mesh!
 
     // --- TEXTURES --- //
     GLuint baseTexture;
