@@ -4,9 +4,9 @@ What’s left:
 
 To consider:
 - Throw rocks?
-- Story?
 - Sound effects?
-- What to do with marine?
+- Change player collision from sphere to capsule!
+- Story?
 
 DONE:
 - Split the terrain / lake / river into separate meshes...

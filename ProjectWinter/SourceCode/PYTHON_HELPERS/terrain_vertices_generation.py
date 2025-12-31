@@ -6,21 +6,23 @@ import os
 # Paths
 TERRAIN_OBJ     = "../project_winter/assets/worldmap_gaea/ultra_low_poly_worldmap.obj"
 CABIN_FLOOR_OBJ = "../project_winter/assets/cabin/model/Floor.obj"
-# MARINA_OBJ      = "../project_winter/assets/marina/plank_port.obj"
+CABIN_STAIRS    = "../project_winter/assets/cabin/model/StairsTerrainDetail.obj"
+MARINA_OBJ      = "../project_winter/assets/marina/plank_port.obj"
 OUTPUT_TXT      = "../project_winter/assets/terrain_triangles_geometry.txt"
 
 # Scale Factor - C++
 TERRAIN_SCALE = 200.0
+MAX_RADIUS    = 100.0 # Optimization - Distance Limit
 
 # Cabin Transformation Parameters (from C++)
 CABIN_POS   = [7.0, 59.2, -0.5]
 CABIN_ROT   = 3.0
 CABIN_SCALE = 1.0
 
-'''# Marina Transformation Parameters (from C++)
+# Marina Transformation Parameters (from C++)
 MARINA_POS   = [-58.2, 58.7, 4.5]
 MARINA_ROT   = 1.6
-MARINA_SCALE = 0.5'''
+MARINA_SCALE = 0.5
 # ================================================= #
 
 def get_model_matrix(pos: np.ndarray, rot_y: float, scale: float) -> np.ndarray:
@@ -78,6 +80,24 @@ def list_optimization(all_triangles: list) -> list:
 
     return all_triangles;
 
+def radius_filter(all_triangles: list, radius: float) -> list:
+    filtered = []
+    r_sq     = radius * radius
+    
+    for t in all_triangles:
+        # Calculate center of triangle
+        cx = (t[0][0] + t[1][0] + t[2][0]) / 3.0
+        cy = (t[0][1] + t[1][1] + t[2][1]) / 3.0
+        cz = (t[0][2] + t[1][2] + t[2][2]) / 3.0
+        
+        # Check squared distance (more efficient than sqrt)
+        dist_sq = (cx * cx) + (cz * cz) 
+        
+        if dist_sq <= r_sq:
+            filtered.append(t)
+            
+    return filtered;
+
 def generate_floor_hull(floor_triangles: list) -> list:
     # Extract all vertices from the triangles
     points = []
@@ -126,9 +146,10 @@ def main():
         res  = cabin_matrix @ vec4
         return [res[0], res[1], res[2]];
 
-    floor_tris = load_obj_triangles(CABIN_FLOOR_OBJ, cabin_transform) # Add later to beginning...
+    floor_tris  = load_obj_triangles(CABIN_FLOOR_OBJ, cabin_transform) # Add later to beginning...
+    stairs_tris = load_obj_triangles(CABIN_STAIRS, cabin_transform)
 
-    '''# Load Marina Base (Planks)
+    # Load Marina Base (Planks)
     print("Loading Marina Base...")
     marina_matrix = get_model_matrix(MARINA_POS, MARINA_ROT, MARINA_SCALE)
 
@@ -137,7 +158,7 @@ def main():
         res  = marina_matrix @ vec4
         return [res[0], res[1], res[2]];
 
-    marina_tris = load_obj_triangles(MARINA_OBJ, marina_transform)'''
+    marina_tris = load_obj_triangles(MARINA_OBJ, marina_transform)
 
     # Load Terrain (Apply Scale 200!)
     print("Loading Terrain...")
@@ -146,9 +167,15 @@ def main():
     
     all_triangles += load_obj_triangles(TERRAIN_OBJ, terrain_transform)
     all_triangles  = list_optimization(all_triangles)
+    all_triangles  = radius_filter(all_triangles, MAX_RADIUS)
 
     # Add floor triangles to the BEGINNING of the list!!!!
-    all_triangles = generate_floor_hull(floor_tris) + all_triangles
+    all_triangles = (
+        generate_floor_hull(floor_tris) +
+        stairs_tris +
+        generate_floor_hull(marina_tris) +
+        all_triangles
+    )
 
     # Save
     print(f"Exporting {len(all_triangles)} triangles to {OUTPUT_TXT}...")

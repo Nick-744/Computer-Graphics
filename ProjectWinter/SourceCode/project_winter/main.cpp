@@ -959,7 +959,7 @@ void mainLoop()
 				 || forestSystem2->checkCollision(camera->position, PLAYER_RADIUS))
 					camera->position = oldPosition;
 
-				if (marinaModel->checkCollision(camera->position, PLAYER_RADIUS * 4.0f))
+				if (marinaModel->checkCollision(camera->position, PLAYER_RADIUS * 4.0f, true))
 					camera->position = oldPosition;
 
 				if (boatModel->checkCollision(camera->position, PLAYER_RADIUS * 4.0f))
