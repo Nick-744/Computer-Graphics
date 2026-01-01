@@ -23,10 +23,12 @@ Camera::Camera(GLFWwindow* window) : window(window) {
     loadTerrain("assets/terrain_triangles_geometry_final.txt");
 }
 
-void Camera::update(float deltaTime)
+bool Camera::update(float deltaTime)
 {
     // Static variable to track walking time for head bobbing...
     static float walkTimer = 0.0f;
+
+    vec3 oldPosition = position;
 
 
 
@@ -180,6 +182,9 @@ void Camera::update(float deltaTime)
         eyePosition + direction,
         up
     );
+
+    float distanceMoved = glm::distance(oldPosition, position);
+    return (distanceMoved > 0.001f); // Return true if there was movement
 }
 
 

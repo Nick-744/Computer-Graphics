@@ -77,6 +77,7 @@ include_directories(
   external/Simple-OpenGL-Image-Library/include/
   external/tinyxml2/include/
   external/tinyobjloader/include/
+  external/audio/
   .
 
   external/imgui/
@@ -105,6 +106,8 @@ add_definitions(
 # Project Winter
 add_executable(project_winter
   project_winter/main.cpp
+
+  project_winter/src/audio_implementation.cpp
 
   project_winter/src/terrain.cpp
   project_winter/src/terrain.h

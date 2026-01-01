@@ -4,8 +4,7 @@ What’s left:
 
 To consider:
 - Throw rocks?
-- Sound effects?
-- Change player collision from sphere to capsule!
+- Sound effects - Prototype done!!!
 - Story?
 
 DONE:
@@ -17,3 +16,6 @@ DONE:
 - BOAT!!!
 - Collision system!!!
 - Add invisible walls + boat collision
+
+Didn't work:
+- Change player collision from sphere to capsule... Just improved the sphere one!

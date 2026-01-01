@@ -34,6 +34,7 @@
 #include "src/lakeReflection.h"
 #include "src/timer.h"
 #include "src/menuGUI.h" // ImGui backbone
+#include "miniaudio.h"   // Audio
 
 using namespace std;
 using namespace glm;
@@ -55,6 +56,7 @@ int currentReflectionBufferSize =  1024;
 
 #define FAR_PLANE_INITIAL 660.0f
 #define PLAYER_RADIUS 0.3f // Approximate the player as a sphere!
+#define BOAT_RADIUS 1.2f   // Approximate the boat as a bigger sphere!
 
 
 
@@ -170,6 +172,63 @@ struct MainShader // Shadow Mapping Shader...
 
 	void useProgram() { glUseProgram(programID); }
 };
+
+extern ma_decoding_backend_vtable g_ma_decoding_backend_vtable_stb_vorbis;
+
+struct SoundManager
+{
+	ma_engine engine;
+	ma_resource_manager resourceManager; // Keep the manager alive!
+	bool initialized = false;
+
+	void init()
+	{
+		// Define the backend list
+		ma_decoding_backend_vtable* pBackends[] = { &g_ma_decoding_backend_vtable_stb_vorbis };
+
+		// Initialize the Resource Manager first with OGG support...
+		ma_resource_manager_config rmConfig     = ma_resource_manager_config_init();
+		rmConfig.ppCustomDecodingBackendVTables = pBackends;
+		rmConfig.customDecodingBackendCount     = 1;
+
+		if (ma_resource_manager_init(&rmConfig, &resourceManager) != MA_SUCCESS)
+		{
+			cout << "Failed to init Resource Manager!" << endl;
+			return;
+		}
+
+		// Initialize the Engine using the Resource Manager
+		ma_engine_config engineConfig = ma_engine_config_init();
+		engineConfig.pResourceManager = &resourceManager;
+
+		if (ma_engine_init(&engineConfig, &engine) == MA_SUCCESS)
+		{
+			initialized = true;
+			cout << "Audio Engine Initialized with OGG Support!" << endl;
+		}
+		else
+		{
+			cout << "Engine Init Failed!" << endl;
+			ma_resource_manager_uninit(&resourceManager);
+		}
+	}
+
+	void play(const char* filepath, bool loop = false)
+	{
+		if (!initialized) return;
+		ma_engine_play_sound(&engine, filepath, NULL);
+	}
+
+	void cleanup()
+	{
+		if (initialized) {
+			ma_engine_uninit(&engine);
+			ma_resource_manager_uninit(&resourceManager); // Cleanup both
+		}
+	}
+};
+
+SoundManager soundSystem;
 
 
 
@@ -534,6 +593,9 @@ void free()
 	delete cloudSystem;
 	delete snowfallSystem;
 	delete lakeReflection;
+	delete sphere;
+
+	soundSystem.cleanup();
 
 	glfwTerminate();
 }
@@ -929,45 +991,48 @@ void mainLoop()
 		// Getting camera information
 		mat4 projectionMatrix = camera->projectionMatrix;
 		mat4 viewMatrix;
+		static float footstepTimer = 0.0f;
 		if (boatModel->isOnBoat())
 		{
-			vec3 oldPosition = boatModel->getWorldPosition();
+			vec3 oldBoatPosition = boatModel->getWorldPosition();
 
 			if (!myMenu.isMenuOpen) boatModel->steer(simulatedDeltaTime);
 
 			// --- COLLISION CHECKS --- //
-			if (terrainSystem->checkCollisionBoat(boatModel->getWorldPosition(), PLAYER_RADIUS * 3.0f))
-				boatModel->setPosition(oldPosition);
-			if (marinaModel ->checkCollision(boatModel->getWorldPosition(), PLAYER_RADIUS * 5.0f))
-				boatModel->setPosition(oldPosition);
+			vec3 currentBoatPosition = boatModel->getWorldPosition();
+			if (terrainSystem->checkCollisionBoat(currentBoatPosition, BOAT_RADIUS)
+			 || marinaModel ->checkCollision(currentBoatPosition, BOAT_RADIUS))
+				boatModel->setPosition(oldBoatPosition);
 
 			viewMatrix = boatModel->getViewMatrix();
 		}
 		else
 		{
-			vec3 oldPosition = camera->position;
+			bool isMoving          = camera->update(simulatedDeltaTime);
+			vec3 oldCameraPosition = camera->position;
 
 			if (!myMenu.isMenuOpen) camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
 
 			// --- COLLISION CHECKS --- //
-			if (!camera->flyingMode)
+			vec3 currentCameraPosition = camera->position - vec3(0.0, 1.2, 0.0f);
+			if (isMoving && !camera->flyingMode)
 			{
-				if (cabinModel->checkCollision(camera->position, PLAYER_RADIUS))
-					camera->position = oldPosition;
+				footstepTimer += simulatedDeltaTime;
+				if (footstepTimer > 0.4f)
+				{
+					soundSystem.play("assets/sounds/footstep_snow.ogg");
+					footstepTimer = 0.0f;
+				}
 
-				if (forestSystem->checkCollision(camera->position, PLAYER_RADIUS)
-				 || forestSystem2->checkCollision(camera->position, PLAYER_RADIUS))
-					camera->position = oldPosition;
-
-				if (marinaModel->checkCollision(camera->position, PLAYER_RADIUS * 4.0f, true))
-					camera->position = oldPosition;
-
-				if (boatModel->checkCollision(camera->position, PLAYER_RADIUS * 4.0f))
-					camera->position = oldPosition;
-
-				if (terrainSystem->checkCollision(camera->position, PLAYER_RADIUS, isLakeFrozen))
-					camera->position = oldPosition;
+				if (cabinModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| forestSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| forestSystem2->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
+					|| boatModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen))
+					camera->position = oldCameraPosition;
 			}
+			else footstepTimer = 0.4f;
 
 			viewMatrix = camera->viewMatrix;
 		}
@@ -1092,7 +1157,11 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	// ---< Player interactions >--- //
 	if (key == GLFW_KEY_E && action == GLFW_PRESS)
 	{
-		if (isDoorClose) cabinModel->toggleDoor();
+		if (isDoorClose)
+		{
+			cabinModel->toggleDoor();
+			soundSystem.play("assets/sounds/door_open.ogg");
+		}
 
 		if (isBoatClose)
 		{
@@ -1246,6 +1315,9 @@ void initialize()
 
 	// ===< Setup ImGui >=== //
 	myMenu.initialize(window);
+
+	// ===< Audio >=== //
+	soundSystem.init();
 }
 
 

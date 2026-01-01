@@ -7,7 +7,8 @@ import os
 TERRAIN_OBJ     = "../project_winter/assets/worldmap_gaea/ultra_low_poly_worldmap.obj"
 CABIN_FLOOR_OBJ = "../project_winter/assets/cabin/model/Floor.obj"
 CABIN_STAIRS    = "../project_winter/assets/cabin/model/StairsTerrainDetail.obj"
-MARINA_OBJ      = "../project_winter/assets/marina/plank_port.obj"
+MARINA_OBJ_1    = "../project_winter/assets/marina/PlanksTerrainIntegration1.obj"
+MARINA_OBJ_2    = "../project_winter/assets/marina/PlanksTerrainIntegration2.obj"
 OUTPUT_TXT      = "../project_winter/assets/terrain_triangles_geometry.txt"
 
 # Scale Factor - C++
@@ -158,7 +159,8 @@ def main():
         res  = marina_matrix @ vec4
         return [res[0], res[1], res[2]];
 
-    marina_tris = load_obj_triangles(MARINA_OBJ, marina_transform)
+    marina_tris1 = load_obj_triangles(MARINA_OBJ_1, marina_transform)
+    marina_tris2 = load_obj_triangles(MARINA_OBJ_2, marina_transform)
 
     # Load Terrain (Apply Scale 200!)
     print("Loading Terrain...")
@@ -173,7 +175,8 @@ def main():
     all_triangles = (
         generate_floor_hull(floor_tris) +
         stairs_tris +
-        generate_floor_hull(marina_tris) +
+        generate_floor_hull(marina_tris1) +
+        generate_floor_hull(marina_tris2) +
         all_triangles
     )
 
