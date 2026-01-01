@@ -705,7 +705,7 @@ vec3 computeLandTexture()
 // WATERRR... (Lake)
 vec3 computeLakeTexture()
 {
-    float effectiveTime = (fogDensity > 0.4) ? 0.0 : time; // ===< STILLNESS LOGIC >=== //
+    float effectiveTime = (snowAmount > 0.0 && fogDensity > 0.4) ? 0.0 : time; // ===< STILLNESS LOGIC >=== //
 
     float freezeAmt  = smoothstep(0.75, 1.0, snowAmount);
     float meltGlobal = freezeAmt * smoothstep(0.04, 0.00, fogDensity);

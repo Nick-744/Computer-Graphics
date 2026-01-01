@@ -174,7 +174,6 @@ struct MainShader // Shadow Mapping Shader...
 };
 
 extern ma_decoding_backend_vtable g_ma_decoding_backend_vtable_stb_vorbis;
-
 struct SoundManager
 {
 	ma_engine engine;
@@ -221,7 +220,8 @@ struct SoundManager
 
 	void cleanup()
 	{
-		if (initialized) {
+		if (initialized)
+		{
 			ma_engine_uninit(&engine);
 			ma_resource_manager_uninit(&resourceManager); // Cleanup both
 		}
@@ -1008,37 +1008,37 @@ void mainLoop()
 		}
 		else
 		{
-			bool isMoving          = camera->update(simulatedDeltaTime);
 			vec3 oldCameraPosition = camera->position;
+			bool isMoving          = false;
 
-			if (!myMenu.isMenuOpen) camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
+			if (!myMenu.isMenuOpen) isMoving = camera->update(simulatedDeltaTime); // Only move camera if menu is NOT open!
 
 			// --- COLLISION CHECKS --- //
 			vec3 currentCameraPosition = camera->position - vec3(0.0, 1.2, 0.0f);
 			if (isMoving && !camera->flyingMode)
 			{
 				footstepTimer += simulatedDeltaTime;
-				if (footstepTimer > 0.4f)
-				{
-					soundSystem.play("assets/sounds/footstep_snow.ogg");
-					footstepTimer = 0.0f;
-				}
 
 				if (cabinModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-					|| forestSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-					|| forestSystem2->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-					|| marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
-					|| boatModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-					|| terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen))
+				 || forestSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+				 || forestSystem2->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+				 || marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
+				 || boatModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+				 || terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen))
 					camera->position = oldCameraPosition;
+				else if (footstepTimer > 0.7f)
+				{
+					soundSystem.play("assets/sounds/dirt_walk.ogg");
+					footstepTimer = 0.0f;
+				}
 			}
-			else footstepTimer = 0.4f;
+			else footstepTimer = 0.7f;
 
 			viewMatrix = camera->viewMatrix;
 		}
 
 		// Control terrain's water speed...
-		float flowSpeed = mix(1.0f, 0.05f, fogDensity);
+		float flowSpeed = snowAmount > 0.0f ? mix(1.0f, 0.05f, fogDensity) : 1.0f;
 		terrainTime    += (simulatedDeltaTime / 20.0f) * flowSpeed;
 		cloudTime       =  simulatedFrameTime / 25.0f;
 
@@ -1074,7 +1074,7 @@ void mainLoop()
 			fogDensity -= simulatedDeltaTime * growRate * 6.0f;
 			fogDensity  = clamp(fogDensity, 0.0f, 1.0f);
 		}
-		isLakeFrozen = fogDensity > 0.4f; // Lake freezes when fog is dense enough!
+		isLakeFrozen = fogDensity > 0.4f && snowAmount > 0.0f; // Lake freezes when fog is dense enough!
 		// Performance optimization...
 		if (fogDensity == 1.0f) cameraFarPlane = 110.0f; // Reduce far plane for better performance!
 		else                    cameraFarPlane = FAR_PLANE_INITIAL; // Reset far plane
@@ -1101,7 +1101,7 @@ void mainLoop()
 
 		// ---< Player interactions >--- //
 		isDoorClose = distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f;
-		isBoatClose = fogDensity < 0.1f // DETAIL - When fog clears, the lake melts/cracks...
+		isBoatClose = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
 			       && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
 			       && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
 
