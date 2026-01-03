@@ -54,6 +54,7 @@ in vec4 vertex_position_snowspace_s;      // Static - WITHOUT wind...
 uniform sampler2D textureSamplerSnowMask; // Gaea mask
 uniform float snowAmount; // Snow state
 uniform float snowInflate;
+uniform int skipSnow = 0;
 
 // ===< Fog >=== //
 uniform float fogDensity;
@@ -446,7 +447,7 @@ void main()
 
 
     // ===< SNOW ACCUMULATION >=== //
-    if (snowAmount > 0.0 && terrainType != 2 && terrainType != 3)
+    if (snowAmount > 0.0 && terrainType != 2 && terrainType != 3 && skipSnow == 0)
     {
         // Vegetation bends in wind: sample snow using the NO-WIND anchor so it doesn't slide in world space...
         vec4 snowPosition  = (terrainType == 1) ? vertex_position_snowspace : vertex_position_snowspace_s;

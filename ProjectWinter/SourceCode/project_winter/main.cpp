@@ -107,6 +107,7 @@ struct MainShader // Shadow Mapping Shader...
 	// Snow state
 	GLuint snowAmountLocation;
 	GLuint snowInflateLocation;
+	GLuint skipSnowLocation;
 
 	// --- Lake Reflection --- //
 	GLuint reflectionTextureSamplerLocation;
@@ -160,6 +161,7 @@ struct MainShader // Shadow Mapping Shader...
 		// Snow state
 		snowAmountLocation  = glGetUniformLocation(programID, "snowAmount");
 		snowInflateLocation = glGetUniformLocation(programID, "snowInflate");
+		skipSnowLocation    = glGetUniformLocation(programID, "skipSnow");
 
 		// Lake reflection
 		reflectionTextureSamplerLocation = glGetUniformLocation(programID, "reflectionTextureSampler");
@@ -376,9 +378,10 @@ void renderSky(mat4 viewMatrix, mat4 projectionMatrix)
 	mat4 skyView = mat4(mat3(viewMatrix));
 	mat4 VP      = projectionMatrix * skyView;
 
-	mat4 rotationMatrixY = rotate(mat4(), radians(-85.0f), vec3(0, 1, 0));
-	mat4 rotationMatrixX = rotate(mat4(), radians(180.0f), vec3(1, 0, 0));
-	mat4 modelMatrix     = rotationMatrixY * rotationMatrixX;
+	mat4 translationMatrix = translate(mat4(), vec3(0, 0.06, 0));
+	mat4 rotationMatrixY   = rotate(mat4(), radians(-85.0f), vec3(0, 1, 0));
+	mat4 rotationMatrixX   = rotate(mat4(), radians(180.0f), vec3(1, 0, 0));
+	mat4 modelMatrix       = translationMatrix * rotationMatrixY * rotationMatrixX;
 
 	glUniformMatrix4fv(skyProgram.VPLocation, 1, GL_FALSE, &VP[0][0]);
 	glUniformMatrix4fv(skyProgram.MLocation, 1, GL_FALSE, &modelMatrix[0][0]);
@@ -849,7 +852,9 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 	// Draw the boat - Always on Front trick (draw last)!
+	glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
 	boatModel->draw();
+	glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
 
 
 
@@ -959,7 +964,9 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	meadowSystem->draw(windPower + 1);
 
 	// Draw boat - Always on Front trick (draw last)!
+	glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
 	boatModel->draw();
+	glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
 
 	// Draw clouds
 	if (!forceClearFog)
