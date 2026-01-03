@@ -165,6 +165,9 @@ add_executable(project_winter
   project_winter/shaders/prompt.vertexshader
   project_winter/shaders/snowfall.fragmentshader
   project_winter/shaders/snowfall.vertexshader
+
+  project_winter/shaders/skydome.fragmentshader
+  project_winter/shaders/skydome.vertexshader
   )
 target_link_libraries(project_winter
   ${ALL_LIBS}

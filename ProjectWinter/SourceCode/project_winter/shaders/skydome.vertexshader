@@ -1,0 +1,14 @@
+#version 330 core
+layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 2) in vec2 vertexUV;
+
+out vec2 UV;
+
+uniform mat4 VP; // View-Projection Matrix
+uniform mat4 M;  // Model Matrix (follow camera position!)
+
+void main()
+{
+    gl_Position = VP * M * vec4(vertexPosition_modelspace, 1.0);
+    UV          = vertexUV;
+}

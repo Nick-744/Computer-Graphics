@@ -173,6 +173,22 @@ struct MainShader // Shadow Mapping Shader...
 	void useProgram() { glUseProgram(programID); }
 };
 
+struct SkyShader
+{
+	GLuint programID;
+	GLuint VPLocation;
+	GLuint MLocation;
+	GLuint hdriSampler;
+
+	void initialize()
+	{
+		programID   = loadShaders("shaders/skydome.vertexshader", "shaders/skydome.fragmentshader");
+		VPLocation  = glGetUniformLocation(programID, "VP");
+		MLocation   = glGetUniformLocation(programID, "M");
+		hdriSampler = glGetUniformLocation(programID, "hdriTexture");
+	}
+};
+
 extern ma_decoding_backend_vtable g_ma_decoding_backend_vtable_stb_vorbis;
 struct SoundManager
 {
@@ -253,11 +269,14 @@ Light* light1;
 Drawable* sphere; // Light model helper
 
 // Sky & fog colors
-vec3 skyColor        = vec3(0.6f, 0.7f, 1.0f);
+vec3 skyColor        = vec3(0.53f, 0.58f, 0.68f); // From HDRI texture...
 vec3 currentSkyColor = skyColor; // Or currentFogColor!
 vec3 snowFogColor    = vec3(0.8f, 0.85f, 0.9f);
 float fogDensity     = 0.0f;
 bool forceClearFog   = false;
+
+SkyShader skyProgram;
+GLuint skyTexture;
 
 int windPower = 1;
 
@@ -338,6 +357,38 @@ vec3 tempPosition       = vec3(0.0f, 59.0f, 0.0f);
 float tempRotationAngle = 0.0f;
 mat4 tempModelMatrix    = translate(mat4(), tempPosition)
                         * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
+
+
+
+void renderSky(mat4 viewMatrix, mat4 projectionMatrix)
+{
+	glDepthMask(GL_FALSE);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_FRONT);
+
+	glUseProgram(skyProgram.programID);
+
+	// Remove translation
+	mat4 skyView = mat4(mat3(viewMatrix));
+	mat4 VP      = projectionMatrix * skyView;
+
+	mat4 rotationMatrixY = rotate(mat4(), radians(-85.0f), vec3(0, 1, 0));
+	mat4 rotationMatrixX = rotate(mat4(), radians(180.0f), vec3(1, 0, 0));
+	mat4 modelMatrix     = rotationMatrixY * rotationMatrixX;
+
+	glUniformMatrix4fv(skyProgram.VPLocation, 1, GL_FALSE, &VP[0][0]);
+	glUniformMatrix4fv(skyProgram.MLocation, 1, GL_FALSE, &modelMatrix[0][0]);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, skyTexture);
+	glUniform1i(skyProgram.hdriSampler, 0);
+
+	sphere->bind(); sphere->draw();
+
+	// Restore state
+	glCullFace(GL_BACK);
+	glDepthMask(GL_TRUE);
+}
 
 
 
@@ -493,6 +544,10 @@ void createContext()
 
 	// Meadow
 	meadowSystem = new Meadow(shaderProgram.programID);
+
+	// ===< Skydome >=== //
+	skyProgram.initialize();
+	skyTexture = loadBMP("assets/skydome.bmp");
 
 	// Clouds
 	cloudSystem = new CloudRenderer();
@@ -666,6 +721,8 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Step 2: Clearing color and depth info
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	if (!(fogDensity > 0.0f)) renderSky(viewMatrix, projectionMatrix);
 
 	// Step 3: Selecting shader program
 	shaderProgram.useProgram();
