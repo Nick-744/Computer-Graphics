@@ -17,6 +17,8 @@ DONE:
 - Collision system!!!
 - Add invisible walls + boat collision
 - Sound effects - Prototype done!!! Have to find more sound effects...
+- Fullscreen option in menu!
+- Skydome!!!
 
 Didn't work:
 - Change player collision from sphere to capsule... Just improved the sphere one!

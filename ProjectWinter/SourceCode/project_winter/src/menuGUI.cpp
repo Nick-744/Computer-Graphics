@@ -26,9 +26,12 @@ void MenuGUI::shutdown()
 
 void MenuGUI::render(GLFWwindow* window,
     int& currentShadowSize, int& currentSnowSize, int& currentReflectionSize,
+    bool& isFullscreen,
     std::function<void(int)> onShadowResolutionChange,
     std::function<void(int)> onSnowResolutionChange,
-    std::function<void(int)> onReflectionResolutionChange)
+    std::function<void(int)> onReflectionResolutionChange,
+    std::function<void(bool)> onFullscreenToggle
+)
 {
     // Start Frame
     ImGui_ImplOpenGL3_NewFrame();
@@ -41,7 +44,7 @@ void MenuGUI::render(GLFWwindow* window,
         int width, height;
         glfwGetWindowSize(window, &width, &height);
         ImGui::SetNextWindowPos(ImVec2(width * 0.5f, height * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-        ImGui::SetNextWindowSize(ImVec2(400, 320));
+        ImGui::SetNextWindowSize(ImVec2(400, 350));
 
         // Window Flags
         ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
@@ -61,6 +64,11 @@ void MenuGUI::render(GLFWwindow* window,
 
         // --- SETTINGS --- //
         ImGui::TextDisabled("GRAPHICS SETTINGS");
+        ImGui::Spacing();
+
+        // FULLSCREEN OPTION
+        if (ImGui::Checkbox("Fullscreen Mode", &isFullscreen))
+            if (onFullscreenToggle) onFullscreenToggle(isFullscreen);
         ImGui::Spacing();
 
         ImGui::Columns(2, "settings_columns", false);

@@ -46,9 +46,9 @@ void mainLoop();
 void free();
 void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-#define W_WIDTH  1280
-#define W_HEIGHT 720
-#define TITLE    "Project Winter"
+#define TITLE "Project Winter"
+int W_WIDTH  = 1280;
+int W_HEIGHT = 720;
 
 int currentShadowBufferSize     =  8192;
 int currentSnowBufferSize       = 16384;
@@ -250,6 +250,10 @@ SoundManager soundSystem;
 
 // Global Variables
 GLFWwindow* window;
+int windowedPosX, windowedPosY;
+int windowedWidth  = W_WIDTH;
+int windowedHeight = W_HEIGHT;
+
 Camera* camera;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
@@ -1020,6 +1024,7 @@ void mainLoop()
 
 		myMenu.render(window,
 			currentShadowBufferSize, currentSnowBufferSize, currentReflectionBufferSize,
+			myMenu.isFullscreen,
 			[&](int newSize) { initDepthFBO(depthFBO1, depthTexture1, currentShadowBufferSize, newSize); },
 			[&](int newSize)
 			{
@@ -1036,6 +1041,30 @@ void mainLoop()
 				delete lakeReflection;
 				lakeReflection = new LakeReflection(currentReflectionBufferSize);
 				lakeReflection->initialize();
+			},
+			[&](bool goFullscreen)
+			{
+				if (goFullscreen)
+				{
+					// Backup window position and size
+					glfwGetWindowPos(window, &windowedPosX, &windowedPosY);
+					glfwGetWindowSize(window, &windowedWidth, &windowedHeight);
+
+					// Get monitor resolution
+					const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+					glfwSetWindowMonitor(window, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, mode->refreshRate);
+
+					W_WIDTH  = mode->width;
+					W_HEIGHT = mode->height;
+				}
+				else
+				{
+					// Restore to windowed mode
+					glfwSetWindowMonitor(window, NULL, windowedPosX, windowedPosY, windowedWidth, windowedHeight, 0);
+
+					W_WIDTH  = windowedWidth;
+					W_HEIGHT = windowedHeight;
+				}
 			}
 		);
 

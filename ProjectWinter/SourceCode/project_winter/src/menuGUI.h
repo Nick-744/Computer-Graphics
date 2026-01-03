@@ -15,7 +15,8 @@
 class MenuGUI
 {
 public:
-    bool isMenuOpen = false; // Menu State
+    bool isMenuOpen   = false; // Menu State
+    bool isFullscreen = false;
 
     // Constants - CHOOSE WISELY BASED ON YOUR PC HARDWARE...
     const std::vector<int> BUFFER_OPTIONS = { 512, 1024, 2048, 4096, 8192, 16384, 32768 };
@@ -26,9 +27,11 @@ public:
     // Uses callbacks (std::function) to handle the complex logic of resizing buffers in main.cpp!
     void render(GLFWwindow* window,
         int& currentShadowSize, int& currentSnowSize, int& currentReflectionSize,
+        bool& isFullscreen,
         std::function<void(int)> onShadowResolutionChange,
         std::function<void(int)> onSnowResolutionChange,
-        std::function<void(int)> onReflectionResolutionChange
+        std::function<void(int)> onReflectionResolutionChange,
+        std::function<void(bool)> onFullscreenToggle
     );
 
     void setMenuState(bool open, GLFWwindow* window);
