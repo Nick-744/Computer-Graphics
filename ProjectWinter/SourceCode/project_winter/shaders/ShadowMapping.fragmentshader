@@ -181,25 +181,19 @@ float getSnowMaskIce(in vec2 p)
     mat2 m = mat2( 1.6,  1.2,
                   -1.2,  1.6 );
 
+    float f = 0.0;
+    float w = 0.0;
     float a = 1.0;
-    float w = 1.0;
-
-    float f = abs(noise12_from2(p));
-    for (int i = 0; i < 6; i++)
-    {
-        p  = m * p;
-        a /= 1.5;
-
-        f += a * abs(noise12_from2(p));
-        w += a;
-    }
-
-    f /= w;
-
-    // Patchy threshold -> soft blobs
-    f  = smoothstep(0.55, 0.65, f);
-    f  = pow(f, 0.25);
-    f *= 0.9;
+    
+    // Manually unroll for clarity
+    f += a * abs(noise12_from2(p)); w += a; a /= 1.5; p = m * p;
+    f += a * abs(noise12_from2(p)); w += a; a /= 1.5; p = m * p;
+    f += a * abs(noise12_from2(p)); w += a; a /= 1.5; p = m * p;
+    f += a * abs(noise12_from2(p)); w += a; a /= 1.5; p = m * p;
+    f += a * abs(noise12_from2(p)); w += a; a /= 1.5; p = m * p;
+    f += a * abs(noise12_from2(p)); w += a;
+    
+    f = pow(smoothstep(0.55, 0.65, f / w), 0.25) * 0.9;
 
     return f; // 0..1
 }
@@ -452,13 +446,9 @@ void main()
         // Vegetation bends in wind: sample snow using the NO-WIND anchor so it doesn't slide in world space...
         vec4 snowPosition  = (terrainType == 1) ? vertex_position_snowspace : vertex_position_snowspace_s;
         float snowBlocked  = ShadowCalculation(snowPosition, snowDepthMapSampler, 0.001);
+        // Now snow starts covering the whole land terrain!
+        if (snowInflate > 0.0f && terrainType == 1) snowBlocked -= snowInflate * 2.0;
         float snowExposure = 1.0 - snowBlocked;
-
-        if (snowInflate > 0.0f && terrainType == 1) // Now snow starts covering the whole land terrain!
-        {
-            snowBlocked -= snowInflate * 2.0;
-            snowExposure = 1.0 - snowBlocked;
-        }
 
         // Prevent snow from accumulating on very steep slopes!
         {
@@ -492,12 +482,13 @@ void main()
             // Pixel-by-pixel snow accumulation using noise
             vec2 snowUV      = (terrainType == 1) ? vertex_position_worldspace.xz : vertex_position_worldspace_s.xz;
             snowUV          *= 4.0; // Small snow pixels!
-            float pixelNoise = hash(floor(snowUV));
+            vec2 snowUV_base = floor(snowUV);
+            float pixelNoise = hash(snowUV_base);
 
             // Add some variation with multiple octaves
             pixelNoise += 0.5  * hash(floor(snowUV * 2.0));
             pixelNoise += 0.25 * hash(floor(snowUV * 4.0));
-            pixelNoise /= 1.75; // Normalize
+            pixelNoise *= 0.571428; // Normalize
 
             // Threshold based on snow amount - pixels gradually turn white
             float snowThreshold = pixelNoise * 0.95; // Reduced range to cover more area
@@ -601,25 +592,23 @@ vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
             _Ns = 10.0;
         }
     }
+    else if (terrainType == 2)
+    {
+        // ===< FREEZING GLARE >=== //
+        float iceSpecular = mix(0.3, 1.0, snowAmount);
+        
+        _Ks = iceSpecular * vec4(1.0, 1.0, 1.0, 1.0);
+        _Kd = vec4(terrainBaseColor, 1.0);
+        _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
+        _Ns = mix(200.0, 600.0, snowAmount); // Smoother ice...
+    }
     else
     {
-        if (terrainType == 2)
-        {
-            // ===< FREEZING GLARE >=== //
-            float iceSpecular = mix(0.3, 1.0, snowAmount);
-
-            _Ks = iceSpecular * vec4(1.0, 1.0, 1.0, 1.0);
-            _Kd = vec4(terrainBaseColor, 1.0);
-            _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
-            _Ns = mix(200.0, 600.0, snowAmount); // Smoother ice...
-        }
-        else
-        {
-            _Ks = vec4(0);
-            _Kd = vec4(terrainBaseColor, 1.0);
-            _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
-            _Ns = 10.0;
-        }
+        // Default values
+        _Ks = vec4(0);
+        _Kd = vec4(terrainBaseColor, 1.0);
+        _Ka = vec4(0.2 * _Kd.rgb, _Kd.a);
+        _Ns = 10.0;
     }
 
     // model ambient intensity (Ia)
@@ -670,7 +659,7 @@ vec2 getTileUV() // Get randomized UVs...
     vec2 grid  = floor(tiled);
     
     float r = hash(grid);
-    int k   = int(floor(r * 4.0));
+    int k   = int(r * 4.0);
 
     local = local - 0.5; // Center Pivot
     
@@ -711,30 +700,35 @@ vec3 computeLakeTexture()
     float freezeAmt  = smoothstep(0.75, 1.0, snowAmount);
     float meltGlobal = freezeAmt * smoothstep(0.04, 0.00, fogDensity);
 
+    // Pre-calculate
+    float oneMinusMeltGlobal = 1.0 - meltGlobal;
+
     float waterTiling = 120.0; // How many times the water texture repeats across the terrain
     vec2 baseUV       = vertex_UV * waterTiling;
 
     // Scroll speed for the water
     vec2 waterScroll = vec2(effectiveTime * 0.5, -effectiveTime * 0.8);
-    vec2 waterUV     = baseUV + waterScroll;
 
     // Wave pattern depending on position + time
     float waveSpeed     = 1.5;
     float waveFrequency = 20.0;
     float waveStrength  = 0.02;
 
-    float wave = sin(baseUV.x * waveFrequency + effectiveTime * waveSpeed) *
-                 cos(baseUV.y * waveFrequency + effectiveTime * waveSpeed);
+    float timeOffset = effectiveTime * waveSpeed;
+    float wave       = sin(baseUV.x * waveFrequency + timeOffset) *
+                       cos(baseUV.y * waveFrequency + timeOffset);
+    vec2 waveVec     = vec2(wave);
 
     // Distort UV slightly by the wave
-    waterUV += vec2(wave, wave) * waveStrength;
+    vec2 waveOffset = waveVec * waveStrength;
+    vec2 waterUV    = baseUV + waterScroll + waveOffset;
 
     vec3 movingWater = texture(textureSamplerWater, waterUV).rgb;
 
     // ===< FREEZING LAKE EFFECT >=== //
     vec3 iceColor      = vec3(0.95, 0.98, 1.0);
     float freezeFactor = smoothstep(0.1, 0.9, snowAmount) * 0.95; // Non-linear freeze!
-    freezeFactor      *= (1.0 - meltGlobal); // Even if it is snowy -> fogDensity can melt the ice...
+    freezeFactor      *= oneMinusMeltGlobal; // Even if it is snowy -> fogDensity can melt the ice...
     movingWater        = mix(movingWater, iceColor, freezeFactor);
 
     // Displacement texture for more detail (WATER)
@@ -753,7 +747,7 @@ vec3 computeLakeTexture()
         // DISTORTION: Apply the SAME wave distortion to the reflection!
         float freezeDampen = mix(1.0 - snowAmount, 1.0, meltGlobal); // Reduce distortion
 
-        vec2 reflectionDistortion = vec2(wave, wave) * waveStrength * 0.5; // Less distortion...
+        vec2 reflectionDistortion = waveVec * waveStrength * 0.5;          // Less distortion...
         reflectionDistortion     += (displacementTexture.xy - 0.5) * 0.01; // Add high-frequency noise
 
         reflectionDistortion *= freezeDampen; // Apply dampening
@@ -762,19 +756,19 @@ vec3 computeLakeTexture()
         vec3 reflectionColor = texture(reflectionTextureSampler, reflectionUV + reflectionDistortion).rgb;
 
         // Mix the water texture with the reflection...
-        float reflectionStrength = mix(0.2, 0.8, snowAmount * (1.0 - meltGlobal)); // Stronger Reflection
+        float reflectionStrength = mix(0.2, 0.8, snowAmount * oneMinusMeltGlobal); // Stronger Reflection
         
         displacedWater = mix(displacedWater, reflectionColor, reflectionStrength);
     }
 
+    float depth = length(vertex_position_worldspace - cameraPos_world);
     {   // Snow patches on top of the ice
-        float depth   = length(vertex_position_worldspace - cameraPos_world);
         float depth_f = max(depth * 0.01, 1.0);
 
         float snowPatch = getSnowMaskIce((vertex_position_worldspace.xz * CRACKS_SCALE) * 0.1) / depth_f;
         snowPatch      *= freezeFactor;
-        snowPatch      *= smoothstep(0.75, 1.0, snowAmount);
-        snowPatch      *= (1.0 - meltGlobal);
+        snowPatch      *= freezeAmt;
+        snowPatch      *= oneMinusMeltGlobal;
         snowPatch       = clamp(snowPatch, 0.0, 1.0);
 
         displacedWater = mix(displacedWater, SNOW_COLOR_ICE, snowPatch);
@@ -787,28 +781,31 @@ vec3 computeLakeTexture()
     // ===< ALEKSEEV "Frozen Lake" >=== //
     if (fogDensity < 0.6 && snowAmount > 0.6 && meltGlobal < 0.999)
     {
-        // Define the point where the freeze begins
-        vec3 freezeOrigin = vec3(0.0, 58.1, 0.0); // Using WATER_HEIGHT from main.cpp
-        
-        // Add jitter to the distance so the ice growth looks "jagged" and organic
-        float organicNoise = hash(vertex_position_worldspace.xz * 0.1) * 20.0;
-        float distToOrigin = distance(vertex_position_worldspace.xz, freezeOrigin.xz) + organicNoise;
-        
-        // Expansion radius: spreads as fogDensity decreases...
-        float expansionFactor = clamp(((1.0 - fogDensity) - 0.5) * 2.0, 0.0, 1.0);
-        float maxRadius       = 400.0; // Increased radius to cover the map extent
-        float currentRadius   = expansionFactor * maxRadius;
-        
-        // Blend factor: 1.0 = Cracked Ice, 0.0 = Moving Water
-        float crackBlend = 1.0 - smoothstep(currentRadius - 80.0, currentRadius, distToOrigin);
-        
-        if (crackBlend > 0.001)
+        if (depth < 100.0) // Optimizing performance...
         {
-            // Calculate the high-fidelity Alekseev cracked ice
-            vec3 alekseevIce = frozenLakeColor_Alekseev(sandWater);
+            // Define the point where the freeze begins
+            vec3 freezeOrigin = vec3(0.0, 58.1, 0.0); // Using WATER_HEIGHT from main.cpp
+        
+            // Add jitter to the distance so the ice growth looks "jagged" and organic
+            float organicNoise = hash(vertex_position_worldspace.xz * 0.1) * 20.0;
+            float distToOrigin = distance(vertex_position_worldspace.xz, freezeOrigin.xz) + organicNoise;
+        
+            // Expansion radius: spreads as fogDensity decreases...
+            float expansionFactor = clamp(((1.0 - fogDensity) - 0.5) * 2.0, 0.0, 1.0);
+            float maxRadius       = 400.0; // Increased radius to cover the map extent
+            float currentRadius   = expansionFactor * maxRadius;
+        
+            // Blend factor: 1.0 = Cracked Ice, 0.0 = Moving Water
+            float crackBlend = 1.0 - smoothstep(currentRadius - 80.0, currentRadius, distToOrigin);
+        
+            if (crackBlend > 0.001)
+            {
+                // Calculate the high-fidelity Alekseev cracked ice
+                vec3 alekseevIce = frozenLakeColor_Alekseev(sandWater);
             
-            // Final spatial blend
-            sandWater = mix(sandWater, alekseevIce, crackBlend);
+                // Final spatial blend
+                sandWater = mix(sandWater, alekseevIce, crackBlend);
+            }
         }
     }
 
