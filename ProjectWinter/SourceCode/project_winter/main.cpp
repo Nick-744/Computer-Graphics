@@ -50,9 +50,9 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 int W_WIDTH  = 1280;
 int W_HEIGHT = 720;
 
-int currentShadowBufferSize     =  8192;
-int currentSnowBufferSize       = 16384;
-int currentReflectionBufferSize =  1024;
+int currentShadowBufferSize     = 8192;
+int currentSnowBufferSize       = 8192;
+int currentReflectionBufferSize =  512;
 
 #define FAR_PLANE_INITIAL 660.0f
 #define PLAYER_RADIUS 0.3f // Approximate the player as a sphere!

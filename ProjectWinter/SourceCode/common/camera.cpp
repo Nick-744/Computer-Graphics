@@ -49,9 +49,8 @@ bool Camera::update(float deltaTime)
     verticalAngle   += mouseSpeed * float(height / 2 - yPos);
 
     // Don't flip over...
-    float temp = 1.2f;
-    if (verticalAngle >  temp) verticalAngle =  temp;
-    if (verticalAngle < -temp) verticalAngle = -temp;
+    float temp    = 1.1f;
+    verticalAngle = clamp(verticalAngle, -temp, temp);
 
 
 
@@ -78,10 +77,24 @@ bool Camera::update(float deltaTime)
     // Task 5.5: update camera position using the direction/right vectors
     bool isMoving = false; // For head bobbing!
     vec3 moveDir(0.0f);    // Movement direction vector...
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) moveDir += direction;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) moveDir -= direction;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) moveDir += right;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) moveDir -= right;
+    if (flyingMode)
+    {
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) moveDir += direction;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) moveDir -= direction;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) moveDir += right;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) moveDir -= right;
+    }
+    else
+    {
+        // Prevent glitching when looking straight down and moving!
+        vec3 forwardFlat = normalize(vec3(direction.x, 0.0f, direction.z));
+        vec3 rightFlat   = normalize(vec3(right.x,     0.0f, right.z));
+
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) moveDir += forwardFlat;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) moveDir -= forwardFlat;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) moveDir += rightFlat;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) moveDir -= rightFlat;
+    }
 
     if (length(moveDir) > 0.001f)
     {
@@ -222,6 +235,17 @@ float Camera::getTerrainHeight(float x, float z)
     // Iterate over all triangles to find which one we are standing on...
     for (const auto& tri : terrainTriangles)
     {
+        // Simple AABB check - Performance...
+        float minX = std::min({ tri.v1.x, tri.v2.x, tri.v3.x });
+        float maxX = std::max({ tri.v1.x, tri.v2.x, tri.v3.x });
+        if (x < minX || x > maxX) continue;
+
+        float minZ = std::min({ tri.v1.z, tri.v2.z, tri.v3.z });
+        float maxZ = std::max({ tri.v1.z, tri.v2.z, tri.v3.z });
+        if (z < minZ || z > maxZ) continue;
+
+
+
         // Barycentric Coordinates Logic
         // Project the 3D triangle onto the 2D (X, Z) plane...
         float det = (tri.v2.z - tri.v3.z) * (tri.v1.x - tri.v3.x) + (tri.v3.x - tri.v2.x) * (tri.v1.z - tri.v3.z);
@@ -237,4 +261,6 @@ float Camera::getTerrainHeight(float x, float z)
             l2 >= 0.0f && l2 <= 1.0f &&
             l3 >= 0.0f && l3 <= 1.0f) return l1 * tri.v1.y + l2 * tri.v2.y + l3 * tri.v3.y; // Interpolate the Y value.
     }
+
+    return 80.0f; // If no triangle was found...
 }
