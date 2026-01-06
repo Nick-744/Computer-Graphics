@@ -691,10 +691,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	// ---- rendering the scene ---- //
 
 	// Terrain
-	mat4 terrainModelMatrix = terrainSystem->getTerrainModelMatrix();
-	glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &terrainModelMatrix[0][0]);
-	terrainSystem->getTerrainMesh()->bind();
-	terrainSystem->getTerrainMesh()->draw();
+	terrainSystem->drawOnlyObjects(shadowModelLocation, view_projection);
 
 	// Cabin
 	cabinModel->drawOnlyObjects(shadowModelLocation);

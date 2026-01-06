@@ -33,7 +33,7 @@ public:
     bool checkCollision(const vec3& position, float radius, bool isLakeFrozen);
     bool checkCollisionBoat(const vec3& position, float radius);
 
-    Drawable* getTerrainMesh()   { return land; }
+    void drawOnlyObjects(GLuint shadowModelLocation, const mat4& lightVP);
     mat4 getTerrainModelMatrix() { return scale(mat4(), vec3(200.0f)); }
 
 private:

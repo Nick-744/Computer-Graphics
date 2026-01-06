@@ -155,7 +155,7 @@ void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix,
 
     // Draw
     vec4 planes[6];
-    mat4 m = transpose(vp);
+    mat4 m    = transpose(vp);
     planes[0] = m[3] + m[0]; planes[1] = m[3] - m[0];
     planes[2] = m[3] + m[1]; planes[3] = m[3] - m[1];
     planes[4] = m[3] + m[2]; planes[5] = m[3] - m[2];
@@ -179,18 +179,36 @@ void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix,
 
     glUniform1i(terrainType, 2); // ShadowMapping bs...
     for (auto& chunk : lakeChunks)
-    {
         if (isBoxInFrustum(chunk.min, chunk.max, planes))
         {
             chunk.mesh->bind();
             chunk.mesh->draw();
         }
-    }
 
     glUniform1i(terrainType, 3); // ShadowMapping bs...
     river->bind(); river->draw();
     
     glUniform1i(terrainType, 0); // ShadowMapping bs...
+}
+
+void TerrainRenderer::drawOnlyObjects(GLuint shadowModelLocation, const mat4& lightVP)
+{
+    vec4 planes[6];
+    mat4 m    = transpose(lightVP);
+    planes[0] = m[3] + m[0]; planes[1] = m[3] - m[0];
+    planes[2] = m[3] + m[1]; planes[3] = m[3] - m[1];
+    planes[4] = m[3] + m[2]; planes[5] = m[3] - m[2];
+
+    // Set the terrain model matrix
+    mat4 modelMatrix = getTerrainModelMatrix();
+    glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);
+
+    for (auto& chunk : landChunks)
+        if (isBoxInFrustum(chunk.min, chunk.max, planes))
+        {
+            chunk.mesh->bind();
+            chunk.mesh->draw();
+        }
 }
 
 bool TerrainRenderer::checkCollision(const vec3& position, float radius, bool isLakeFrozen)
