@@ -664,7 +664,7 @@ void free()
 
 
 
-void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size, bool isSnowPass = false)
+void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size)
 {
 	// Task 3.3
 
@@ -698,7 +698,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	cabinModel->drawOnlyObjects(shadowModelLocation);
 
 	// Boat
-	if (!isSnowPass && cameraFarPlane < FAR_PLANE_INITIAL) // Optimization for shadow mapping
+	if (cameraFarPlane < FAR_PLANE_INITIAL) // Optimization for shadow mapping
 		boatModel->drawOnlyObjects(shadowModelLocation);
 
 	// Marina
@@ -1020,7 +1020,7 @@ void mainLoop()
 	// Also, fix the moving snow artifacts (because of wind animation)!
 	mat4 snow_proj = snowSource->projectionMatrix;
 	mat4 snow_view = snowSource->viewMatrix;
-	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
+	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
 
 	do
 	{
@@ -1036,7 +1036,7 @@ void mainLoop()
 			[&](int newSize)
 			{
 				initDepthFBO(snowSource->snowDepthFBO, snowSource->snowDepthTexture, currentSnowBufferSize, newSize);
-				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
+				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
 			},
 			[&](int newSize)
 			{
@@ -1138,11 +1138,14 @@ void mainLoop()
 
 
 		// Light Depth Pass
-		light1->update(); // Light's view matrix
-		light1->fitToCameraFrustum(viewMatrix, projectionMatrix); // Light's projection matrix
-		mat4 light1_proj = light1->projectionMatrix;
-		mat4 light1_view = light1->viewMatrix;
-		depth_pass(light1_view, light1_proj, depthFBO1, currentShadowBufferSize); // Create the depth buffer
+		if (!(snowAmount == 1.0 && fogDensity > 0.1 && fogDensity < 0.9)) // Cheat during lake cracking...
+		{
+			light1->update(); // Light's view matrix
+			light1->fitToCameraFrustum(viewMatrix, projectionMatrix); // Light's projection matrix
+			mat4 light1_proj = light1->projectionMatrix;
+			mat4 light1_view = light1->viewMatrix;
+			depth_pass(light1_view, light1_proj, depthFBO1, currentShadowBufferSize); // Create the depth buffer
+		}
 
 
 

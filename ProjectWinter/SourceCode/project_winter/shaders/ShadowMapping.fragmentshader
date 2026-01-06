@@ -305,12 +305,11 @@ vec2 getNormalCracks2(vec3 p)
 
 
 // Frozen Lake - Main function
-vec3 frozenLakeColor_Alekseev(vec3 baseUnderIce)
+vec3 frozenLakeColor_Alekseev(vec3 baseUnderIce, vec2 ndc, float depth)
 {
     vec3 p = vertex_position_worldspace * CRACKS_SCALE;
     vec3 e = normalize(vertex_position_worldspace - cameraPos_world);
 
-    float depth   = length(vertex_position_worldspace - cameraPos_world);
     float depth_f = max(depth * 0.8, 1.0);
 
     // global thickness modulation
@@ -352,11 +351,7 @@ vec3 frozenLakeColor_Alekseev(vec3 baseUnderIce)
     // reflection - NO FRESNEL!
     vec3 reflection = vec3(0.0);
     if (useReflection == 1)
-    {
-        float w    = max(vertex_position_clipspace.w, 1e-5);
-        vec2 ndc   = (vertex_position_clipspace.xy / w) * 0.5 + 0.5;
         reflection = texture(reflectionTextureSampler, ndc).rgb;
-    }
     else
         reflection = mix(vec3(0.02, 0.03, 0.05), vec3(0.35, 0.45, 0.6), clamp(reflect(e, norm).y * 0.5 + 0.5, 0.0, 1.0));
     col = mix(col, reflection, 0.22);
@@ -415,10 +410,10 @@ vec3 frozenLakeColor_Alekseev(vec3 baseUnderIce)
 
 // Helpers
 vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace);
-float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias);
+float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias, float dist);
 
 vec3 computeLandTexture();
-vec3 computeLakeTexture();
+vec3 computeLakeTexture(vec2 ndc, float depth);
 vec3 computeRiverTexture();
 float hash(vec2 p);
 
@@ -427,13 +422,21 @@ void main()
     // ALWAYS initialize - Windows 11 is a thing, unfortunately...
     fragmentColor = vec4(0.0);
 
+    // Calculate distance from camera
+    float dist = length(vertex_position_cameraspace.xyz);
+
     // Compute terrain texture ONCE per fragment!!!
     if      (terrainType == 1) terrainBaseColor = computeLandTexture();
-    else if (terrainType == 2) terrainBaseColor = computeLakeTexture();
+    else if (terrainType == 2)
+    {
+        float w          = max(vertex_position_clipspace.w, 1e-5);
+        vec2 ndc         = (vertex_position_clipspace.xy / w) * 0.5 + 0.5;
+        terrainBaseColor = computeLakeTexture(ndc, dist);
+    }
     else if (terrainType == 3) terrainBaseColor = computeRiverTexture();
 
     // ===< light 1 >=== //
-    float visibility = 1.0 - ShadowCalculation(vertex_position_lightspace1, shadowMapSampler1, 0.0004);
+    float visibility = 1.0 - ShadowCalculation(vertex_position_lightspace1, shadowMapSampler1, 0.0004, dist);
     vec4 baseColor   = phong(light1, visibility, light_direction_cameraspace1);
 
     fragmentColor = baseColor; // NO SNOW!!!
@@ -445,7 +448,7 @@ void main()
     {
         // Vegetation bends in wind: sample snow using the NO-WIND anchor so it doesn't slide in world space...
         vec4 snowPosition  = (terrainType == 1) ? vertex_position_snowspace : vertex_position_snowspace_s;
-        float snowBlocked  = ShadowCalculation(snowPosition, snowDepthMapSampler, 0.001);
+        float snowBlocked  = ShadowCalculation(snowPosition, snowDepthMapSampler, 0.001, dist);
         // Now snow starts covering the whole land terrain!
         if (snowInflate > 0.0f && terrainType == 1) snowBlocked -= snowInflate * 2.0;
         float snowExposure = 1.0 - snowBlocked;
@@ -515,9 +518,6 @@ void main()
 
     { // ===< FOG LOGIC >=== // ===< Better Snow effect >=== //
 
-        // Calculate distance from camera
-        float dist = length(vertex_position_cameraspace.xyz);
-
         float fogDensityScaled = fogDensity * 0.03;
 
         // Calculate exponential fog factor
@@ -529,14 +529,18 @@ void main()
     }
 }
 
-float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias)
+float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias, float dist)
 {
     // Given the position of a fragment in lightspace coordinates
     // We sample the depth buffer to see whether or not the fragment is shadowed
 
     // Task 4.3
-    // Perspective devide to bring coordinates in range[-1, 1]
+    // Perspective divide to bring coordinates in range[-1, 1]
     vec3 projCoords = vertex_position_lightspace.xyz / vertex_position_lightspace.w;
+
+    // Task 4.5
+    // Early exit: fragment is outside light frustum
+    if (projCoords.z > 1.0) return 0.0;
 
     // Since the depth map values are in range[0, 1]
     projCoords = 0.5f * projCoords + 0.5f;
@@ -545,22 +549,34 @@ float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSamp
     float currentDepth = projCoords.z;
 
     // Task 4.6 Make the shadow edges more realistic
-    float shadow             = 0.0;
-    vec2 depthMap_dimensions = textureSize(shadowMapSampler, 0);
-    vec2 texelSize           = 1.0 / depthMap_dimensions;
+    // PCF (Percentage Closer Filtering) for soft shadow edges...
+    float shadow = 0.0;
 
-    for (int x = -1; x <= 1; x++)
-        for (int y = -1; y <= 1; y++)
-        {
-            float pcfDepth = texture(shadowMapSampler, projCoords.xy + vec2(x, y) * texelSize).r;
-            shadow        += (currentDepth - bias > pcfDepth) ? 1.0 : 0.0;
-        }
-    shadow /= 9.0;
+    if (dist < 80.0f) // Detailed shadows for nearby terrain!
+    {
+        vec2 texelSize = 1.0 / vec2(textureSize(shadowMapSampler, 0));
 
-    // Task 4.5
-    if (projCoords.z > 1.0) shadow = 0.0;
+        // Unrolled 3x3 PCF kernel for better performance
+        // Row -1
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2(-1, -1) * texelSize).r) ? 1.0 : 0.0;
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2( 0, -1) * texelSize).r) ? 1.0 : 0.0;
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2( 1, -1) * texelSize).r) ? 1.0 : 0.0;
+    
+        // Row 0
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2(-1,  0) * texelSize).r) ? 1.0 : 0.0;
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2( 0,  0) * texelSize).r) ? 1.0 : 0.0;
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2( 1,  0) * texelSize).r) ? 1.0 : 0.0;
+    
+        // Row 1
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2(-1,  1) * texelSize).r) ? 1.0 : 0.0;
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2( 0,  1) * texelSize).r) ? 1.0 : 0.0;
+        shadow += (currentDepth - bias > texture(shadowMapSampler, projCoords.xy + vec2( 1,  1) * texelSize).r) ? 1.0 : 0.0;
 
-    return shadow;
+        return shadow * 0.111111111; // Divide by 9 (1/9 = 0.111111111)
+    }
+    else
+        // Fast 1-tap shadow for distant terrain...
+        return (projCoords.z - bias * 9.0f > texture(shadowMapSampler, projCoords.xy).r) ? 1.0 : 0.0;
 }
 
 vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
@@ -693,7 +709,7 @@ vec3 computeLandTexture()
 }
 
 // WATERRR... (Lake)
-vec3 computeLakeTexture()
+vec3 computeLakeTexture(vec2 ndc, float depth)
 {
     float effectiveTime = (snowAmount > 0.0 && fogDensity > 0.4) ? 0.0 : time; // ===< STILLNESS LOGIC >=== //
 
@@ -740,8 +756,6 @@ vec3 computeLakeTexture()
     if (useReflection == 1)
     {
         // Calculate reflection texture coordinates from clip space
-        float w           = max(vertex_position_clipspace.w, 1e-5);
-        vec2 ndc          = (vertex_position_clipspace.xy / w) * 0.5 + 0.5;
         vec2 reflectionUV = ndc;
 
         // DISTORTION: Apply the SAME wave distortion to the reflection!
@@ -761,7 +775,6 @@ vec3 computeLakeTexture()
         displacedWater = mix(displacedWater, reflectionColor, reflectionStrength);
     }
 
-    float depth = length(vertex_position_worldspace - cameraPos_world);
     {   // Snow patches on top of the ice
         float depth_f = max(depth * 0.01, 1.0);
 
@@ -801,7 +814,7 @@ vec3 computeLakeTexture()
             if (crackBlend > 0.001)
             {
                 // Calculate the high-fidelity Alekseev cracked ice
-                vec3 alekseevIce = frozenLakeColor_Alekseev(sandWater);
+                vec3 alekseevIce = frozenLakeColor_Alekseev(sandWater, ndc, depth);
             
                 // Final spatial blend
                 sandWater = mix(sandWater, alekseevIce, crackBlend);
