@@ -412,7 +412,7 @@ vec3 frozenLakeColor_Alekseev(vec3 baseUnderIce, vec2 ndc, float depth)
 vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace);
 float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSampler, float bias, float dist);
 
-vec3 computeLandTexture();
+vec3 computeLandTexture(float dist);
 vec3 computeLakeTexture(vec2 ndc, float depth);
 vec3 computeRiverTexture();
 float hash(vec2 p);
@@ -426,7 +426,7 @@ void main()
     float dist = length(vertex_position_cameraspace.xyz);
 
     // Compute terrain texture ONCE per fragment!!!
-    if      (terrainType == 1) terrainBaseColor = computeLandTexture();
+    if      (terrainType == 1) terrainBaseColor = computeLandTexture(dist);
     else if (terrainType == 2)
     {
         float w          = max(vertex_position_clipspace.w, 1e-5);
@@ -688,12 +688,15 @@ vec2 getTileUV() // Get randomized UVs...
 }
 
 // ROCK, GRASS... (Land)
-vec3 computeLandTexture()
+vec3 computeLandTexture(float dist)
 {
+    const float detailLimit = 110.0; // Threshold for high-detail textures
+    vec3 worldColor         = texture(textureSamplerWorld, vertex_UV).rgb;
+    if (dist > detailLimit) return worldColor;
+
     // ---< Cache Gaea terrain masks ONCE >--- //
-    gaeaSlopeMask   = texture(textureSamplerSlope, vertex_UV).r;
-    vec3 worldColor = texture(textureSamplerWorld, vertex_UV).rgb;
-    
+    gaeaSlopeMask = texture(textureSamplerSlope, vertex_UV).r;
+
     vec2 randomizedUV = getTileUV();
     
     // Sample materials using tile-local UVs!
