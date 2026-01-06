@@ -58,8 +58,7 @@ private:
     std::vector<Chunk> lakeChunks;
     bool isBoxInFrustum(const vec3& min, const vec3& max, const vec4 planes[6]); // Frustum Culling
 
-    // The 3D Meshes
-    Drawable* land; // Only for shadow pass...
+    // The 3D Mesh...
     Drawable* river;
     
     // Dedicated collision mesh!

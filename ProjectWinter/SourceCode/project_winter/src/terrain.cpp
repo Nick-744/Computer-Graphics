@@ -46,7 +46,7 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    // Load Land Chunks from info file...
+    // Load Land/Lake Chunks from info file...
     std::ifstream infoFile("assets/worldmap_gaea/chunks/chunks_info.txt");
     std::string line;
     while (std::getline(infoFile, line))
@@ -67,7 +67,6 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     }
 
     // Load Mesh
-    land  = new Drawable("assets/worldmap_gaea/terrain_land.obj");
     river = new Drawable("assets/worldmap_gaea/terrain_river.obj");
     
     // Load snow wall mesh!
@@ -100,7 +99,6 @@ TerrainRenderer::~TerrainRenderer()
     for (auto& chunk : lakeChunks) delete chunk.mesh;
     lakeChunks.clear();
 
-    delete land;
     delete river;
     
     delete snowWall;
