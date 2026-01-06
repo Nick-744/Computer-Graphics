@@ -7,8 +7,17 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
 #include <common/model.h>
+#include <fstream>
+#include <sstream>
 
 using namespace glm;
+
+struct Chunk
+{
+    Drawable* mesh;
+    vec3 min;
+    vec3 max;
+};
 
 class TerrainRenderer
 {
@@ -44,9 +53,13 @@ private:
     GLuint textureWorld, textureSlope;
     GLuint textureRock, textureGrass, textureSand, textureWater, textureRiversDirection, textureDisplacement;
 
+    // Terrain Chunks
+    std::vector<Chunk> landChunks;
+    std::vector<Chunk> lakeChunks;
+    bool isBoxInFrustum(const vec3& min, const vec3& max, const vec4 planes[6]); // Frustum Culling
+
     // The 3D Meshes
-    Drawable* land;
-    Drawable* lake;
+    Drawable* land; // Only for shadow pass...
     Drawable* river;
     
     // Dedicated collision mesh!

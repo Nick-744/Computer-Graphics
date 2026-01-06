@@ -257,6 +257,8 @@ int windowedWidth  = W_WIDTH;
 int windowedHeight = W_HEIGHT;
 
 Camera* camera;
+mat4 cameraProjectionMatrix;
+mat4 cameraViewMatrix;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
 // ---< Player interactions >--- //
@@ -814,7 +816,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// ----------------------------------------------------------------- //
 
 	// Draw terrain!
-	terrainSystem->draw(viewMatrix, projectionMatrix, terrainTime);
+	terrainSystem->draw(cameraViewMatrix, cameraProjectionMatrix, terrainTime);
 
 	// Remove the texture from terrain and use material instead!
 	// ** Use bool variable to tell the shader not to use a texture
@@ -1082,8 +1084,7 @@ void mainLoop()
 		simulatedFrameTime      += simulatedDeltaTime;
 
 		// Getting camera information
-		mat4 projectionMatrix = camera->projectionMatrix;
-		mat4 viewMatrix;
+		cameraProjectionMatrix = camera->projectionMatrix;
 		static float footstepTimer = 0.0f;
 		if (boatModel->isOnBoat())
 		{
@@ -1097,7 +1098,7 @@ void mainLoop()
 			 || marinaModel ->checkCollision(currentBoatPosition, BOAT_RADIUS))
 				boatModel->setPosition(oldBoatPosition);
 
-			viewMatrix = boatModel->getViewMatrix();
+			cameraViewMatrix = boatModel->getViewMatrix();
 		}
 		else
 		{
@@ -1127,7 +1128,7 @@ void mainLoop()
 			}
 			else footstepTimer = 0.7f;
 
-			viewMatrix = camera->viewMatrix;
+			cameraViewMatrix = camera->viewMatrix;
 		}
 
 		// Control terrain's water speed...
@@ -1141,7 +1142,7 @@ void mainLoop()
 		if (!(snowAmount == 1.0 && fogDensity > 0.1 && fogDensity < 0.9)) // Cheat during lake cracking...
 		{
 			light1->update(); // Light's view matrix
-			light1->fitToCameraFrustum(viewMatrix, projectionMatrix); // Light's projection matrix
+			light1->fitToCameraFrustum(cameraViewMatrix, cameraProjectionMatrix); // Light's projection matrix
 			mat4 light1_proj = light1->projectionMatrix;
 			mat4 light1_view = light1->viewMatrix;
 			depth_pass(light1_view, light1_proj, depthFBO1, currentShadowBufferSize); // Create the depth buffer
@@ -1182,16 +1183,19 @@ void mainLoop()
 
 
 		// Lake Reflection Pass
-		reflection_pass(viewMatrix, projectionMatrix);
+		reflection_pass(cameraViewMatrix, cameraProjectionMatrix);
 		
-		lighting_pass(viewMatrix, projectionMatrix); // Render the scene from camera's perspective!
+		if (GLFW_PRESS == glfwGetKey(window, GLFW_KEY_F1))
+			lighting_pass(snow_view, snow_proj); // See terrain's Frustum Culling!
+		else
+			lighting_pass(cameraViewMatrix, cameraProjectionMatrix); // Render the scene from camera's perspective!
 
 
 
 		// Render SNOW PARTICLES - AFTER the lighting pass!
 		snowfallSystem->setActive(snowingActive);
-		snowfallSystem->update(simulatedDeltaTime, viewMatrix, projectionMatrix, windPower);
-		snowfallSystem->draw(viewMatrix, projectionMatrix);
+		snowfallSystem->update(simulatedDeltaTime, cameraViewMatrix, cameraProjectionMatrix, windPower);
+		snowfallSystem->draw(cameraViewMatrix, cameraProjectionMatrix);
 
 
 

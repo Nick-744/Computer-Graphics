@@ -576,7 +576,7 @@ float ShadowCalculation(vec4 vertex_position_lightspace, sampler2D shadowMapSamp
     }
     else
         // Fast 1-tap shadow for distant terrain...
-        return (projCoords.z - bias * 9.0f > texture(shadowMapSampler, projCoords.xy).r) ? 1.0 : 0.0;
+        return (projCoords.z - bias * 9.2f > texture(shadowMapSampler, projCoords.xy).r) ? 1.0 : 0.0;
 }
 
 vec4 phong(Light light, float visibility, vec4 light_direction_cameraspace)
@@ -690,7 +690,7 @@ vec2 getTileUV() // Get randomized UVs...
 // ROCK, GRASS... (Land)
 vec3 computeLandTexture(float dist)
 {
-    const float detailLimit = 110.0; // Threshold for high-detail textures
+    const float detailLimit = 120.0; // Threshold for high-detail textures
     vec3 worldColor         = texture(textureSamplerWorld, vertex_UV).rgb;
     if (dist > detailLimit) return worldColor;
 

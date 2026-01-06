@@ -19,6 +19,7 @@ DONE:
 - Sound effects - Prototype done!!! Have to find more sound effects...
 - Fullscreen option in menu!
 - Skydome!!!
+- Frustum Culling - Terrain (Combine with the shadow calculation one?)
 
 Didn't work:
 - Change player collision from sphere to capsule... Just improved the sphere one!

@@ -3,8 +3,6 @@
 #include <common/texture.h>
 #include <iostream>
 
-using namespace glm;
-
 extern float snowInflate;
 
 TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderProgram_)
@@ -48,9 +46,28 @@ TerrainRenderer::TerrainRenderer(GLuint shaderProgram_) : shaderProgram(shaderPr
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    // Load Land Chunks from info file...
+    std::ifstream infoFile("assets/worldmap_gaea/chunks/chunks_info.txt");
+    std::string line;
+    while (std::getline(infoFile, line))
+    {
+        std::stringstream ss(line);
+        std::string filename;
+        vec3 cMin, cMax;
+        if (!(ss >> filename >> cMin.x >> cMin.y >> cMin.z >> cMax.x >> cMax.y >> cMax.z))
+            continue;
+
+        Chunk c;
+        c.mesh = new Drawable("assets/worldmap_gaea/chunks/" + filename);
+        c.min  = cMin;
+        c.max  = cMax;
+        
+        if      (filename.find("land_") == 0) landChunks.push_back(c);
+        else if (filename.find("lake_") == 0) lakeChunks.push_back(c);
+    }
+
     // Load Mesh
     land  = new Drawable("assets/worldmap_gaea/terrain_land.obj");
-    lake  = new Drawable("assets/worldmap_gaea/terrain_lake.obj");
     river = new Drawable("assets/worldmap_gaea/terrain_river.obj");
     
     // Load snow wall mesh!
@@ -77,9 +94,20 @@ TerrainRenderer::~TerrainRenderer()
     glDeleteTextures(1, &textureDisplacement);
     glDeleteTextures(1, &textureRiversDirection);
 
+    // Clean up Chunks
+    for (auto& chunk : landChunks) delete chunk.mesh;
+    landChunks.clear(); // Clear the vector of invalid pointers
+    for (auto& chunk : lakeChunks) delete chunk.mesh;
+    lakeChunks.clear();
+
     delete land;
-    delete lake;
     delete river;
+    
+    delete snowWall;
+
+    delete lakeWall;
+    delete worldWall;
+    delete lakeBoatWall;
 }
 
 void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix, float time, bool renderWall)
@@ -123,26 +151,44 @@ void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix,
     glUniformMatrix4fv(vpLocation, 1, GL_FALSE, &vp[0][0]);
     glUniformMatrix4fv(mLocation,  1, GL_FALSE, &modelMatrix[0][0]);
 
+
+
     // Draw
+    vec4 planes[6];
+    mat4 m = transpose(vp);
+    planes[0] = m[3] + m[0]; planes[1] = m[3] - m[0];
+    planes[2] = m[3] + m[1]; planes[3] = m[3] - m[1];
+    planes[4] = m[3] + m[2]; planes[5] = m[3] - m[2];
+
     glUniform1i(terrainType, 1); // ShadowMapping bs...
-    land->bind();
-    land->draw();
+    for (auto& chunk : landChunks)
+        if (isBoxInFrustum(chunk.min, chunk.max, planes))
+        {
+            chunk.mesh->bind();
+            chunk.mesh->draw();
+        }
     
+
+
     if (snowInflate > 0.001f && renderWall) // Snow wall is special...
     {
         glDisable(GL_CULL_FACE);
-        snowWall->bind();
-        snowWall->draw();
+        snowWall->bind(); snowWall->draw();
         glEnable(GL_CULL_FACE);
     }
 
     glUniform1i(terrainType, 2); // ShadowMapping bs...
-    lake->bind();
-    lake->draw();
+    for (auto& chunk : lakeChunks)
+    {
+        if (isBoxInFrustum(chunk.min, chunk.max, planes))
+        {
+            chunk.mesh->bind();
+            chunk.mesh->draw();
+        }
+    }
 
     glUniform1i(terrainType, 3); // ShadowMapping bs...
-    river->bind();
-    river->draw();
+    river->bind(); river->draw();
     
     glUniform1i(terrainType, 0); // ShadowMapping bs...
 }
@@ -163,4 +209,24 @@ bool TerrainRenderer::checkCollisionBoat(const vec3& position, float radius)
     if (lakeBoatWall->checkCollision(position, radius, getTerrainModelMatrix())) return true;
 
     return false;
+}
+
+bool TerrainRenderer::isBoxInFrustum(const vec3& min, const vec3& max, const vec4 planes[6])
+{
+    for (int i = 0; i < 6; i++)
+    {
+        int out = 0;
+        if (dot(planes[i], vec4(min.x, min.y, min.z, 1.0f)) < 0.0) out++;
+        if (dot(planes[i], vec4(max.x, min.y, min.z, 1.0f)) < 0.0) out++;
+        if (dot(planes[i], vec4(min.x, max.y, min.z, 1.0f)) < 0.0) out++;
+        if (dot(planes[i], vec4(max.x, max.y, min.z, 1.0f)) < 0.0) out++;
+        if (dot(planes[i], vec4(min.x, min.y, max.z, 1.0f)) < 0.0) out++;
+        if (dot(planes[i], vec4(max.x, min.y, max.z, 1.0f)) < 0.0) out++;
+        if (dot(planes[i], vec4(min.x, max.y, max.z, 1.0f)) < 0.0) out++;
+        if (dot(planes[i], vec4(max.x, max.y, max.z, 1.0f)) < 0.0) out++;
+
+        if (out == 8) return false; // Entirely outside this plane
+    }
+
+    return true;
 }
