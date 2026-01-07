@@ -2,7 +2,8 @@
 
 using namespace glm;
 
-class Light {
+class Light
+{
 public:
 
     GLFWwindow* window;
@@ -39,4 +40,5 @@ public:
 
     // Fit the orthographic projection to the camera's view frustum!
     void fitToCameraFrustum(const mat4& cameraView, const mat4& cameraProj); // Calculate the projection matrix!
+    vec4 frustumPlanes[6]; // For performance optimization...
 };

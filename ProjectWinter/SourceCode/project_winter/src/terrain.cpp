@@ -108,7 +108,7 @@ TerrainRenderer::~TerrainRenderer()
     delete lakeBoatWall;
 }
 
-void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix, float time, bool renderWall)
+void TerrainRenderer::draw(const mat4& VPMatrix, const vec4 planes[6], float time, bool renderWall)
 {
     glUseProgram(shaderProgram); // Just to be sure...
 
@@ -142,21 +142,15 @@ void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix,
 
     // Set Uniforms
     glUniform1f(timeLocation, time);
+    
+    mat4 modelMatrix = getTerrainModelMatrix();
 
-	mat4 modelMatrix = getTerrainModelMatrix();
-    mat4 vp          = projectionMatrix * viewMatrix;
-
-    glUniformMatrix4fv(vpLocation, 1, GL_FALSE, &vp[0][0]);
+    glUniformMatrix4fv(vpLocation, 1, GL_FALSE, &VPMatrix[0][0]);
     glUniformMatrix4fv(mLocation,  1, GL_FALSE, &modelMatrix[0][0]);
 
 
 
-    // Draw
-    vec4 planes[6];
-    mat4 m    = transpose(vp);
-    planes[0] = m[3] + m[0]; planes[1] = m[3] - m[0];
-    planes[2] = m[3] + m[1]; planes[3] = m[3] - m[1];
-    planes[4] = m[3] + m[2]; planes[5] = m[3] - m[2];
+    // ===< Draw >=== //
 
     glUniform1i(terrainType, 1); // ShadowMapping bs...
     for (auto& chunk : landChunks)
@@ -165,8 +159,6 @@ void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix,
             chunk.mesh->bind();
             chunk.mesh->draw();
         }
-    
-
 
     if (snowInflate > 0.001f && renderWall) // Snow wall is special...
     {
@@ -189,14 +181,8 @@ void TerrainRenderer::draw(const mat4& viewMatrix, const mat4& projectionMatrix,
     glUniform1i(terrainType, 0); // ShadowMapping bs...
 }
 
-void TerrainRenderer::drawOnlyObjects(GLuint shadowModelLocation, const mat4& lightVP)
+void TerrainRenderer::drawOnlyObjects(GLuint shadowModelLocation, const vec4 planes[6])
 {
-    vec4 planes[6];
-    mat4 m    = transpose(lightVP);
-    planes[0] = m[3] + m[0]; planes[1] = m[3] - m[0];
-    planes[2] = m[3] + m[1]; planes[3] = m[3] - m[1];
-    planes[4] = m[3] + m[2]; planes[5] = m[3] - m[2];
-
     // Set the terrain model matrix
     mat4 modelMatrix = getTerrainModelMatrix();
     glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);

@@ -29,11 +29,11 @@ public:
     ~TerrainRenderer();
 
     // The main function to render the terrain
-    void draw(const mat4& viewMatrix, const mat4& projectionMatrix, float time, bool renderWall = true);
+    void draw(const mat4& VPMatrix, const vec4 planes[6], float time, bool renderWall = true);
     bool checkCollision(const vec3& position, float radius, bool isLakeFrozen);
     bool checkCollisionBoat(const vec3& position, float radius);
 
-    void drawOnlyObjects(GLuint shadowModelLocation, const mat4& lightVP);
+    void drawOnlyObjects(GLuint shadowModelLocation, const vec4 planes[6]);
     mat4 getTerrainModelMatrix() { return scale(mat4(), vec3(200.0f)); }
 
 private:

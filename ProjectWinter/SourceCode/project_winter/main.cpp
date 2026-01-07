@@ -691,7 +691,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	// ---- rendering the scene ---- //
 
 	// Terrain
-	terrainSystem->drawOnlyObjects(shadowModelLocation, view_projection);
+	terrainSystem->drawOnlyObjects(shadowModelLocation, light1->frustumPlanes);
 
 	// Cabin
 	cabinModel->drawOnlyObjects(shadowModelLocation);
@@ -813,7 +813,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// ----------------------------------------------------------------- //
 
 	// Draw terrain!
-	terrainSystem->draw(cameraViewMatrix, cameraProjectionMatrix, terrainTime);
+	terrainSystem->draw(cameraProjectionMatrix * cameraViewMatrix, light1->frustumPlanes, terrainTime);
 
 	// Remove the texture from terrain and use material instead!
 	// ** Use bool variable to tell the shader not to use a texture
@@ -946,7 +946,7 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// ===< Render scene objects (reflected) >=== //
 
 	// Draw terrain
-	terrainSystem->draw(mirroredView, projectionMatrix, terrainTime, false);
+	terrainSystem->draw(projectionMatrix * mirroredView, light1->frustumPlanes, terrainTime, false);
 
 	// Draw cabin
 	cabinModel->draw();
