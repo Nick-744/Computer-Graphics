@@ -27,6 +27,7 @@
 #include "src/forest.h"
 #include "src/meadow.h"
 #include "src/cabin.h"
+#include "src/cabinInterior.h"
 #include "src/boat.h"
 #include "src/marina.h"
 #include "src/snowSource.h"
@@ -263,6 +264,7 @@ TerrainRenderer* terrainSystem;
 
 // Cabin model
 Cabin* cabinModel;
+CabinInterior* cabinIntSystem;
 
 // Boat model
 Boat* boatModel;
@@ -307,10 +309,12 @@ const Material gold
 };
 
 // For testing new models positioning!
-vec3 tempPosition       = vec3(0.0f, 59.0f, 0.0f);
-float tempRotationAngle = 0.0f;
+vec3 tempPosition       = vec3(5.52, 60.89, -2.16);
+float tempRotationAngle = 1.42f;
+float tempRotAngleZ     = -0.26f;
 mat4 tempModelMatrix    = translate(mat4(), tempPosition)
-                        * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0));
+                        * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0))
+	                    * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0));
 
 
 
@@ -477,7 +481,8 @@ void createContext()
 	terrainSystem = new TerrainRenderer(shaderProgram.programID);
 
 	// Cabin
-	cabinModel = new Cabin(shaderProgram.programID);
+	cabinModel     = new Cabin(shaderProgram.programID);
+	cabinIntSystem = new CabinInterior(shaderProgram.programID);
 
 	// Boat
 	boatModel = new Boat(shaderProgram.programID, window);
@@ -768,6 +773,11 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw the cabin
 	cabinModel->draw();
+	cabinIntSystem->draw();
+
+	glUniform1i(shaderProgram.ChampionOfLight, 1); // It is a screen...
+	cabinIntSystem->updateArcadeTexture();
+	glUniform1i(shaderProgram.ChampionOfLight, 0);
 
 	// Draw the marina
 	marinaModel->draw();
@@ -1281,12 +1291,19 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		else if (key == GLFW_KEY_KP_7) { tempRotationAngle += 0.1f; moved = true; }
 		else if (key == GLFW_KEY_KP_9) { tempRotationAngle -= 0.1f; moved = true; }
 
+		else if (key == GLFW_KEY_KP_1) { tempRotAngleZ += 0.1f; moved = true; }
+		else if (key == GLFW_KEY_KP_3) { tempRotAngleZ -= 0.1f; moved = true; }
+
 		if (moved)
 		{
+			tempModelMatrix = translate(mat4(), tempPosition)
+				            * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0))
+				            * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0));
 
 			printf("Position: (%.2f, %.2f, %.2f)\n",
 				tempPosition.x, tempPosition.y, tempPosition.z);
 			printf("Rotation angle: %.2f radians\n", tempRotationAngle);
+			printf("Rotation Z angle: %.2f radians\n", tempRotAngleZ);
 		}
 	}*/
 }

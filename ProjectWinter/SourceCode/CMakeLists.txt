@@ -119,12 +119,15 @@ add_executable(project_winter
   project_winter/src/forest.h
   project_winter/src/meadow.cpp
   project_winter/src/meadow.h
-  project_winter/src/cabin.cpp
-  project_winter/src/cabin.h
   project_winter/src/boat.cpp
   project_winter/src/boat.h
   project_winter/src/marina.cpp
   project_winter/src/marina.h
+
+  project_winter/src/cabin.cpp
+  project_winter/src/cabin.h
+  project_winter/src/cabinInterior.cpp
+  project_winter/src/cabinInterior.h
 
   project_winter/src/snowSource.cpp
   project_winter/src/snowSource.h
