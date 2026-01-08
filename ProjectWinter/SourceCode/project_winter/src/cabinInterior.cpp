@@ -31,7 +31,11 @@ CabinInterior::CabinInterior(GLuint shaderProgram)
 CabinInterior::~CabinInterior()
 {
     delete arcadeMesh;
+    delete arcadeScreen;
+
     glDeleteTextures(1, &arcadeMeshTexture);
+    glDeleteTextures(1, &arcadeScreenTexture);
+    glDeleteTextures(1, &arcadeErrorText);
 }
 
 void CabinInterior::updateMatrices()
@@ -100,7 +104,7 @@ bool CabinInterior::captureJavaWindow()
     SelectObject(hdcMem, hbitmap);
 
     // BitBlt: Copy the window pixels
-    BitBlt(hdcMem, 0, 0, 1280, 720, hdcWindow, 0, 0, SRCCOPY);
+    BitBlt(hdcMem, 0, 0, 1264, 718, hdcWindow, 0, 0, SRCCOPY);
 
     // Get the raw bits
     BITMAPINFOHEADER bi   = { sizeof(BITMAPINFOHEADER), 1280, -720, 1, 24, BI_RGB };
@@ -122,9 +126,9 @@ bool CabinInterior::captureJavaWindow()
 
 void CabinInterior::updateArcadeTexture()
 {
-    // Inside lighting_pass()
     bool windowIsRunning = captureJavaWindow(); // Update the texture every frame
 
+    // Draw the arcade screen!
     glUniform1i(useTextureLocation, 1);
 
     glActiveTexture(GL_TEXTURE0);
