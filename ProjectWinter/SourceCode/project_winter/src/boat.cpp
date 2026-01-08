@@ -2,6 +2,8 @@
 #include <common/texture.h>
 #include <glm/gtc/matrix_transform.hpp>
 
+extern SoundManager soundSystem;
+
 // Constructor now correctly assigns the window pointer to prevent crashes
 Boat::Boat(GLuint shaderProgram, GLFWwindow* window) : window(window)
 {
@@ -194,6 +196,26 @@ mat4 Boat::getPaddleTransform(float timer, bool isLeft)
 
     float swing =  sin(timer) * 0.5f; // Horizontal rowing swing
     float dip   = -cos(timer) * 0.4f; // Vertical dip into water
+
+    {   // Play splash sound on paddle dip!
+        static float lastDipLeft     = 0.0f;
+        static float lastDipRight    = 0.0f;
+        static bool soundPlayedLeft  = false;
+        static bool soundPlayedRight = false;
+
+        float& lastDip    = isLeft ? lastDipLeft     : lastDipRight;
+        bool& soundPlayed = isLeft ? soundPlayedLeft : soundPlayedRight;
+
+        if (lastDip > dip && dip <= -0.35f && !soundPlayed)
+        {
+            soundSystem.play("assets/sounds/boat_paddles.ogg");
+            soundPlayed = true;
+        }
+        // Reset flag when paddle comes back up
+        if (dip > -0.2f) soundPlayed = false;
+
+        lastDip = dip;
+    }
 
     return modelMatrix
          * translate(mat4(), vec3(isLeft ? 0.1f : -0.1f, 0.0f, 0.0f))

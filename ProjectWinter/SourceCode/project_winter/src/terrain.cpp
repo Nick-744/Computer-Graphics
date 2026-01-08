@@ -213,6 +213,15 @@ bool TerrainRenderer::checkCollisionBoat(const vec3& position, float radius)
     return false;
 }
 
+bool TerrainRenderer::isOnLake(const vec3& position, float radius)
+{
+    for (auto& chunk : lakeChunks)
+        if (chunk.mesh->checkCollision(position, radius, getTerrainModelMatrix()))
+            return true;
+    
+    return false;
+}
+
 bool TerrainRenderer::isBoxInFrustum(const vec3& min, const vec3& max, const vec4 planes[6])
 {
     for (int i = 0; i < 6; i++)

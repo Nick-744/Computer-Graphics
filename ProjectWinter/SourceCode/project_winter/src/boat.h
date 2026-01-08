@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glfw3.h>
 #include <common/model.h>
+#include "soundManager.h"
 
 using namespace glm;
 

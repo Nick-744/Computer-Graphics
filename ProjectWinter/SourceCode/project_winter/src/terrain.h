@@ -32,6 +32,7 @@ public:
     void draw(const mat4& VPMatrix, const vec4 planes[6], float time, bool renderWall = true);
     bool checkCollision(const vec3& position, float radius, bool isLakeFrozen);
     bool checkCollisionBoat(const vec3& position, float radius);
+    bool isOnLake(const vec3& position, float radius); // For footsteps on ice sound!
 
     void drawOnlyObjects(GLuint shadowModelLocation, const vec4 planes[6]);
     mat4 getTerrainModelMatrix() { return scale(mat4(), vec3(200.0f)); }

@@ -108,6 +108,7 @@ add_executable(project_winter
   project_winter/main.cpp
 
   project_winter/src/audio_implementation.cpp
+  project_winter/src/soundManager.h
 
   project_winter/src/terrain.cpp
   project_winter/src/terrain.h

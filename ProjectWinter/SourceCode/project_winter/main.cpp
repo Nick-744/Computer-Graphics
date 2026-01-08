@@ -34,7 +34,7 @@
 #include "src/lakeReflection.h"
 #include "src/timer.h"
 #include "src/menuGUI.h" // ImGui backbone
-#include "miniaudio.h"   // Audio
+#include "src/soundManager.h"
 
 using namespace std;
 using namespace glm;
@@ -192,64 +192,6 @@ struct SkyShader
 	}
 };
 
-// ===< Audio System >=== //
-extern ma_decoding_backend_vtable g_ma_decoding_backend_vtable_stb_vorbis;
-struct SoundManager
-{
-	ma_engine engine;
-	ma_resource_manager resourceManager; // Keep the manager alive!
-	bool initialized = false;
-
-	void init()
-	{
-		// Define the backend list
-		ma_decoding_backend_vtable* pBackends[] = { &g_ma_decoding_backend_vtable_stb_vorbis };
-
-		// Initialize the Resource Manager first with OGG support...
-		ma_resource_manager_config rmConfig     = ma_resource_manager_config_init();
-		rmConfig.ppCustomDecodingBackendVTables = pBackends;
-		rmConfig.customDecodingBackendCount     = 1;
-
-		if (ma_resource_manager_init(&rmConfig, &resourceManager) != MA_SUCCESS)
-		{
-			cout << "Failed to init Resource Manager!" << endl;
-			return;
-		}
-
-		// Initialize the Engine using the Resource Manager
-		ma_engine_config engineConfig = ma_engine_config_init();
-		engineConfig.pResourceManager = &resourceManager;
-
-		if (ma_engine_init(&engineConfig, &engine) == MA_SUCCESS)
-		{
-			initialized = true;
-			cout << "Audio Engine Initialized with OGG Support!" << endl;
-		}
-		else
-		{
-			cout << "Engine Init Failed!" << endl;
-			ma_resource_manager_uninit(&resourceManager);
-		}
-	}
-
-	void play(const char* filepath, bool loop = false)
-	{
-		if (!initialized) return;
-		ma_engine_play_sound(&engine, filepath, NULL);
-	}
-
-	void cleanup()
-	{
-		if (initialized)
-		{
-			ma_engine_uninit(&engine);
-			ma_resource_manager_uninit(&resourceManager); // Cleanup both
-		}
-	}
-};
-
-SoundManager soundSystem;
-
 
 
 // Global Variables
@@ -262,6 +204,8 @@ Camera* camera;
 mat4 cameraProjectionMatrix;
 mat4 cameraViewMatrix;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
+
+SoundManager soundSystem;
 
 // ---< Player interactions >--- //
 bool isBoatClose;
@@ -1124,8 +1068,8 @@ void mainLoop()
 					if (cabinModel->isOnWoodenFloor(currentCameraPosition, PLAYER_RADIUS * 2.0f)
 					 || marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS * 2.0f))
 						soundSystem.play("assets/sounds/wood_walk.ogg");
-					/*else if (terrainSystem->isOnFrozenLake(currentCameraPosition, PLAYER_RADIUS * 2.1f))
-						soundSystem.play("assets/sounds/ice_walk.ogg");*/ // Didn't work...
+					else if (terrainSystem->isOnLake(currentCameraPosition, PLAYER_RADIUS * 2.0f))
+						soundSystem.play("assets/sounds/ice_walk.ogg");
 					else if (snowAmount > 0.6f)
 						soundSystem.play("assets/sounds/snow_walk.ogg");
 					else
