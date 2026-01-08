@@ -175,6 +175,7 @@ struct MainShader // Shadow Mapping Shader...
 	void useProgram() { glUseProgram(programID); }
 };
 
+// ===< Skydome Shader >=== //
 struct SkyShader
 {
 	GLuint programID;
@@ -191,6 +192,7 @@ struct SkyShader
 	}
 };
 
+// ===< Audio System >=== //
 extern ma_decoding_backend_vtable g_ma_decoding_backend_vtable_stb_vorbis;
 struct SoundManager
 {
@@ -1119,7 +1121,15 @@ void mainLoop()
 					camera->position = oldCameraPosition;
 				else if (footstepTimer > 0.7f)
 				{
-					soundSystem.play("assets/sounds/dirt_walk.ogg");
+					if (cabinModel->isOnWoodenFloor(currentCameraPosition, PLAYER_RADIUS * 2.0f)
+					 || marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS * 2.0f))
+						soundSystem.play("assets/sounds/wood_walk.ogg");
+					/*else if (terrainSystem->isOnFrozenLake(currentCameraPosition, PLAYER_RADIUS * 2.1f))
+						soundSystem.play("assets/sounds/ice_walk.ogg");*/ // Didn't work...
+					else if (snowAmount > 0.6f)
+						soundSystem.play("assets/sounds/snow_walk.ogg");
+					else
+						soundSystem.play("assets/sounds/dirt_walk.ogg");
 					footstepTimer = 0.0f;
 				}
 			}
@@ -1233,7 +1243,11 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 {
 	// ---< Menu toggle >--- //
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	{
 		myMenu.setMenuState(!myMenu.isMenuOpen, window);
+		if (myMenu.isMenuOpen) soundSystem.play("assets/sounds/pause.ogg");
+		else                   soundSystem.play("assets/sounds/unpause.ogg");
+	}
 	// Do not process any game keys below this line...
 	ImGuiIO& io = ImGui::GetIO();
 	if (myMenu.isMenuOpen || io.WantCaptureKeyboard) return;
@@ -1256,8 +1270,10 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	{
 		if (isDoorClose)
 		{
-			cabinModel->toggleDoor();
-			soundSystem.play("assets/sounds/door_open.ogg");
+			if (cabinModel->toggleDoor())
+				soundSystem.play("assets/sounds/door_open.ogg");
+			else
+				soundSystem.play("assets/sounds/door_close.ogg");
 		}
 
 		if (isBoatClose)

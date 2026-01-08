@@ -172,26 +172,31 @@ mat4 Cabin::getDoorMatrix()
 
 void Cabin::update(float deltaTime)
 {
-    float doorSpeed = 120.0f; // Speed: Degrees per second
+    // Speed: Degrees per second
+    float doorSpeedOpen  = 45.0f;
+    float doorSpeedClose = 80.0f;
 
     // Smoothly interpolate current angle towards target angle!
     if (doorOpenAngle < targetDoorAngle)
     {
-        doorOpenAngle += doorSpeed * deltaTime;
+        doorOpenAngle += doorSpeedOpen * deltaTime;
         if (doorOpenAngle > targetDoorAngle) doorOpenAngle = targetDoorAngle;
     }
     else if (doorOpenAngle > targetDoorAngle)
     {
-        doorOpenAngle -= doorSpeed * deltaTime;
+        doorOpenAngle -= doorSpeedClose * deltaTime;
         if (doorOpenAngle < targetDoorAngle) doorOpenAngle = targetDoorAngle;
     }
 }
 
-void Cabin::toggleDoor()
+bool Cabin::toggleDoor()
 {
     // If target is 0, switch to 90. If 90, switch to 0.
     if (targetDoorAngle < 45.0f) targetDoorAngle = 90.0f;
     else targetDoorAngle = 0.0f;
+    
+    // Return true if door is now opening, false if closing...
+    return (targetDoorAngle > doorOpenAngle);
 }
 
 bool Cabin::checkCollision(const vec3& position, float radius)
@@ -202,4 +207,9 @@ bool Cabin::checkCollision(const vec3& position, float radius)
     if (doorMesh->checkCollision(position, radius, getDoorMatrix()))            return true;
 
     return false;
+}
+
+bool Cabin::isOnWoodenFloor(const vec3& position, float radius)
+{
+    return floorMesh->checkCollision(position, radius, modelMatrix);
 }
