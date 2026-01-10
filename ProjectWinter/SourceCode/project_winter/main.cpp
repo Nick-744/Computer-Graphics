@@ -309,12 +309,13 @@ const Material gold
 };
 
 // For testing new models positioning!
-vec3 tempPosition       = vec3(5.52, 60.89, -2.16);
-float tempRotationAngle = 1.42f;
-float tempRotAngleZ     = -0.26f;
+vec3 tempPosition       = vec3(0.0, 60.9, 0.0);
+float tempRotationAngle = 0.0f;
+float tempRotAngleZ     = 0.0f;
 mat4 tempModelMatrix    = translate(mat4(), tempPosition)
                         * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0))
-	                    * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0));
+                        * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0))
+                        * scale(mat4(), vec3(2.5f));
 
 
 
@@ -1068,6 +1069,7 @@ void mainLoop()
 				footstepTimer += simulatedDeltaTime;
 
 				if (cabinModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+				 || cabinIntSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
 				 || forestSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
 				 || forestSystem2->checkCollision(currentCameraPosition, PLAYER_RADIUS)
 				 || marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
@@ -1280,7 +1282,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)
 	{
-		const float step = 0.5f; // movement step size
+		const float step = 0.1f; // movement step size
 
 		bool moved = false;
 
@@ -1292,17 +1294,18 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		else if (key == GLFW_KEY_KP_ADD)      { tempPosition.y += step; moved = true; } // up
 		else if (key == GLFW_KEY_KP_SUBTRACT) {tempPosition.y -= step; moved = true; } // down
 
-		else if (key == GLFW_KEY_KP_7) { tempRotationAngle += 0.1f; moved = true; }
-		else if (key == GLFW_KEY_KP_9) { tempRotationAngle -= 0.1f; moved = true; }
+		else if (key == GLFW_KEY_KP_7) { tempRotationAngle += 0.01f; moved = true; }
+		else if (key == GLFW_KEY_KP_9) { tempRotationAngle -= 0.01f; moved = true; }
 
-		else if (key == GLFW_KEY_KP_1) { tempRotAngleZ += 0.1f; moved = true; }
-		else if (key == GLFW_KEY_KP_3) { tempRotAngleZ -= 0.1f; moved = true; }
+		else if (key == GLFW_KEY_KP_1) { tempRotAngleZ += 0.01f; moved = true; }
+		else if (key == GLFW_KEY_KP_3) { tempRotAngleZ -= 0.01f; moved = true; }
 
 		if (moved)
 		{
 			tempModelMatrix = translate(mat4(), tempPosition)
-				            * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0))
-				            * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0));
+			                * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0))
+			                * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0))
+			                * scale(mat4(), vec3(1.5f));
 
 			printf("Position: (%.2f, %.2f, %.2f)\n",
 				tempPosition.x, tempPosition.y, tempPosition.z);

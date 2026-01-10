@@ -9,24 +9,27 @@
 
 CabinInterior::CabinInterior(GLuint shaderProgram, GLFWwindow* window) : window(window)
 {
-    // Cabin - Parent
-    globalPosition    = vec3(7.0f, 59.2f, -0.5f); // rotationAngle = 3.0
-    globalModelMatrix = translate(mat4(), globalPosition);
+    //IMPORTANT: ABSOLUTE WORLD POSITIONING!!!
     
-    // Arcade - Child
-    arcadePosition      = vec3(-2.1f, 0.13f, -1.8f);
-    arcadeRotationAngle = radians(-8.7f);
-    mat4 arcadeLocalMatrix   = translate(mat4(), arcadePosition)
-                             * rotate(mat4(), arcadeRotationAngle, vec3(0, 1, 0))
-                             * scale(mat4(), vec3(0.012f));
-    worldArcadeMatrix        = globalModelMatrix * arcadeLocalMatrix;
-    // Screen - IMPORTANT: ABSOLUTE WORLD POSITIONING!!!
-    screenPosition = vec3(5.52f, 60.88f, -2.16f); // World position
+    // Arcade
+    arcadePosition       = vec3(4.9f, 59.33f, -2.3f);
+    float arcadeRotAngle = radians(-8.7f);
+    worldArcadeMatrix    = translate(mat4(), arcadePosition)
+                         * rotate(mat4(), arcadeRotAngle, vec3(0, 1, 0))
+                         * scale(mat4(), vec3(0.012f));
+    // Screen
+    screenPosition = vec3(5.52f, 60.88f, -2.16f);
     screenRotY     =  1.42f;
     screenRotX     = -0.26f;
     arcadeScreenModelMatrix = translate(mat4(), screenPosition)
                             * rotate(mat4(), screenRotY, vec3(0, 1, 0))
                             * rotate(mat4(), screenRotX, vec3(1, 0, 0));
+    // Bed
+    vec3 bedPosition  = vec3(7.7, 59.31, 1.4);
+    float bedRotAngle = 4.58f;
+    worldBedMatrix    = translate(mat4(), bedPosition)
+                      * rotate(mat4(), bedRotAngle, vec3(0, 1, 0))
+                      * scale(mat4(), vec3(1.6f));
 
     // Link shader uniforms
     modelMatrixLocation = glGetUniformLocation(shaderProgram, "M");
@@ -37,6 +40,9 @@ CabinInterior::CabinInterior(GLuint shaderProgram, GLFWwindow* window) : window(
     arcadeMesh        = new Drawable("assets/cabin_interior/arcade.obj");
     arcadeMeshTexture = loadBMP("assets/cabin_interior/arcade.bmp");
     arcadeStaticText  = loadBMP("assets/cabin_interior/arcade_static.bmp");
+
+    bedMesh        = new Drawable("assets/cabin_interior/bed.obj");
+    bedMeshTexture = loadBMP("assets/cabin_interior/bed.bmp");
     
     initArcade();
 }
@@ -46,28 +52,41 @@ CabinInterior::~CabinInterior()
     delete arcadeMesh;
     delete arcadeScreen;
     delete[] specialScreenBuffer;
+    delete bedMesh;
 
     glDeleteTextures(1, &arcadeMeshTexture);
     glDeleteTextures(1, &arcadeScreenTexture);
     glDeleteTextures(1, &arcadeStaticText);
+    glDeleteTextures(1, &bedMeshTexture);
 }
 
 void CabinInterior::draw()
 {
-    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &worldArcadeMatrix[0][0]);
     glUniform1i(useTextureLocation, 1);
 
-	// Bind and Draw Arcade
+    // Bind and Draw Arcade
+    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &worldArcadeMatrix[0][0]);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, arcadeMeshTexture);
     glUniform1i(diffuseColorSampler, 0);
 
     arcadeMesh->bind(); arcadeMesh->draw();
+
+    // Bind and Draw Bed
+    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &worldBedMatrix[0][0]);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, bedMeshTexture);
+    glUniform1i(diffuseColorSampler, 0);
+
+    bedMesh->bind(); bedMesh->draw();
 }
 
 bool CabinInterior::checkCollision(const vec3& position, float radius)
 {
-    return arcadeMesh->checkCollision(position, radius, worldArcadeMatrix);
+    return arcadeMesh->checkCollision(position, radius, worldArcadeMatrix)
+        || bedMesh->checkCollision(position, radius, worldBedMatrix);
 }
 
 

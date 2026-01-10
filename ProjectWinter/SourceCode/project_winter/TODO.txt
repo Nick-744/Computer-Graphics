@@ -3,7 +3,6 @@ What’s left:
 - 7D: Snowman
 
 To consider:
-- Re-write cabinInterior better...
 - Story?
 
 DONE:

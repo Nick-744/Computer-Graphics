@@ -24,7 +24,7 @@ public:
     void toggleInteraction();
     bool isInteracting()     const { return interacting; }
     mat4 getArcadeScreenViewMatrix();
-    vec3 getArcadePosition() const { return globalPosition + arcadePosition; }
+    vec3 getArcadePosition() const { return arcadePosition; }
 
     bool checkCollision(const vec3& position, float radius);
 
@@ -37,6 +37,9 @@ private:
     Drawable* arcadeMesh;
     GLuint arcadeMeshTexture;
     GLuint arcadeStaticText;
+
+    Drawable* bedMesh;
+    GLuint bedMeshTexture;
     
 
 
@@ -51,19 +54,16 @@ private:
 
 
     // --- Matrices --- //
-    mat4 globalModelMatrix; // Parent
-    vec3 globalPosition;
-    
-    // Children transformation data
     // Arcade
     mat4 worldArcadeMatrix;
     vec3 arcadePosition;
-    float arcadeRotationAngle;
     // Screen
     mat4 arcadeScreenModelMatrix;
     vec3 screenPosition;
     float screenRotY;
     float screenRotX;
+    // Bed
+    mat4 worldBedMatrix;
 
     // --- Uniform Locations --- //
     GLuint modelMatrixLocation;
