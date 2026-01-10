@@ -3,7 +3,7 @@ What’s left:
 - 7D: Snowman
 
 To consider:
-- Throw rocks?
+- Re-write cabinInterior better...
 - Story?
 
 DONE:
@@ -19,6 +19,7 @@ DONE:
 - Fullscreen option in menu!
 - Skydome!!!
 - Frustum Culling - Terrain (Combine with the shadow calculation one - DONE)
+- Arcade working!!!
 
 Didn't work:
 - Change player collision from sphere to capsule... Just improved the sphere one!

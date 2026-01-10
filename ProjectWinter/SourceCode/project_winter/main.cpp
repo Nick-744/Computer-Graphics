@@ -482,7 +482,7 @@ void createContext()
 
 	// Cabin
 	cabinModel     = new Cabin(shaderProgram.programID);
-	cabinIntSystem = new CabinInterior(shaderProgram.programID);
+	cabinIntSystem = new CabinInterior(shaderProgram.programID, window);
 
 	// Boat
 	boatModel = new Boat(shaderProgram.programID, window);
@@ -1053,6 +1053,7 @@ void mainLoop()
 
 			cameraViewMatrix = boatModel->getViewMatrix();
 		}
+		else if (cabinIntSystem->isInteracting()) cameraViewMatrix = cabinIntSystem->getArcadeScreenViewMatrix();
 		else
 		{
 			vec3 oldCameraPosition = camera->position;
@@ -1235,6 +1236,9 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 			if (boatModel->isOnBoat()) boatModel->setToPort1();
 			boatModel->invertOnBoat();
 		}
+
+		if (distance(camera->position, cabinIntSystem->getArcadePosition()) < 2.0f)
+			cabinIntSystem->toggleInteraction();
 	}
 
 	// ---< Snow control >--- //
@@ -1320,6 +1324,8 @@ void initialize()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	// Prevent the window from minimizing when it loses focus...
+	glfwWindowHint(GLFW_AUTO_ICONIFY, GL_FALSE);
 
 	// Open a window and create its OpenGL context
 	window = glfwCreateWindow(W_WIDTH, W_HEIGHT, TITLE, NULL, NULL);
