@@ -5,6 +5,7 @@
 // For Windows handling...
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+#include <shellapi.h>
 
 CabinInterior::CabinInterior(GLuint shaderProgram, GLFWwindow* window) : window(window)
 {
@@ -112,7 +113,10 @@ void CabinInterior::launchJavaGame()
 
     // Append the Java project folder
     std::string workingDir = path + "\\TheForbiddenSpaceship"; // CWD: GitHub root...
-    const char* parameters = "/c start /min java -cp bin mainPacket.MainClass";
+    const char* parameters =
+        "/c start \"\" /min javaw "
+        "-Dsun.java2d.uiScale=1.0 " // DPI bs...
+        "-cp bin mainPacket.MainClass";
 
     SHELLEXECUTEINFOA sei = { sizeof(sei) };
     sei.fMask  = SEE_MASK_NOCLOSEPROCESS;
@@ -129,6 +133,7 @@ void CabinInterior::launchJavaGame()
 bool CabinInterior::captureJavaWindow()
 {
     // Find the Java window
+    if (javaHwnd != NULL && !IsWindow(javaHwnd)) javaHwnd = NULL; // Reset if the game was closed!
     if (!javaHwnd) javaHwnd = FindWindowA(NULL, "The Forbidden Spaceship");
     if (!javaHwnd) return false; // Game not running!
 
@@ -139,7 +144,7 @@ bool CabinInterior::captureJavaWindow()
     SelectObject(hdcMem, hbitmap);
 
     // BitBlt: Copy the window pixels
-    BitBlt(hdcMem, 0, 0, 1280, 720, hdcWindow, 0, 0, SRCCOPY);
+    BitBlt(hdcMem, 0, 0, 1260, 710, hdcWindow, 0, 0, SRCCOPY);
 
     // Get the raw bits
     BITMAPINFOHEADER bi = { sizeof(BITMAPINFOHEADER), 1280, -720, 1, 24, BI_RGB };

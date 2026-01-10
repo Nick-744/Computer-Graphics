@@ -7,7 +7,6 @@
 #include <common/model.h>
 #include <iostream>
 #include <windows.h>
-#include <shellapi.h>
 
 using namespace std;
 using namespace glm;
