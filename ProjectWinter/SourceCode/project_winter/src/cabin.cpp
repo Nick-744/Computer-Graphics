@@ -209,6 +209,11 @@ bool Cabin::checkCollision(const vec3& position, float radius)
     return false;
 }
 
+bool Cabin::isLookingAtDoor(const vec3& position, float radius)
+{
+    return doorMesh->checkCollision(position, radius, getDoorMatrix());
+}
+
 bool Cabin::isOnWoodenFloor(const vec3& position, float radius)
 {
     return floorMesh->checkCollision(position, radius, modelMatrix);

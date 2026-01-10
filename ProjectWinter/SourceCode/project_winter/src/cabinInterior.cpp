@@ -89,6 +89,11 @@ bool CabinInterior::checkCollision(const vec3& position, float radius)
         || bedMesh->checkCollision(position, radius, worldBedMatrix);
 }
 
+bool CabinInterior::isLookingAtArcade(const vec3& position, float radius)
+{
+    return arcadeMesh->checkCollision(position, radius, worldArcadeMatrix);
+}
+
 
 
 // ===< Special screen - Render Java game >=== //

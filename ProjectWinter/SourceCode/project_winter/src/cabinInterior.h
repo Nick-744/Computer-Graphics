@@ -27,6 +27,7 @@ public:
     vec3 getArcadePosition() const { return arcadePosition; }
 
     bool checkCollision(const vec3& position, float radius);
+    bool isLookingAtArcade(const vec3& position, float radius);
 
 private:
     GLFWwindow* window;

@@ -58,6 +58,7 @@ int currentReflectionBufferSize =  512;
 #define FAR_PLANE_INITIAL 660.0f
 #define PLAYER_RADIUS 0.3f // Approximate the player as a sphere!
 #define BOAT_RADIUS 1.2f   // Approximate the boat as a bigger sphere!
+#define GROUND_DETECTION_RADIUS 0.6f
 
 
 
@@ -211,6 +212,7 @@ SoundManager soundSystem;
 // ---< Player interactions >--- //
 bool isBoatClose;
 bool isDoorClose;
+bool isArcadeClose;
 MenuGUI myMenu;
 
 float lastFrameTime = 0.0f;
@@ -515,7 +517,7 @@ void createContext()
 
 	// ===< Snow >=== // ===< Particles >=== //
 	snowfallSystem = new Snowfall(
-		3000, // max particles
+		4000, // max particles
 		2.0f, // min fall speed
 		5.0f  // max fall speed
 	);
@@ -1078,10 +1080,10 @@ void mainLoop()
 					camera->position = oldCameraPosition;
 				else if (footstepTimer > 0.7f)
 				{
-					if (cabinModel->isOnWoodenFloor(currentCameraPosition, PLAYER_RADIUS * 2.0f)
-					 || marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS * 2.0f))
+					if (cabinModel->isOnWoodenFloor(currentCameraPosition, GROUND_DETECTION_RADIUS)
+					 || marinaModel->checkCollision(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/wood_walk.ogg");
-					else if (terrainSystem->isOnLake(currentCameraPosition, PLAYER_RADIUS * 2.0f))
+					else if (terrainSystem->isOnLake(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/ice_walk.ogg");
 					else if (snowAmount > 0.6f)
 						soundSystem.play("assets/sounds/snow_walk.ogg");
@@ -1163,22 +1165,49 @@ void mainLoop()
 
 
 
-		// ---< Player interactions >--- //
-		isDoorClose = distance(camera->position, cabinModel->getHingeWorldPosition()) < 1.8f;
-		isBoatClose = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
-			       && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
-			       && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
+		{	// ---< Player interactions >--- //
 
+			vec3 camDir   = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
+			isDoorClose   = false;
+			isArcadeClose = false;
+
+			// Ray-march: For more accurate interaction detection!
+			for (float dist = 0.6f; dist <= 1.8f; dist += 0.1f)
+			{
+				vec3 testPoint = camera->position + camDir * dist;
+				if (cabinModel->isLookingAtDoor(testPoint, 0.05f))
+				{
+					isDoorClose = true;
+					break;
+				}
+			}
+			for (float dist = 0.4f; dist <= 0.85f; dist += 0.1f)
+			{
+				vec3 testPoint = camera->position + camDir * dist;
+				if (cabinIntSystem->isLookingAtArcade(testPoint, 0.05f))
+				{
+					isArcadeClose = true;
+					break;
+				}
+			}
+			isBoatClose = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
+					   && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
+					   && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
+
+			// Render the prompt quad
+			if (isDoorClose || isBoatClose || (isArcadeClose && !cabinIntSystem->isInteracting())) renderPrompt();
+
+		}
+
+
+
+		// ---< Update animated models >--- //
 		// Door animation update!
 		cabinModel->update(simulatedDeltaTime);
-		// Render the prompt quad (when the camera is near the cabin door)
-		if (isDoorClose) renderPrompt();
 
 		// Boat animation update! Take into account the frozen lake...
 		if      (!isLakeFrozen && !forceClearFog) boatModel->update(simulatedDeltaTime);
 		else if (fogDensity < 0.1f)               boatModel->update(simulatedDeltaTime);
-		// Render the prompt quad (when the camera is near the boat)
-		if (isBoatClose) renderPrompt();
 
 
 
@@ -1239,8 +1268,13 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 			boatModel->invertOnBoat();
 		}
 
-		if (distance(camera->position, cabinIntSystem->getArcadePosition()) < 2.0f)
+		if (cabinIntSystem->isInteracting())
+		{
+			// FORCE EXIT ARCADE INTERACTION - BS BUG FIX...
 			cabinIntSystem->toggleInteraction();
+			return;
+		}
+		if (isArcadeClose) cabinIntSystem->toggleInteraction();
 	}
 
 	// ---< Snow control >--- //

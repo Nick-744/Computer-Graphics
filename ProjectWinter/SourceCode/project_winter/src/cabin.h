@@ -20,6 +20,7 @@ public:
     void update(float deltaTime);
     bool toggleDoor();
     bool checkCollision(const vec3& position, float radius);
+    bool isLookingAtDoor(const vec3& position, float radius);
     bool isOnWoodenFloor(const vec3& position, float radius);
 
     // For player interaction distance check!
