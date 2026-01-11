@@ -7,15 +7,17 @@
 using namespace glm;
 
 #define PLAYER_HEIGHT 1.8f
+#define WALKING_SPEED 3.5f
 
 extern float cameraFarPlane; // Optimization for shadow mapping...
 
-Camera::Camera(GLFWwindow* window) : window(window) {
+Camera::Camera(GLFWwindow* window) : window(window)
+{
     position        = vec3(0, 60.243, 0);
     horizontalAngle = 3.14f;
     verticalAngle   = 0.0f;
     FoV             = 45.0f;
-    speed           = 3.5f;
+    speed           = WALKING_SPEED;
     mouseSpeed      = 0.001f;
     fovSpeed        = 100.0f;
 
@@ -113,7 +115,7 @@ bool Camera::update(float deltaTime)
     if (currentToggleState == GLFW_PRESS && lastToggleState == GLFW_RELEASE)
     {
         flyingMode = !flyingMode;
-        speed      = flyingMode ? 20.0f : 4.0f;
+        speed      = flyingMode ? 20.0f : WALKING_SPEED;
     }
     lastToggleState = currentToggleState; // Didn't want to overcomplicate things with pollKeyboard...
 

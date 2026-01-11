@@ -12,13 +12,14 @@ DONE:
 - Also, take a look at fixing the Taubin smoothing (have to fix shader time first...)
 - Optimize clouds & snowfall
 - BOAT!!!
-- Collision system!!!
+- Collision system!!! Plain currentPos = previousPos is the most reliable solution...
 - Add invisible walls + boat collision
 - Sound effects - Prototype done!!! Have to find more sound effects...
 - Fullscreen option in menu!
 - Skydome!!!
 - Frustum Culling - Terrain (Combine with the shadow calculation one - DONE)
 - Arcade working!!!
+- rayMarch interactions
 
 Didn't work:
 - Change player collision from sphere to capsule... Just improved the sphere one!

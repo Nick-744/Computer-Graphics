@@ -14,7 +14,8 @@ struct TerrainTriangle
     glm::vec3 v3;
 };
 
-class Camera {
+class Camera
+{
 public:
     GLFWwindow* window;
     glm::mat4 viewMatrix;

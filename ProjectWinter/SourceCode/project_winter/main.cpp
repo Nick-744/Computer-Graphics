@@ -37,6 +37,8 @@
 #include "src/menuGUI.h" // ImGui backbone
 #include "src/soundManager.h"
 
+#include <functional> // For rayMarch test function!
+
 using namespace std;
 using namespace glm;
 
@@ -350,6 +352,21 @@ void renderSky(mat4 viewMatrix, mat4 projectionMatrix)
 	// Restore state
 	glCullFace(GL_BACK);
 	glDepthMask(GL_TRUE);
+}
+
+
+
+bool rayMarch(float start, float end, std::function<bool(vec3)> testFunc)
+{
+	vec3 camDir = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
+
+	for (float dist = start; dist <= end; dist += 0.1f)
+	{
+		vec3 testPoint = camera->position + camDir * dist;
+		if (testFunc(testPoint)) return true;
+	}
+
+	return false;
 }
 
 
@@ -1040,7 +1057,7 @@ void mainLoop()
 		simulatedFrameTime      += simulatedDeltaTime;
 
 		// Getting camera information
-		cameraProjectionMatrix = camera->projectionMatrix;
+		cameraProjectionMatrix     = camera->projectionMatrix;
 		static float footstepTimer = 0.0f;
 		if (boatModel->isOnBoat())
 		{
@@ -1069,19 +1086,19 @@ void mainLoop()
 			if (isMoving && !camera->flyingMode)
 			{
 				footstepTimer += simulatedDeltaTime;
-
+				
 				if (cabinModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-				 || cabinIntSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-				 || forestSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-				 || forestSystem2->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-				 || marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
-				 || boatModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-				 || terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen))
+					|| cabinIntSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| forestSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| forestSystem2->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
+					|| boatModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen))
 					camera->position = oldCameraPosition;
 				else if (footstepTimer > 0.7f)
 				{
 					if (cabinModel->isOnWoodenFloor(currentCameraPosition, GROUND_DETECTION_RADIUS)
-					 || marinaModel->checkCollision(currentCameraPosition, GROUND_DETECTION_RADIUS))
+						|| marinaModel->checkCollision(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/wood_walk.ogg");
 					else if (terrainSystem->isOnLake(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/ice_walk.ogg");
@@ -1089,6 +1106,7 @@ void mainLoop()
 						soundSystem.play("assets/sounds/snow_walk.ogg");
 					else
 						soundSystem.play("assets/sounds/dirt_walk.ogg");
+					
 					footstepTimer = 0.0f;
 				}
 			}
@@ -1167,29 +1185,9 @@ void mainLoop()
 
 		{	// ---< Player interactions >--- //
 
-			vec3 camDir   = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
-			isDoorClose   = false;
-			isArcadeClose = false;
-
-			// Ray-march: For more accurate interaction detection!
-			for (float dist = 0.6f; dist <= 1.8f; dist += 0.1f)
-			{
-				vec3 testPoint = camera->position + camDir * dist;
-				if (cabinModel->isLookingAtDoor(testPoint, 0.05f))
-				{
-					isDoorClose = true;
-					break;
-				}
-			}
-			for (float dist = 0.4f; dist <= 0.85f; dist += 0.1f)
-			{
-				vec3 testPoint = camera->position + camDir * dist;
-				if (cabinIntSystem->isLookingAtArcade(testPoint, 0.05f))
-				{
-					isArcadeClose = true;
-					break;
-				}
-			}
+			isDoorClose   = rayMarch(0.6f, 1.8f, [&](vec3 p) { return cabinModel->isLookingAtDoor(p, 0.05f); });
+			isArcadeClose = !cabinIntSystem->isInteracting()
+				&& rayMarch(0.4f, 0.8f, [&](vec3 p) { return cabinIntSystem->isLookingAtArcade(p, 0.05f); });
 			isBoatClose = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
 					   && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
 					   && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
