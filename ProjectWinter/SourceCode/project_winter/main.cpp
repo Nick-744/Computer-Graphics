@@ -117,6 +117,8 @@ struct MainShader // Shadow Mapping Shader...
 	GLuint reflectionTextureSamplerLocation;
 	GLuint useReflectionLocation;
 
+	GLuint forceCrackedLakeLocation; // For debugging
+
 	// --- Fog --- //
 	GLuint fogDensityLocation;
 	GLuint fogColorLocation;
@@ -170,6 +172,8 @@ struct MainShader // Shadow Mapping Shader...
 		// Lake reflection
 		reflectionTextureSamplerLocation = glGetUniformLocation(programID, "reflectionTextureSampler");
 		useReflectionLocation            = glGetUniformLocation(programID, "useReflection");
+
+		forceCrackedLakeLocation = glGetUniformLocation(programID, "forceCrackedLake");
 
 		// Fog
 		fogDensityLocation = glGetUniformLocation(programID, "fogDensity");
@@ -300,6 +304,8 @@ Snowfall* snowfallSystem;
 // Lake reflection system
 LakeReflection* lakeReflection;
 const float WATER_HEIGHT = 58.1f; // Trial and error...
+
+int forceCrackedLake = 0;
 
 
 
@@ -776,6 +782,8 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glBindTexture(GL_TEXTURE_2D, lakeReflection->getReflectionTexture());
 	glUniform1i(shaderProgram.reflectionTextureSamplerLocation, 27);
 	glUniform1i(shaderProgram.useReflectionLocation, 1); // Enable reflection...
+
+	glUniform1i(shaderProgram.forceCrackedLakeLocation, forceCrackedLake);
 
 
 
@@ -1310,6 +1318,9 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	// Wind power control
 	if (key == GLFW_KEY_X && action == GLFW_PRESS)
 		windPower = (windPower > 1) ? 1 : 6;
+
+	if (key == GLFW_KEY_2 && action == GLFW_PRESS)
+		forceCrackedLake = (forceCrackedLake == 0 && !forceClearFog) ? 1 : 0;
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)

@@ -101,6 +101,7 @@ float gaeaSlopeMask = 0.0;
 // ===< "Frozen Lake" by Alexander Alekseev aka TDM - 2019 >=== //
 
 flat in vec3 cameraPos_world;
+uniform int forceCrackedLake = 0;
 
 // Constants
 const float THRESHOLD          = 0.001;
@@ -795,7 +796,7 @@ vec3 computeLakeTexture(vec2 ndc, float depth)
     vec3 sandWater = mix(sand, displacedWater, 0.6); // Final color fragment for lake!
 
     // ===< ALEKSEEV "Frozen Lake" >=== //
-    if (fogDensity < 0.6 && snowAmount > 0.6 && meltGlobal < 0.999)
+    if ((fogDensity < 0.6 && snowAmount > 0.6 && meltGlobal < 0.999) || (forceCrackedLake > 0))
     {
         if (depth < 100.0) // Optimizing performance...
         {
@@ -809,10 +810,11 @@ vec3 computeLakeTexture(vec2 ndc, float depth)
             // Expansion radius: spreads as fogDensity decreases...
             float expansionFactor = clamp(((1.0 - fogDensity) - 0.5) * 2.0, 0.0, 1.0);
             float maxRadius       = 400.0; // Increased radius to cover the map extent
-            float currentRadius   = expansionFactor * maxRadius;
+            float currentRadius   = (forceCrackedLake > 0 ? 1.0 : expansionFactor) * maxRadius;
         
             // Blend factor: 1.0 = Cracked Ice, 0.0 = Moving Water
-            float crackBlend = 1.0 - smoothstep(currentRadius - 80.0, currentRadius, distToOrigin);
+            float crackBlend = 1.0 - smoothstep(currentRadius - 100.0, currentRadius, distToOrigin);
+            // 100-unit transition band so the crack front moves smoothly instead of popping...
         
             if (crackBlend > 0.001)
             {
