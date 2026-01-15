@@ -1,8 +1,8 @@
 What’s left:
-- 7C: Lake rising
-- 7D: Snowman
+- 7C: Lake rising - NOT NEEDED!
 
 To consider:
+- Add collision to the snowballs. Implement second snowball. Stack on top of the first and create snowman!
 - Story?
 
 DONE:
@@ -20,6 +20,8 @@ DONE:
 - Frustum Culling - Terrain (Combine with the shadow calculation one - DONE)
 - Arcade working!!!
 - rayMarch interactions
+
+- 7D: Snowman! You can create and roll the first snowball
 
 Didn't work:
 - Change player collision from sphere to capsule... Just improved the sphere one!

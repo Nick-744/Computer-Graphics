@@ -10,6 +10,7 @@ using namespace glm;
 #define WALKING_SPEED 3.5f
 
 extern float cameraFarPlane; // Optimization for shadow mapping...
+extern float getTerrainHeight(float x, float z);
 
 Camera::Camera(GLFWwindow* window) : window(window)
 {
@@ -20,9 +21,6 @@ Camera::Camera(GLFWwindow* window) : window(window)
     speed           = WALKING_SPEED;
     mouseSpeed      = 0.001f;
     fovSpeed        = 100.0f;
-
-    // For camera's height management...
-    loadTerrain("assets/terrain_triangles_geometry_final.txt");
 }
 
 bool Camera::update(float deltaTime)
@@ -197,72 +195,4 @@ bool Camera::update(float deltaTime)
     );
 
     return isMoving;
-}
-
-
-
-// ===< Terrain Height Management Functions >=== //
-void Camera::loadTerrain(const char* filePath)
-{
-    ifstream file(filePath);
-    if (!file.is_open())
-    {
-        cerr << "ERROR: Could not open terrain geometry file: " << filePath << endl;
-        return;
-    }
-
-    int count;
-    file >> count; // Read the number of triangles
-    terrainTriangles.reserve(count);
-
-    float x1, y1, z1, x2, y2, z2, x3, y3, z3;
-
-    // Loop through all lines in the file
-    for (int i = 0; i < count; i++)
-    {
-        file >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> x3 >> y3 >> z3;
-
-        TerrainTriangle t;
-        t.v1 = vec3(x1, y1, z1);
-        t.v2 = vec3(x2, y2, z2);
-        t.v3 = vec3(x3, y3, z3);
-
-        terrainTriangles.push_back(t);
-    }
-    cout << "Camera loaded " << terrainTriangles.size() << " terrain triangles." << endl;
-}
-
-float Camera::getTerrainHeight(float x, float z)
-{
-    // Iterate over all triangles to find which one we are standing on...
-    for (const auto& tri : terrainTriangles)
-    {
-        // Simple AABB check - Performance...
-        float minX = std::min({ tri.v1.x, tri.v2.x, tri.v3.x });
-        float maxX = std::max({ tri.v1.x, tri.v2.x, tri.v3.x });
-        if (x < minX || x > maxX) continue;
-
-        float minZ = std::min({ tri.v1.z, tri.v2.z, tri.v3.z });
-        float maxZ = std::max({ tri.v1.z, tri.v2.z, tri.v3.z });
-        if (z < minZ || z > maxZ) continue;
-
-
-
-        // Barycentric Coordinates Logic
-        // Project the 3D triangle onto the 2D (X, Z) plane...
-        float det = (tri.v2.z - tri.v3.z) * (tri.v1.x - tri.v3.x) + (tri.v3.x - tri.v2.x) * (tri.v1.z - tri.v3.z);
-
-        if (abs(det) < 0.00001f) continue; // Degenerate triangle
-
-        float l1 = ((tri.v2.z - tri.v3.z) * (x - tri.v3.x) + (tri.v3.x - tri.v2.x) * (z - tri.v3.z)) / det;
-        float l2 = ((tri.v3.z - tri.v1.z) * (x - tri.v3.x) + (tri.v1.x - tri.v3.x) * (z - tri.v3.z)) / det;
-        float l3 = 1.0f - l1 - l2;
-
-        // Check if the point (x,z) lies inside this triangle...
-        if (l1 >= 0.0f && l1 <= 1.0f &&
-            l2 >= 0.0f && l2 <= 1.0f &&
-            l3 >= 0.0f && l3 <= 1.0f) return l1 * tri.v1.y + l2 * tri.v2.y + l3 * tri.v3.y; // Interpolate the Y value.
-    }
-
-    return 80.0f; // If no triangle was found...
 }

@@ -36,6 +36,7 @@
 #include "src/timer.h"
 #include "src/menuGUI.h" // ImGui backbone
 #include "src/soundManager.h"
+#include "src/snowman.h"
 
 #include <functional> // For rayMarch test function!
 
@@ -200,6 +201,14 @@ struct SkyShader
 	}
 };
 
+// Store terrain triangle...
+struct TerrainTriangle
+{
+	glm::vec3 v1;
+	glm::vec3 v2;
+	glm::vec3 v3;
+};
+
 
 
 // Global Variables
@@ -219,6 +228,7 @@ SoundManager soundSystem;
 bool isBoatClose;
 bool isDoorClose;
 bool isArcadeClose;
+bool isLookingAtSnowball;
 MenuGUI myMenu;
 
 float lastFrameTime = 0.0f;
@@ -270,6 +280,8 @@ Drawable* quad;
 // Terrain system
 TerrainRenderer* terrainSystem;
 
+vector<TerrainTriangle> terrainTriangles;
+
 // Cabin model
 Cabin* cabinModel;
 CabinInterior* cabinIntSystem;
@@ -300,6 +312,8 @@ float snowInflate   = 0.0f;
 Timer snowStartTimer;
 // Snow particles
 Snowfall* snowfallSystem;
+
+Snowman* snowmanSystem;
 
 // Lake reflection system
 LakeReflection* lakeReflection;
@@ -373,6 +387,72 @@ bool rayMarch(float start, float end, std::function<bool(vec3)> testFunc)
 	}
 
 	return false;
+}
+
+// ===< Terrain Height Management Functions >=== //
+void loadTerrain(const char* filePath)
+{
+	ifstream file(filePath);
+	if (!file.is_open())
+	{
+		cerr << "ERROR: Could not open terrain geometry file: " << filePath << endl;
+		return;
+	}
+
+	int count;
+	file >> count; // Read the number of triangles
+	terrainTriangles.reserve(count);
+
+	float x1, y1, z1, x2, y2, z2, x3, y3, z3;
+
+	// Loop through all lines in the file
+	for (int i = 0; i < count; i++)
+	{
+		file >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> x3 >> y3 >> z3;
+
+		TerrainTriangle t;
+		t.v1 = vec3(x1, y1, z1);
+		t.v2 = vec3(x2, y2, z2);
+		t.v3 = vec3(x3, y3, z3);
+
+		terrainTriangles.push_back(t);
+	}
+	cout << "Camera loaded " << terrainTriangles.size() << " terrain triangles." << endl;
+}
+
+float getTerrainHeight(float x, float z)
+{
+	// Iterate over all triangles to find which one we are standing on...
+	for (const auto& tri : terrainTriangles)
+	{
+		// Simple AABB check - Performance...
+		float minX = (std::min) ({ tri.v1.x, tri.v2.x, tri.v3.x });
+		float maxX = (std::max) ({ tri.v1.x, tri.v2.x, tri.v3.x });
+		if (x < minX || x > maxX) continue;
+
+		float minZ = (std::min) ({ tri.v1.z, tri.v2.z, tri.v3.z });
+		float maxZ = (std::max) ({ tri.v1.z, tri.v2.z, tri.v3.z });
+		if (z < minZ || z > maxZ) continue;
+
+
+
+		// Barycentric Coordinates Logic
+		// Project the 3D triangle onto the 2D (X, Z) plane...
+		float det = (tri.v2.z - tri.v3.z) * (tri.v1.x - tri.v3.x) + (tri.v3.x - tri.v2.x) * (tri.v1.z - tri.v3.z);
+
+		if (abs(det) < 0.00001f) continue; // Degenerate triangle
+
+		float l1 = ((tri.v2.z - tri.v3.z) * (x - tri.v3.x) + (tri.v3.x - tri.v2.x) * (z - tri.v3.z)) / det;
+		float l2 = ((tri.v3.z - tri.v1.z) * (x - tri.v3.x) + (tri.v1.x - tri.v3.x) * (z - tri.v3.z)) / det;
+		float l3 = 1.0f - l1 - l2;
+
+		// Check if the point (x,z) lies inside this triangle...
+		if (l1 >= 0.0f && l1 <= 1.0f &&
+			l2 >= 0.0f && l2 <= 1.0f &&
+			l3 >= 0.0f && l3 <= 1.0f) return l1 * tri.v1.y + l2 * tri.v2.y + l3 * tri.v3.y; // Interpolate the Y value.
+	}
+
+	return 80.0f; // If no triangle was found...
 }
 
 
@@ -549,12 +629,12 @@ void createContext()
 	lakeReflection = new LakeReflection(currentReflectionBufferSize);
 	lakeReflection->initialize();
 
-
-
 	// ---< Loading a model >--- //
-
 	// Task 1.2 Load earth.obj using drawable 
 	sphere = new Drawable("assets/earth.obj"); // Sun!!!
+
+	// Snowman creation system!
+	snowmanSystem = new Snowman(sphere);
 
 
 
@@ -688,6 +768,9 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	// Meadow
 	meadowSystem->drawOnlyObjects(shadowModelLocation, windPower + 1);
 
+	// Snowman
+	snowmanSystem->drawOnlyObjects(shadowModelLocation);
+
 
 
 	// binding the default framebuffer again
@@ -817,6 +900,21 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Draw meadow
 	meadowSystem->draw(windPower + 1);
+
+	// Draw snowman
+	if (snowmanSystem->active)
+	{
+		glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
+		snowmanSystem->draw(
+			shaderProgram.modelMatrixLocation,
+			shaderProgram.useTextureLocation,
+			shaderProgram.KaLocation,
+			shaderProgram.KdLocation,
+			shaderProgram.KsLocation,
+			shaderProgram.NsLocation
+		);
+		glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
+	}
 
 
 
@@ -1120,6 +1218,8 @@ void mainLoop()
 			}
 			else footstepTimer = 0.7f;
 
+			snowmanSystem->update(simulatedDeltaTime, currentCameraPosition, oldCameraPosition - vec3(0.0, 1.2, 0.0f));
+
 			cameraViewMatrix = camera->viewMatrix;
 		}
 
@@ -1194,14 +1294,22 @@ void mainLoop()
 		{	// ---< Player interactions >--- //
 
 			isDoorClose   = rayMarch(0.6f, 1.8f, [&](vec3 p) { return cabinModel->isLookingAtDoor(p, 0.05f); });
-			isArcadeClose = !cabinIntSystem->isInteracting()
+			isArcadeClose = !cabinIntSystem->isInteracting() // Don't render prompt when playing the arcade!
 				&& rayMarch(0.4f, 0.8f, [&](vec3 p) { return cabinIntSystem->isLookingAtArcade(p, 0.05f); });
 			isBoatClose = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
 					   && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
 					   && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
 
+			if (snowmanSystem->held) // Keep the ball in front of the player while holding it!
+			{
+				vec3 camDir             = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
+				snowmanSystem->position = camera->position + camDir * (1.2f + snowmanSystem->radius);
+			}
+			isLookingAtSnowball = snowmanSystem->active && !snowmanSystem->held
+				&& rayMarch(0.4f, 2.5f, [&](vec3 p) { return distance(p, snowmanSystem->position) < snowmanSystem->radius; });
+
 			// Render the prompt quad
-			if (isDoorClose || isBoatClose || (isArcadeClose && !cabinIntSystem->isInteracting())) renderPrompt();
+			if (isDoorClose || isBoatClose || isArcadeClose || isLookingAtSnowball) renderPrompt();
 
 		}
 
@@ -1281,6 +1389,25 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 			return;
 		}
 		if (isArcadeClose) cabinIntSystem->toggleInteraction();
+
+		// ===< Snowman interactions >=== //
+		if (snowmanSystem->held)
+			snowmanSystem->held = false;
+		else if (snowmanSystem->active && isLookingAtSnowball)
+			snowmanSystem->held = true;
+		else if (!snowmanSystem->active)
+		{
+			// Check if player is on snow
+			vec3 p      = camera->position;
+			bool onWood = cabinModel->isOnWoodenFloor(p, GROUND_DETECTION_RADIUS) || marinaModel->checkCollision(p, GROUND_DETECTION_RADIUS);
+			bool onIce  = terrainSystem->isOnLake(p, GROUND_DETECTION_RADIUS);
+
+			if (snowAmount > 0.8f && !onWood && !onIce)
+			{
+				vec3 camDir = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
+				snowmanSystem->spawn(camera->position + camDir * 1.5f);
+			}
+		}
 	}
 
 	// ---< Snow control >--- //
@@ -1422,6 +1549,9 @@ void initialize()
 
 	// Log
 	logGLParameters();
+
+	// For camera's height (and more now!) management...
+	loadTerrain("assets/terrain_triangles_geometry_final.txt");
 
 	// Create camera
 	camera = new Camera(window);
