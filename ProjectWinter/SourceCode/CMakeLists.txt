@@ -136,6 +136,8 @@ add_executable(project_winter
   project_winter/src/lakeReflection.cpp
   project_winter/src/lakeReflection.h
 
+  project_winter/src/snowball.cpp
+  project_winter/src/snowball.h
   project_winter/src/snowman.cpp
   project_winter/src/snowman.h
 

@@ -1,132 +1,153 @@
 #include "snowman.h"
-#include <glm/gtc/matrix_transform.hpp>
+#include <algorithm>
 
 using namespace glm;
 
-extern float getTerrainHeight(float x, float z);
+Snowman::Snowman(Drawable* sphereMesh) : mesh(sphereMesh) {}
 
-Snowman::Snowman(Drawable* sphereMesh) : mesh(sphereMesh)
+Snowman::~Snowman()
 {
-    velocity = vec3(0.0f);
-    radius   = 0.1f;
-    mass     = 1.0f;
+    // Clean up all allocated snowballs
+    for (auto ball : balls) delete ball;
+    balls.clear();
 }
 
-Snowman::~Snowman() {}
-
-void Snowman::update(float deltaTime, vec3 currentPlayerPos, vec3 prevPlayerPos)
+void Snowman::update(float deltaTime, vec3 playerPos, vec3 prevPlayerPos, vec3 cameraDir)
 {
-    if (!active) return;
+    // Update all balls
+    for (auto& ball : balls) ball->update(deltaTime, playerPos, prevPlayerPos);
 
-    // If held, skip physics and terrain clamping
-    if (held)
+    // If holding a ball, position it in front of the camera
+    if (heldBall)
     {
-        velocity = vec3(0.0f);
-        return;
+        // Normalize camera direction and keep it horizontal
+        vec3 forwardDir = normalize(cameraDir);
+        forwardDir.y = 0; // Flatten to horizontal plane
+
+        if (length(forwardDir) < 0.01f)
+        {
+            // Fallback if camera is looking straight up/down
+            forwardDir = vec3(0.0f, 0.0f, -1.0f);
+        }
+        else
+        {
+            forwardDir = normalize(forwardDir);
+        }
+
+        // Position ball in front of player at chest height
+        heldBall->position = playerPos + vec3(0.0f, 0.3f, 0.0f) + forwardDir * 1.2f;
+    }
+}
+
+Snowball* Snowman::findNearestBall(vec3 position, float maxDistance)
+{
+    Snowball* nearest = nullptr;
+    float minDist     = maxDistance;
+
+    for (auto ball : balls)
+    {
+        if (!ball->active || ball->held || ball->isMaxSize) continue;
+
+        float dist = distance(position, ball->position);
+        if (dist < minDist)
+        {
+            minDist = dist;
+            nearest = ball;
+        }
     }
 
-    vec3 movementVec = currentPlayerPos - prevPlayerPos;
-    float moveDist   = length(movementVec);
+    return nearest;
+}
 
-    // Treat the player as a wall if moving
-    if (moveDist > 0.0001f)
+void Snowman::handleInteraction(vec3 playerPos, vec3 lookDir, float snowAmount)
+{
+    if (heldBall)
     {
-        vec3 wallNormal = normalize(movementVec);
-        wallNormal.y    = 0; // Keep the push horizontal!
-
-        // Vector from player to snowball
-        vec3 toBall = position - currentPlayerPos;
-
-        // Projected distances
-        float distAlongNormal = dot(toBall, wallNormal);
-
-        // How far the ball is "to the side" of the player center
-        vec3 lateralVec   = toBall - (distAlongNormal * wallNormal);
-        float distLateral = length(lateralVec);
-
-        // Wall Dimensions
-        float wallWidth     = 1.2f;
-        float wallThreshold = radius * 1.4f; // Slightly ahead for smoother contact
-
-        // Collision Check
-        if (distAlongNormal > 0.0f && distAlongNormal < wallThreshold && distLateral < wallWidth)
+        // Try to stack on another ball
+        bool stacked = false;
+        for (auto ball : balls)
         {
-            // Physics: Use the player's actual velocity for the push strength
-            float pushStrength = moveDist / (deltaTime + 0.0001f);
-            float acceleration = (pushStrength * 10.0f) / mass;
+            if (ball == heldBall || !ball->active || ball->held || ball->stacked) continue;
 
-            // Smooth the velocity change
-            vec3 targetVelocity = velocity + wallNormal * acceleration * deltaTime;
-            velocity            = mix(velocity, targetVelocity, 0.4f); // Smooth interpolation
+            float stackDistance = (heldBall->radius + ball->radius) * 1.8f;
 
-            // Smooth Static Resolution with interpolation
-            vec3 targetPos    = currentPlayerPos + wallNormal * wallThreshold + lateralVec;
-            float penetration = wallThreshold - distAlongNormal;
-
-            // Only correct position if there's significant penetration
-            if (penetration > 0.01f)
+            if (distance(heldBall->position, ball->position) < stackDistance)
             {
-                // Gradual correction instead of instant snap
-                float correctionFactor = min(penetration / radius, 1.0f);
-                position               = mix(position, targetPos, correctionFactor * 0.5f);
+                stackBall(heldBall, ball);
+                heldBall = nullptr;
+                stacked  = true;
+                break;
             }
         }
-    }
 
-    // --- Movement & Growth --- //
-    if (length(velocity) > 0.01f)
-    {
-        float moveStep = length(velocity) * deltaTime;
-        position      += velocity * deltaTime;
-
-        if (radius < MAX_RADIUS)
+        // If not stacked, throw the ball
+        if (!stacked)
         {
-            radius += moveStep * GROWTH_RATE;
-            mass    = 1.0f + (pow(radius, 3.0f));
+			heldBall->held = false;
+            heldBall       = nullptr;
         }
-
-        velocity *= FRICTION;
     }
-    else velocity = vec3(0.0f);
+    else
+    {
+        // Try to pick up the nearest ball
+        Snowball* nearest = findNearestBall(playerPos, 2.5f);
 
-    // Ensure it reaches minimum "start" size quickly...
-    if (radius < 0.1f) radius += deltaTime * 0.4f;
-
-    // Terrain Clamping
-    float terrainHeight = getTerrainHeight(position.x, position.z);
-    position.y          = terrainHeight + radius * 1.6f; // * 1.6 to match the obj's radius!
+        if (nearest)
+        {
+            heldBall       = nearest;
+            heldBall->held = true;
+        }
+        else if (snowAmount > 0.8f && balls.size() < MAX_BALLS)
+        {
+            // Create new snowball with appropriate max radius
+            float maxRadius   = (balls.size() == 0) ? 0.36f : 0.18f;
+            Snowball* newBall = new Snowball(mesh, maxRadius);
+            newBall->spawn(playerPos + lookDir * 1.5f);
+            balls.push_back(newBall);
+        }
+    }
 }
 
-void Snowman::spawn(vec3 pos)
+bool Snowman::isLookingAtAnyBall(glm::vec3 testPoint)
 {
-    position = pos;
-    velocity = vec3(0.0f);
-    radius   = 0.01f;
-    active   = true;
-    held     = false;
+    for (auto& ball : balls)
+    {
+        if (!ball->active || ball->isMaxSize) continue;
+
+        if (distance(testPoint, ball->position) < ball->radius * 1.8f)
+            return true;
+    }
+    return false;
 }
 
-void Snowman::draw(
-    GLuint modelMatrixLocation,
-    GLuint useTextureLocation,
-    GLuint KaLoc, GLuint KdLoc, GLuint KsLoc, GLuint NsLoc)
+bool Snowman::checkCollision(glm::vec3 playerPos, float playerRadius)
 {
-    mat4 modelMatrix = translate(mat4(), position) * scale(mat4(), vec3(radius));
-    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
+    for (auto& ball : balls)
+    {
+        if (!ball->active || !ball->isMaxSize) continue; // Only collide with max-sized balls
 
-    // Material: White Snow
-    glUniform4f(KaLoc, 0.4f, 0.4f, 0.4f, 1.0f);
-    glUniform4f(KdLoc, 0.9f, 0.9f, 0.9f, 1.0f);
-    glUniform4f(KsLoc, 0.1f, 0.1f, 0.1f, 1.0f);
-    glUniform1f(NsLoc, 10.0f);
+        float distanceToPlayer  = distance(playerPos, ball->position);
+        float collisionDistance = ball->radius * 1.6f + playerRadius; // Slight buffer
 
-    glUniform1i(useTextureLocation, 0);
-    mesh->bind(); mesh->draw();
+        if (distanceToPlayer < collisionDistance) return true;
+    }
+    return false;
 }
 
-void Snowman::drawOnlyObjects(GLuint modelMatrixLocation)
+void Snowman::stackBall(Snowball* top, Snowball* bottom)
 {
-    mat4 modelMatrix = translate(mat4(), position) * scale(mat4(), vec3(radius));
-    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
-    mesh->bind(); mesh->draw();
+    top->stacked   = true;
+    top->held      = false;
+    top->stackedOn = bottom; // Track the base ball
+    top->position  = bottom->position + vec3(0, (bottom->radius + top->radius) * 1.4f, 0);
+}
+
+void Snowman::draw(GLuint modelLoc, GLuint texLoc, GLuint Ka, GLuint Kd, GLuint Ks, GLuint Ns)
+{
+    for (auto& ball : balls) ball->draw(modelLoc, texLoc, Ka, Kd, Ks, Ns);
+}
+
+void Snowman::drawOnlyObjects(GLuint modelLoc)
+{
+    for (auto& ball : balls) ball->drawOnlyObjects(modelLoc);
 }

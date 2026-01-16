@@ -36,6 +36,7 @@
 #include "src/timer.h"
 #include "src/menuGUI.h" // ImGui backbone
 #include "src/soundManager.h"
+#include "src/snowball.h"
 #include "src/snowman.h"
 
 #include <functional> // For rayMarch test function!
@@ -220,6 +221,7 @@ int windowedHeight = W_HEIGHT;
 Camera* camera;
 mat4 cameraProjectionMatrix;
 mat4 cameraViewMatrix;
+vec3 cameraDirection;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
 SoundManager soundSystem;
@@ -378,11 +380,9 @@ void renderSky(mat4 viewMatrix, mat4 projectionMatrix)
 
 bool rayMarch(float start, float end, std::function<bool(vec3)> testFunc)
 {
-	vec3 camDir = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
-
 	for (float dist = start; dist <= end; dist += 0.1f)
 	{
-		vec3 testPoint = camera->position + camDir * dist;
+		vec3 testPoint = camera->position + cameraDirection * dist;
 		if (testFunc(testPoint)) return true;
 	}
 
@@ -904,7 +904,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw snowman
 	if (snowmanSystem->active)
 	{
-		glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
+		glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on snowman!
 		snowmanSystem->draw(
 			shaderProgram.modelMatrixLocation,
 			shaderProgram.useTextureLocation,
@@ -1164,6 +1164,7 @@ void mainLoop()
 
 		// Getting camera information
 		cameraProjectionMatrix     = camera->projectionMatrix;
+		cameraDirection            = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
 		static float footstepTimer = 0.0f;
 		if (boatModel->isOnBoat())
 		{
@@ -1199,7 +1200,8 @@ void mainLoop()
 					|| forestSystem2->checkCollision(currentCameraPosition, PLAYER_RADIUS)
 					|| marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
 					|| boatModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-					|| terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen))
+					|| terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen)
+					|| snowmanSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS))
 					camera->position = oldCameraPosition;
 				else if (footstepTimer > 0.7f)
 				{
@@ -1218,7 +1220,12 @@ void mainLoop()
 			}
 			else footstepTimer = 0.7f;
 
-			snowmanSystem->update(simulatedDeltaTime, currentCameraPosition, oldCameraPosition - vec3(0.0, 1.2, 0.0f));
+			snowmanSystem->update(
+				simulatedDeltaTime,
+				currentCameraPosition,
+				oldCameraPosition - vec3(0.0, 1.2, 0.0f),
+				cameraDirection
+			);
 
 			cameraViewMatrix = camera->viewMatrix;
 		}
@@ -1296,17 +1303,11 @@ void mainLoop()
 			isDoorClose   = rayMarch(0.6f, 1.8f, [&](vec3 p) { return cabinModel->isLookingAtDoor(p, 0.05f); });
 			isArcadeClose = !cabinIntSystem->isInteracting() // Don't render prompt when playing the arcade!
 				&& rayMarch(0.4f, 0.8f, [&](vec3 p) { return cabinIntSystem->isLookingAtArcade(p, 0.05f); });
-			isBoatClose = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
+			isBoatClose   = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
 					   && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
 					   && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
 
-			if (snowmanSystem->held) // Keep the ball in front of the player while holding it!
-			{
-				vec3 camDir             = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
-				snowmanSystem->position = camera->position + camDir * (1.2f + snowmanSystem->radius);
-			}
-			isLookingAtSnowball = snowmanSystem->active && !snowmanSystem->held
-				&& rayMarch(0.4f, 2.5f, [&](vec3 p) { return distance(p, snowmanSystem->position) < snowmanSystem->radius; });
+			isLookingAtSnowball = rayMarch(0.4f, 2.5f, [&](vec3 p) { return snowmanSystem->isLookingAtAnyBall(p); });
 
 			// Render the prompt quad
 			if (isDoorClose || isBoatClose || isArcadeClose || isLookingAtSnowball) renderPrompt();
@@ -1390,24 +1391,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		}
 		if (isArcadeClose) cabinIntSystem->toggleInteraction();
 
-		// ===< Snowman interactions >=== //
-		if (snowmanSystem->held)
-			snowmanSystem->held = false;
-		else if (snowmanSystem->active && isLookingAtSnowball)
-			snowmanSystem->held = true;
-		else if (!snowmanSystem->active)
-		{
-			// Check if player is on snow
-			vec3 p      = camera->position;
-			bool onWood = cabinModel->isOnWoodenFloor(p, GROUND_DETECTION_RADIUS) || marinaModel->checkCollision(p, GROUND_DETECTION_RADIUS);
-			bool onIce  = terrainSystem->isOnLake(p, GROUND_DETECTION_RADIUS);
-
-			if (snowAmount > 0.8f && !onWood && !onIce)
-			{
-				vec3 camDir = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
-				snowmanSystem->spawn(camera->position + camDir * 1.5f);
-			}
-		}
+		snowmanSystem->handleInteraction(camera->position, cameraDirection, snowAmount);
 	}
 
 	// ---< Snow control >--- //

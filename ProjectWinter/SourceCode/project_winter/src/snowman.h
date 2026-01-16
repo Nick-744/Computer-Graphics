@@ -1,8 +1,8 @@
 #ifndef SNOWMAN_H
 #define SNOWMAN_H
 
-#include <glm/glm.hpp>
-#include <common/model.h>
+#include <vector>
+#include "snowball.h"
 
 class Snowman
 {
@@ -10,38 +10,26 @@ public:
     Snowman(Drawable* sphereMesh);
     ~Snowman();
 
-    glm::vec3 position;
-    float radius;
-    bool active = false;
-    bool held   = false;
+    void update(float deltaTime, glm::vec3 playerPos, glm::vec3 prevPlayerPos, glm::vec3 cameraDir);
+    void draw(GLuint modelLoc, GLuint texLoc, GLuint Ka, GLuint Kd, GLuint Ks, GLuint Ns);
+    void drawOnlyObjects(GLuint modelLoc);
 
-    // Updates physics, collision with player, and growth
-    void update(float deltaTime, glm::vec3 currentPlayerPos, glm::vec3 prevPlayerPos);
-    void spawn(glm::vec3 pos);
+    void handleInteraction(glm::vec3 playerPos, glm::vec3 lookDir, float snowAmount);
+    bool isLookingAtAnyBall(glm::vec3 testPoint);
 
-    void draw(
-        GLuint modelMatrixLocation,
-        GLuint useTextureLocation,
-        GLuint KaLoc, GLuint KdLoc, GLuint KsLoc, GLuint NsLoc
-    );
+    bool checkCollision(glm::vec3 playerPos, float playerRadius);
 
-    // Depth/Shadow pass
-    void drawOnlyObjects(GLuint modelMatrixLocation);
-
-    glm::vec3 getPosition() { return position; }
-    float getRadius()       { return radius;   }
+    bool active = true; // System-wide active flag
 
 private:
+    std::vector<Snowball*> balls;
+    Snowball* heldBall = nullptr;
     Drawable* mesh;
 
-    glm::vec3 velocity;
-    float mass;
+    void stackBall(Snowball* topBall, Snowball* bottomBall);
+    Snowball* findNearestBall(glm::vec3 position, float maxDistance);
 
-    // Constants
-    const float MAX_RADIUS    = 0.36f;
-    const float GROWTH_RATE   = 0.03f;
-    const float FRICTION      = 0.9f;
-    const float PLAYER_RADIUS = 1.2f;
+    const int MAX_BALLS = 2; // Only 2 balls allowed!
 };
 
 #endif
