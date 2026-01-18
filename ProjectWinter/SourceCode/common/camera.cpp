@@ -14,9 +14,9 @@ extern float getTerrainHeight(float x, float z);
 
 Camera::Camera(GLFWwindow* window) : window(window)
 {
-    position        = vec3(0, 60.243, 0);
-    horizontalAngle = 3.14f;
-    verticalAngle   = 0.0f;
+    position        = vec3(-7.22759f, 60.8374f, 32.76994916f);
+    horizontalAngle = 3.14f / 2.1f;
+    verticalAngle   = -0.3f;
     FoV             = 45.0f;
     speed           = WALKING_SPEED;
     mouseSpeed      = 0.001f;

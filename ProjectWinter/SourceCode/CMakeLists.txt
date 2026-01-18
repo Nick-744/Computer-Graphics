@@ -141,6 +141,9 @@ add_executable(project_winter
   project_winter/src/snowman.cpp
   project_winter/src/snowman.h
 
+  project_winter/src/car.cpp
+  project_winter/src/car.h
+
   project_winter/src/timer.h
 
   project_winter/src/menuGUI.cpp

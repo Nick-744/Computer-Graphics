@@ -38,6 +38,7 @@
 #include "src/soundManager.h"
 #include "src/snowball.h"
 #include "src/snowman.h"
+#include "src/car.h"
 
 #include <functional> // For rayMarch test function!
 
@@ -242,9 +243,6 @@ float simulatedFrameTime = 0.0f;
 // Light
 Light* light1;
 Drawable* sphere; // Light model helper
-Drawable* car;
-Drawable* carDoor;
-GLuint carTex;
 
 // Sky & fog colors
 vec3 skyColor        = vec3(0.53f, 0.58f, 0.68f); // From HDRI texture...
@@ -290,9 +288,13 @@ vector<TerrainTriangle> terrainTriangles;
 // Cabin model
 Cabin* cabinModel;
 CabinInterior* cabinIntSystem;
+bool renderCabinInterior = false;
 
 // Boat model
 Boat* boatModel;
+
+// Car model
+Car* carModel;
 
 // Marine model
 Marina* marinaModel;
@@ -596,6 +598,9 @@ void createContext()
 	// Boat
 	boatModel = new Boat(shaderProgram.programID, window);
 
+	// Car
+	carModel = new Car(shaderProgram.programID);
+
 	// Marina
 	marinaModel = new Marina(
 		shaderProgram.programID,
@@ -638,10 +643,6 @@ void createContext()
 
 	// Snowman creation system!
 	snowmanSystem = new Snowman(sphere);
-
-	car     = new Drawable("assets/car/car_body.obj");
-	carDoor = new Drawable("assets/car/car_door.obj");
-	carTex  = loadBMP("assets/car/car.bmp");
 
 
 
@@ -763,6 +764,9 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	// Boat
 	if (cameraFarPlane < FAR_PLANE_INITIAL) // Optimization for shadow mapping
 		boatModel->drawOnlyObjects(shadowModelLocation);
+
+	// Car
+	carModel->drawOnlyObjects(shadowModelLocation);
 
 	// Marina
 	marinaModel->drawOnlyObjects(shadowModelLocation);
@@ -889,14 +893,6 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// ** Look at if statement in the fragment shader
 	//uploadMaterial(gold); glUniform1i(useTextureLocation, 0); // Not used anymore!
 
-	// Draw the cabin
-	cabinModel->draw();
-	cabinIntSystem->draw();
-
-	glUniform1i(shaderProgram.ChampionOfLight, 1); // It is a screen...
-	cabinIntSystem->updateArcadeTexture();
-	glUniform1i(shaderProgram.ChampionOfLight, 0);
-
 	// Draw the marina
 	marinaModel->draw();
 
@@ -923,13 +919,19 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 		glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
 	}
 
-	// Draw the car - Test model!
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, carTex);
-	glUniform1i(shaderProgram.diffuseColorSampler, 0);
+	// Draw car
+	carModel->draw();
 
-	car->bind(); car->draw(); // Test model
-	carDoor->bind(); carDoor->draw(); // Test model
+	// Draw the cabin
+	if (renderCabinInterior)
+	{
+		cabinIntSystem->draw();
+
+		glUniform1i(shaderProgram.ChampionOfLight, 1); // It is a screen...
+		cabinIntSystem->updateArcadeTexture();
+		glUniform1i(shaderProgram.ChampionOfLight, 0);
+	}
+	cabinModel->draw(); // Must be last, so everything is visible from the transparent windows!
 
 
 
@@ -1216,22 +1218,32 @@ void mainLoop()
 					|| marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
 					|| boatModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
 					|| terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen)
-					|| snowmanSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS))
+					|| snowmanSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| carModel->checkCollision(currentCameraPosition, PLAYER_RADIUS))
 					camera->position = oldCameraPosition;
 				else if (footstepTimer > 0.7f)
 				{
-					if (cabinModel->isOnWoodenFloor(currentCameraPosition, GROUND_DETECTION_RADIUS)
-						|| marinaModel->checkCollision(currentCameraPosition, GROUND_DETECTION_RADIUS))
+					if (cabinModel->isOnWoodenFloor(currentCameraPosition, GROUND_DETECTION_RADIUS))
+					{
+						soundSystem.play("assets/sounds/wood_walk.ogg");
+						renderCabinInterior = true;
+					}
+					else if (marinaModel->checkCollision(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/wood_walk.ogg");
 					else if (terrainSystem->isOnLake(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/ice_walk.ogg");
 					else if (snowAmount > 0.6f)
 						soundSystem.play("assets/sounds/snow_walk.ogg");
 					else
+					{
 						soundSystem.play("assets/sounds/dirt_walk.ogg");
+						renderCabinInterior = false;
+					}
 					
 					footstepTimer = 0.0f;
 				}
+
+				carModel->toggleDoor(); // Temp solution...
 			}
 			else footstepTimer = 0.7f;
 
@@ -1338,6 +1350,9 @@ void mainLoop()
 		// Boat animation update! Take into account the frozen lake...
 		if      (!isLakeFrozen && !forceClearFog) boatModel->update(simulatedDeltaTime);
 		else if (fogDensity < 0.1f)               boatModel->update(simulatedDeltaTime);
+
+		// Car's door animation update - It happens only once!
+		carModel->update(simulatedDeltaTime);
 
 
 

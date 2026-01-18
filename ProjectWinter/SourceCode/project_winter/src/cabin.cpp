@@ -34,6 +34,7 @@ Cabin::Cabin(GLuint shaderProgram)
     supportStrMesh  = new Drawable("assets/cabin/model/SupportStr.obj");
     wallsFrBackMesh = new Drawable("assets/cabin/model/Walls_FrBack.obj");
     wallsSideMesh   = new Drawable("assets/cabin/model/Walls_Side.obj");
+    windowMesh      = new Drawable("assets/cabin/model/Windows.obj");
 
     // Dedicated collision mesh!
     supportStrMeshCollision = new Drawable("assets/cabin/model/SupportStr_collision.obj");
@@ -136,6 +137,20 @@ void Cabin::draw()
     doorMesh->bind(); doorMesh->draw(); // The texture is already bound - doorWinTexture!
 
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]); // Reset model matrix...
+
+
+
+    // --- TRANSPARENT WINDOWS --- //
+    glUniform1i(useTextureLocation, 0); // Use material for glass!
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // Enable blending for transparency
+
+    glUniform4f(KaLocation, 0.0f, 0.1f, 0.1f, 0.25f);
+    glUniform4f(KdLocation, 0.1f, 0.3f, 0.4f, 0.25f);
+    glUniform4f(KsLocation, 1.0f, 1.0f, 1.0f, 0.25f);
+    glUniform1f(NsLocation, 128.0f);
+    windowMesh->bind(); windowMesh->draw();
+
+    glDisable(GL_BLEND); // Restore state...
 }
 
 void Cabin::drawOnlyObjects(GLuint shadowModelLocation)

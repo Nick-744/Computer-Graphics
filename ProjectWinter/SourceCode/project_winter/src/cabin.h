@@ -36,6 +36,7 @@ private:
     Drawable* supportStrMesh;
     Drawable* wallsFrBackMesh;
     Drawable* wallsSideMesh;
+    Drawable* windowMesh;
     
     Drawable* supportStrMeshCollision; // Dedicated collision mesh!
 
