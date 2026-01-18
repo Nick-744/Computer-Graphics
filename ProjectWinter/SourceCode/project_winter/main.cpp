@@ -242,6 +242,9 @@ float simulatedFrameTime = 0.0f;
 // Light
 Light* light1;
 Drawable* sphere; // Light model helper
+Drawable* car;
+Drawable* carDoor;
+GLuint carTex;
 
 // Sky & fog colors
 vec3 skyColor        = vec3(0.53f, 0.58f, 0.68f); // From HDRI texture...
@@ -636,6 +639,10 @@ void createContext()
 	// Snowman creation system!
 	snowmanSystem = new Snowman(sphere);
 
+	car     = new Drawable("assets/car/car_body.obj");
+	carDoor = new Drawable("assets/car/car_door.obj");
+	carTex  = loadBMP("assets/car/car.bmp");
+
 
 
 	// Creating a 2D quad to visualize the prompt!
@@ -915,6 +922,14 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 		);
 		glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
 	}
+
+	// Draw the car - Test model!
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, carTex);
+	glUniform1i(shaderProgram.diffuseColorSampler, 0);
+
+	car->bind(); car->draw(); // Test model
+	carDoor->bind(); carDoor->draw(); // Test model
 
 
 
