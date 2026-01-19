@@ -643,7 +643,7 @@ void createContext()
 	sphere = new Drawable("assets/earth.obj"); // Sun!!!
 
 	// Snowman creation system!
-	snowmanSystem = new Snowman(sphere);
+	snowmanSystem = new Snowman(sphere, shaderProgram.programID);
 
 
 
@@ -919,14 +919,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	if (snowmanSystem->active)
 	{
 		glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on snowman!
-		snowmanSystem->draw(
-			shaderProgram.modelMatrixLocation,
-			shaderProgram.useTextureLocation,
-			shaderProgram.KaLocation,
-			shaderProgram.KdLocation,
-			shaderProgram.KsLocation,
-			shaderProgram.NsLocation
-		);
+		snowmanSystem->draw();
 		glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
 	}
 

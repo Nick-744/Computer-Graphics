@@ -3,7 +3,8 @@
 
 using namespace glm;
 
-Snowman::Snowman(Drawable* sphereMesh) : mesh(sphereMesh) {}
+Snowman::Snowman(Drawable* sphereMesh, GLuint shaderProgram)
+    : mesh(sphereMesh), programID(shaderProgram) {}
 
 Snowman::~Snowman()
 {
@@ -101,7 +102,7 @@ void Snowman::handleInteraction(vec3 playerPos, vec3 lookDir, float snowAmount)
         {
             // Create new snowball with appropriate max radius
             float maxRadius   = (balls.size() == 0) ? 0.36f : 0.18f;
-            Snowball* newBall = new Snowball(mesh, maxRadius);
+            Snowball* newBall = new Snowball(mesh, programID, maxRadius);
             newBall->spawn(playerPos + lookDir * 1.5f);
             balls.push_back(newBall);
         }
@@ -142,12 +143,12 @@ void Snowman::stackBall(Snowball* top, Snowball* bottom)
     top->position  = bottom->position + vec3(0, (bottom->radius + top->radius) * 1.4f, 0);
 }
 
-void Snowman::draw(GLuint modelLoc, GLuint texLoc, GLuint Ka, GLuint Kd, GLuint Ks, GLuint Ns)
+void Snowman::draw()
 {
-    for (auto& ball : balls) ball->draw(modelLoc, texLoc, Ka, Kd, Ks, Ns);
+    for (auto& ball : balls) ball->draw();
 }
 
-void Snowman::drawOnlyObjects(GLuint modelLoc)
+void Snowman::drawOnlyObjects(GLuint shadowModelLocation)
 {
-    for (auto& ball : balls) ball->drawOnlyObjects(modelLoc);
+    for (auto& ball : balls) ball->drawOnlyObjects(shadowModelLocation);
 }

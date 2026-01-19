@@ -7,7 +7,7 @@
 class Snowball
 {
 public:
-    Snowball(Drawable* sphereMesh, float maxRadiusOverride = -1.0f);
+    Snowball(Drawable* sphereMesh, GLuint shaderProgram, float maxRadiusOverride = -1.0f);
     ~Snowball();
 
     // Updates physics, collision with player, and growth
@@ -16,14 +16,8 @@ public:
 
     glm::mat4 getModelMatrix();
 
-    void draw(
-        GLuint modelMatrixLocation,
-        GLuint useTextureLocation,
-        GLuint KaLoc, GLuint KdLoc, GLuint KsLoc, GLuint NsLoc
-    );
-
-    // Depth/Shadow pass
-    void drawOnlyObjects(GLuint modelMatrixLocation);
+    void draw();
+    void drawOnlyObjects(GLuint shadowModelLocation); // Shadow pass
 
     glm::vec3 position;
     float radius;
@@ -46,6 +40,13 @@ private:
     const float GROWTH_RATE   = 0.03f;
     const float FRICTION      = 0.95f;
     const float PLAYER_RADIUS = 0.3f;
+
+    // --- UNIFORM LOCATIONS --- //
+    GLuint modelMatrixLocation;
+    GLuint useTextureLocation;
+
+    // Material Uniform Locations (Ka, Kd, Ks, Ns)
+    GLuint KaLocation, KdLocation, KsLocation, NsLocation;
 };
 
 #endif

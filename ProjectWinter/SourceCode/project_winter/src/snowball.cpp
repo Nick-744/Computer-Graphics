@@ -5,7 +5,7 @@ using namespace glm;
 
 extern float getTerrainHeight(float x, float z);
 
-Snowball::Snowball(Drawable* sphereMesh, float maxRadiusOverride) : mesh(sphereMesh)
+Snowball::Snowball(Drawable* sphereMesh, GLuint shaderProgram, float maxRadiusOverride) : mesh(sphereMesh)
 {
     velocity = vec3(0.0f);
     radius   = 0.1f;
@@ -13,6 +13,16 @@ Snowball::Snowball(Drawable* sphereMesh, float maxRadiusOverride) : mesh(sphereM
 
     // Set max radius (default 0.36f or override for smaller ball)
     MAX_RADIUS = (maxRadiusOverride > 0.0f) ? maxRadiusOverride : 0.36f;
+
+    // Load Uniforms
+    modelMatrixLocation = glGetUniformLocation(shaderProgram, "M");
+    useTextureLocation  = glGetUniformLocation(shaderProgram, "useTexture");
+
+    // Material Uniforms
+    KaLocation = glGetUniformLocation(shaderProgram, "mtl.Ka");
+    KdLocation = glGetUniformLocation(shaderProgram, "mtl.Kd");
+    KsLocation = glGetUniformLocation(shaderProgram, "mtl.Ks");
+    NsLocation = glGetUniformLocation(shaderProgram, "mtl.Ns");
 }
 
 Snowball::~Snowball() {}
@@ -131,27 +141,24 @@ mat4 Snowball::getModelMatrix()
     return translate(mat4(), position) * scale(mat4(), vec3(radius));
 }
 
-void Snowball::draw(
-    GLuint modelMatrixLocation,
-    GLuint useTextureLocation,
-    GLuint KaLoc, GLuint KdLoc, GLuint KsLoc, GLuint NsLoc)
+void Snowball::draw()
 {
     mat4 modelMatrix = getModelMatrix();
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
 
     // Material: White Snow
-    glUniform4f(KaLoc, 0.4f, 0.4f, 0.4f, 1.0f);
-    glUniform4f(KdLoc, 0.9f, 0.9f, 0.9f, 1.0f);
-    glUniform4f(KsLoc, 0.1f, 0.1f, 0.1f, 1.0f);
-    glUniform1f(NsLoc, 1.0f);
+    glUniform4f(KaLocation, 0.4f, 0.4f, 0.4f, 1.0f);
+    glUniform4f(KdLocation, 0.9f, 0.9f, 0.9f, 1.0f);
+    glUniform4f(KsLocation, 0.1f, 0.1f, 0.1f, 1.0f);
+    glUniform1f(NsLocation, 1.0f);
 
     glUniform1i(useTextureLocation, 0);
     mesh->bind(); mesh->draw();
 }
 
-void Snowball::drawOnlyObjects(GLuint modelMatrixLocation)
+void Snowball::drawOnlyObjects(GLuint shadowModelLocation)
 {
     mat4 modelMatrix = getModelMatrix();
-    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
+    glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);
     mesh->bind(); mesh->draw();
 }
