@@ -2,7 +2,6 @@
 #define CAMERA_HPP
 
 #include <glm/glm.hpp>
-#include <vector>
 
 using namespace std;
 

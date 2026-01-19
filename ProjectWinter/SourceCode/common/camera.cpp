@@ -1,8 +1,6 @@
 #include <glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include "camera.h"
-#include <fstream>
-#include <iostream>
 
 using namespace glm;
 

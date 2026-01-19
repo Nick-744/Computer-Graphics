@@ -23,7 +23,7 @@ DONE:
 - 7D: Snowman! Check the stack snowballs mechanic and change to creepy snowman when not looking
 - Add collision to the snowballs. Implement second snowball. Stack on top of the first and create snowman!
 
-- Car intro!!!!! It needs only polishing...
+- Car intro!!!!! Done! Maybe add reflection in mirror?
 
 Didn't work:
 - Change player collision from sphere to capsule... Just improved the sphere one!

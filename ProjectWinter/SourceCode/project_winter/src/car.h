@@ -14,16 +14,18 @@ public:
     ~Car();
 
     void draw();
-    void drawOnlyObjects(GLuint shadowModelLocation); // For shadow pass
+    void drawOnlyObjects(GLuint shadowModelLocation, bool isSnowBuffer = false); // For shadow pass
 
-    void update(float deltaTime);
-    bool toggleDoor();
+    bool update(float deltaTime);
+    void toggleDoor();
     bool checkCollision(const vec3& position, float radius);
 
 private:
     // --- MESHES --- //
     Drawable* bodyMesh;
+    Drawable* bodyWindow;
     Drawable* doorMesh;
+    Drawable* doorWindow;
 
     // --- TEXTURES --- //
     GLuint carTexture;
@@ -40,6 +42,9 @@ private:
     GLuint modelMatrixLocation;
     GLuint useTextureLocation;
     GLuint diffuseColorSampler;
+
+    // Material Uniform Locations (Ka, Kd, Ks, Ns)
+    GLuint KaLocation, KdLocation, KsLocation, NsLocation;
 
     // Door Animation
     float doorOpenAngle;

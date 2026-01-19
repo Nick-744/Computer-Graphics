@@ -295,6 +295,7 @@ Boat* boatModel;
 
 // Car model
 Car* carModel;
+bool doorSoundPlayed = false;
 
 // Marine model
 Marina* marinaModel;
@@ -716,13 +717,23 @@ void free()
 
 	delete terrainSystem;
 	delete cabinModel;
+	delete cabinIntSystem;
 	delete forestSystem;
 	delete forestSystem2;	
 	delete meadowSystem;
 	delete cloudSystem;
 	delete snowfallSystem;
+	delete snowmanSystem;
 	delete lakeReflection;
 	delete sphere;
+	delete quad;
+	delete marinaModel;
+	delete boatModel;
+	delete carModel;
+
+	delete camera;
+	delete light1;
+	delete snowSource;
 
 	soundSystem.cleanup();
 
@@ -731,7 +742,7 @@ void free()
 
 
 
-void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size)
+void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size, bool isSnowBuffer = false)
 {
 	// Task 3.3
 
@@ -766,7 +777,7 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 		boatModel->drawOnlyObjects(shadowModelLocation);
 
 	// Car
-	carModel->drawOnlyObjects(shadowModelLocation);
+	carModel->drawOnlyObjects(shadowModelLocation, isSnowBuffer);
 
 	// Marina
 	marinaModel->drawOnlyObjects(shadowModelLocation);
@@ -1118,7 +1129,7 @@ void mainLoop()
 	// Also, fix the moving snow artifacts (because of wind animation)!
 	mat4 snow_proj = snowSource->projectionMatrix;
 	mat4 snow_view = snowSource->viewMatrix;
-	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
+	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
 
 	do
 	{
@@ -1134,7 +1145,7 @@ void mainLoop()
 			[&](int newSize)
 			{
 				initDepthFBO(snowSource->snowDepthFBO, snowSource->snowDepthTexture, currentSnowBufferSize, newSize);
-				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
+				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
 			},
 			[&](int newSize)
 			{
@@ -1352,7 +1363,11 @@ void mainLoop()
 		else if (fogDensity < 0.1f)               boatModel->update(simulatedDeltaTime);
 
 		// Car's door animation update - It happens only once!
-		carModel->update(simulatedDeltaTime);
+		if (carModel->update(simulatedDeltaTime) && !doorSoundPlayed)
+		{
+			soundSystem.play("assets/sounds/car_door_shut.ogg");
+			doorSoundPlayed = true;
+		}
 
 
 

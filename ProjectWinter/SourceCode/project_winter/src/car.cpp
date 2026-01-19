@@ -20,9 +20,17 @@ Car::Car(GLuint shaderProgram)
     useTextureLocation  = glGetUniformLocation(shaderProgram, "useTexture");
     diffuseColorSampler = glGetUniformLocation(shaderProgram, "diffuseColorSampler");
 
+    // Material Uniforms (WE NEED GLASS MATERIAL FOR WINDOWS!!!)
+    KaLocation = glGetUniformLocation(shaderProgram, "mtl.Ka");
+    KdLocation = glGetUniformLocation(shaderProgram, "mtl.Kd");
+    KsLocation = glGetUniformLocation(shaderProgram, "mtl.Ks");
+    NsLocation = glGetUniformLocation(shaderProgram, "mtl.Ns");
+
     // Load Models
-    bodyMesh = new Drawable("assets/car/car_body.obj");
-    doorMesh = new Drawable("assets/car/car_door.obj");
+    bodyMesh   = new Drawable("assets/car/car_body.obj");
+    bodyWindow = new Drawable("assets/car/car_body_windows.obj");
+    doorMesh   = new Drawable("assets/car/car_door.obj");
+    doorWindow = new Drawable("assets/car/car_door_window.obj");
 
     // Load Textures
     carTexture = loadBMP("assets/car/car.bmp");
@@ -36,7 +44,9 @@ Car::Car(GLuint shaderProgram)
 Car::~Car()
 {
     delete bodyMesh;
+    delete bodyWindow;
     delete doorMesh;
+    delete doorWindow;
 
     glDeleteTextures(1, &carTexture);
 }
@@ -67,18 +77,45 @@ void Car::draw()
     mat4 doorMatrix = getDoorMatrix();
     glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &doorMatrix[0][0]);
     doorMesh->bind(); doorMesh->draw();
+
+    // --- TRANSPARENT WINDOWS --- //
+    glUniform1i(useTextureLocation, 0); // Use material for glass!
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // Enable blending for transparency
+
+    glUniform4f(KaLocation, 0.05f, 0.05f, 0.05f, 0.15f);
+    glUniform4f(KdLocation, 0.0f,  0.0f,  0.0f,  0.15f);
+    glUniform4f(KsLocation, 1.0f,  1.0f,  1.0f,  1.0f);
+    glUniform1f(NsLocation, 256.0f);
+    doorWindow->bind(); doorWindow->draw();
+
+    glUniformMatrix4fv(modelMatrixLocation, 1, GL_FALSE, &modelMatrix[0][0]);
+    bodyWindow->bind(); bodyWindow->draw();
+
+    glDisable(GL_BLEND); // Disable blending after drawing windows
 }
 
-void Car::drawOnlyObjects(GLuint shadowModelLocation)
+void Car::drawOnlyObjects(GLuint shadowModelLocation, bool isSnowBuffer)
 {
     // Body Shadows
     glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);
     bodyMesh->bind(); bodyMesh->draw();
 
+    if (isSnowBuffer) // Don't snow the inside of the car!
+    {
+        bodyWindow->bind();
+        bodyWindow->draw();
+    }
+
     // Door Shadows
     mat4 doorMatrix = getDoorMatrix();
     glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &doorMatrix[0][0]);
     doorMesh->bind(); doorMesh->draw();
+
+    if (isSnowBuffer)
+    {
+        doorWindow->bind();
+        doorWindow->draw();
+    }
 }
 
 mat4 Car::getDoorMatrix()
@@ -90,28 +127,21 @@ mat4 Car::getDoorMatrix()
         * translate(mat4(), -doorHingePosition);
 }
 
-void Car::update(float deltaTime)
+bool Car::update(float deltaTime)
 {
-    float doorSpeed = 120.0f; // Degrees per second
+    if (doorOpenAngle == 0.0f) return true; // Trigger the sound...
 
     if (doorOpenAngle < targetDoorAngle)
     {
-        doorOpenAngle += doorSpeed * deltaTime;
+        float doorSpeed = 120.0f;
+        doorOpenAngle  += doorSpeed * deltaTime;
         if (doorOpenAngle > targetDoorAngle) doorOpenAngle = targetDoorAngle;
     }
-    else if (doorOpenAngle > targetDoorAngle)
-    {
-        doorOpenAngle -= doorSpeed * deltaTime;
-        if (doorOpenAngle < targetDoorAngle) doorOpenAngle = targetDoorAngle;
-    }
+
+    return false;
 }
 
-bool Car::toggleDoor()
-{
-    if (!targetDoorAngle > -30.0f) targetDoorAngle = 0.0f;
-
-    return (targetDoorAngle > doorOpenAngle);
-}
+void Car::toggleDoor() { targetDoorAngle = 0.0f; } // Only closing is needed...
 
 bool Car::checkCollision(const vec3& position, float radius)
 {
