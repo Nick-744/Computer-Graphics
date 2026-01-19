@@ -16,48 +16,38 @@ Snowman::~Snowman()
 void Snowman::update(float deltaTime, vec3 playerPos, vec3 prevPlayerPos, vec3 cameraDir)
 {
     // Update all balls
-    for (auto& ball : balls) ball->update(deltaTime, playerPos, prevPlayerPos);
+    for (auto& ball : balls)
+    {
+        ball->update(deltaTime, playerPos, prevPlayerPos);
 
-    // If holding a ball, position it in front of the camera
+		// AUTO-PICKUP LOGIC - 2nd snowball only!
+        if (!heldBall && ball->isMaxSize && !ball->stacked && !ball->held)
+        {
+            if (ball->getMaxRadius() < 0.30f)
+            {
+                heldBall       = ball;
+                heldBall->held = true;
+
+                // If we were looking at it, clear the targeted pointer
+                if (targetedBall == ball) targetedBall = nullptr;
+            }
+        }
+    }
+
+    // If holding a ball, position it in front of the camera!
     if (heldBall)
     {
         // Normalize camera direction and keep it horizontal
         vec3 forwardDir = normalize(cameraDir);
-        forwardDir.y = 0; // Flatten to horizontal plane
+        forwardDir.y    = 0; // Flatten to horizontal plane
 
-        if (length(forwardDir) < 0.01f)
-        {
-            // Fallback if camera is looking straight up/down
-            forwardDir = vec3(0.0f, 0.0f, -1.0f);
-        }
-        else
-        {
-            forwardDir = normalize(forwardDir);
-        }
+        // Fallback if camera is looking straight up/down!
+        if (length(forwardDir) < 0.01f) forwardDir = vec3(0.0f, 0.0f, -1.0f);
+        else                            forwardDir = normalize(forwardDir);
 
         // Position ball in front of player at chest height
         heldBall->position = playerPos + vec3(0.0f, 0.3f, 0.0f) + forwardDir * 1.2f;
     }
-}
-
-Snowball* Snowman::findNearestBall(vec3 position, float maxDistance)
-{
-    Snowball* nearest = nullptr;
-    float minDist     = maxDistance;
-
-    for (auto ball : balls)
-    {
-        if (!ball->active || ball->held || ball->isMaxSize) continue;
-
-        float dist = distance(position, ball->position);
-        if (dist < minDist)
-        {
-            minDist = dist;
-            nearest = ball;
-        }
-    }
-
-    return nearest;
 }
 
 void Snowman::handleInteraction(vec3 playerPos, vec3 lookDir, float snowAmount)
@@ -90,13 +80,11 @@ void Snowman::handleInteraction(vec3 playerPos, vec3 lookDir, float snowAmount)
     }
     else
     {
-        // Try to pick up the nearest ball
-        Snowball* nearest = findNearestBall(playerPos, 2.5f);
-
-        if (nearest)
+        if (targetedBall) // Use the ball stored by the RayMarch!
         {
-            heldBall       = nearest;
+            heldBall       = targetedBall;
             heldBall->held = true;
+            targetedBall   = nullptr; // Clear it since we are now holding it!
         }
         else if (snowAmount > 0.8f && balls.size() < MAX_BALLS)
         {
@@ -115,8 +103,12 @@ bool Snowman::isLookingAtAnyBall(glm::vec3 testPoint)
     {
         if (!ball->active || ball->isMaxSize) continue;
 
+        // Check if this specific ray point is inside the ball's selection volume...
         if (distance(testPoint, ball->position) < ball->radius * 1.8f)
+        {
+            targetedBall = ball; // Store the reference!
             return true;
+        }
     }
     return false;
 }

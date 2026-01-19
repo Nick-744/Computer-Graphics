@@ -29,16 +29,8 @@ Snowball::~Snowball() {}
 
 void Snowball::update(float deltaTime, vec3 currentPlayerPos, vec3 prevPlayerPos)
 {
-    if (!active || stacked) return;
-
-    if (held)
-    {
-        velocity = vec3(0.0f);
-        return;
-    }
-
-    // Don't push max-sized balls...
-    if (isMaxSize)
+    // Early exits for static states
+    if (!active || stacked || held || isMaxSize)
     {
         velocity = vec3(0.0f);
         return;
@@ -54,22 +46,24 @@ void Snowball::update(float deltaTime, vec3 currentPlayerPos, vec3 prevPlayerPos
         vec3 wallNormal = normalize(movementVec);
         wallNormal.y    = 0; // Keep the push horizontal!
 
+        // Shift the wall center forward - FIX COLLISION TRAP!
+        float pushOffset    = PLAYER_RADIUS * 0.6f;
+        vec3 virtualWallPos = currentPlayerPos + (wallNormal * pushOffset);
+
         // Vector from player to snowball
-        vec3 toBall = position - currentPlayerPos;
+        vec3 toBall = position - virtualWallPos;
 
         // Projected distances
         float distAlongNormal = dot(toBall, wallNormal);
 
-        // How far the ball is "to the side" of the player center
+        // How far the ball is to the side of the player center
         vec3 lateralVec   = toBall - (distAlongNormal * wallNormal);
         float distLateral = length(lateralVec);
 
-        // Wall Dimensions
-        float wallWidth     = 1.2f;
-        float wallThreshold = radius * 1.4f; // Slightly ahead for smoother contact
+        float wallThreshold = radius * 1.2f; // Slightly ahead for smoother contact
 
         // Collision Check
-        if (distAlongNormal > 0.0f && distAlongNormal < wallThreshold && distLateral < wallWidth)
+        if (distAlongNormal > 0.0f && distAlongNormal < wallThreshold && distLateral < PLAYER_RADIUS)
         {
             // Physics: Use the player's actual velocity for the push strength
             float pushStrength = moveDist / (deltaTime + 0.0001f);
@@ -79,13 +73,14 @@ void Snowball::update(float deltaTime, vec3 currentPlayerPos, vec3 prevPlayerPos
             vec3 targetVelocity = velocity + wallNormal * acceleration * deltaTime;
             velocity            = mix(velocity, targetVelocity, 0.4f); // Smooth interpolation
 
-            // Smooth Static Resolution with interpolation
-            vec3 targetPos    = currentPlayerPos + wallNormal * wallThreshold + lateralVec;
             float penetration = wallThreshold - distAlongNormal;
 
             // Only correct position if there's significant penetration
-            if (penetration > 0.01f)
+            if (penetration > 0.001f)
             {
+                // Smooth Static Resolution with interpolation
+                vec3 targetPos = virtualWallPos + wallNormal * wallThreshold + lateralVec;
+
                 // Gradual correction instead of instant snap
                 float correctionFactor = min(penetration / radius, 1.0f);
                 position               = mix(position, targetPos, correctionFactor * 0.5f);
@@ -94,25 +89,22 @@ void Snowball::update(float deltaTime, vec3 currentPlayerPos, vec3 prevPlayerPos
     }
 
     // --- Movement & Growth --- //
-    if (length(velocity) > 0.01f)
+    float speed = length(velocity);
+    if (speed > 0.01f)
     {
-        float moveStep = length(velocity) * deltaTime;
+        float moveStep = speed * deltaTime;
         position      += velocity * deltaTime;
+        velocity      *= FRICTION;
 
+        // Growth Logic
         if (radius < MAX_RADIUS)
         {
-            radius += moveStep * GROWTH_RATE;
-            mass    = 1.0f + ((pow(radius, 3.0f)) * 100.0f); // Noticeable mass
+            radius    = min(radius + moveStep * GROWTH_RATE, MAX_RADIUS);
+            isMaxSize = radius >= MAX_RADIUS;
 
-            // Check if reached max size
-            if (radius >= MAX_RADIUS)
-            {
-                radius    = MAX_RADIUS;
-                isMaxSize = true;
-            }
+            // Update mass based on volume
+            mass = 1.0f + (pow(radius, 3.0f) * 100.0f);
         }
-
-        velocity *= FRICTION;
     }
     else velocity = vec3(0.0f);
 

@@ -21,6 +21,10 @@ public:
 
     bool active = true; // System-wide active flag
 
+    // The snowball the player is currently looking at
+    Snowball* targetedBall = nullptr;
+    void clearTarget() { targetedBall = nullptr; }
+
 private:
     std::vector<Snowball*> balls;
     Snowball* heldBall = nullptr;
@@ -28,7 +32,6 @@ private:
     Drawable* mesh; // The sphere mesh for snowballs
 
     void stackBall(Snowball* topBall, Snowball* bottomBall);
-    Snowball* findNearestBall(glm::vec3 position, float maxDistance);
 
     const int MAX_BALLS = 2; // Only 2 balls allowed!
 };

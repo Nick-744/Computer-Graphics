@@ -20,8 +20,9 @@ DONE:
 - Arcade working!!!
 - rayMarch interactions
 
-- 7D: Snowman! Check the stack snowballs mechanic and change to creepy snowman when not looking
-- Add collision to the snowballs. Implement second snowball. Stack on top of the first and create snowman!
+- 7D: Snowman! Check the stack snowballs mechanic (DONE) and change to creepy snowman when not looking
+- Add collision to the snowballs (Not needed?). Implement second snowball. (Done)
+Stack on top of the first and create snowman! (Done)
 
 - Car intro!!!!! Done! Maybe add reflection in mirror?
 

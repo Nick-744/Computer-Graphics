@@ -1338,6 +1338,7 @@ void mainLoop()
 					   && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
 					   && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
 
+			snowmanSystem->clearTarget(); // Reset the target - SPECIAL...
 			isLookingAtSnowball = rayMarch(0.4f, 2.5f, [&](vec3 p) { return snowmanSystem->isLookingAtAnyBall(p); });
 
 			// Render the prompt quad

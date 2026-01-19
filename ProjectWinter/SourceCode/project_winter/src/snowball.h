@@ -25,6 +25,7 @@ public:
     bool held      = false;
     bool stacked   = false;
     bool isMaxSize = false;
+    float getMaxRadius() { return MAX_RADIUS; }
 
     // Track which ball this is stacked on
     Snowball* stackedOn = nullptr;
@@ -39,7 +40,7 @@ private:
     float MAX_RADIUS;
     const float GROWTH_RATE   = 0.03f;
     const float FRICTION      = 0.95f;
-    const float PLAYER_RADIUS = 0.3f;
+    const float PLAYER_RADIUS = 1.0f;
 
     // --- UNIFORM LOCATIONS --- //
     GLuint modelMatrixLocation;
