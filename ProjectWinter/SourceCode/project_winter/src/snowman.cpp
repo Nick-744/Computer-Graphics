@@ -143,12 +143,18 @@ bool Snowman::isLookingAtAnyBall(glm::vec3 testPoint)
 {
     for (auto& ball : balls)
     {
-        if (!ball->active || ball->isMaxSize) continue;
+        // Skip inactive balls or the ball you are currently carrying...
+        if (!ball->active || ball == heldBall) continue;
 
-        // Check if this specific ray point is inside the ball's selection volume...
+        // If     holding: target only the big base   (isMaxSize == true)
+        // If not holding: target only small rollable (isMaxSize == false)
+        bool isValidTarget = heldBall ? ball->isMaxSize : !ball->isMaxSize;
+        if (!isValidTarget) continue;
+
+        // Collision check with the selection volume
         if (distance(testPoint, ball->position) < ball->radius * 1.8f)
         {
-            targetedBall = ball; // Store the reference!
+            targetedBall = ball; // Store the reference for handleInteraction!
             return true;
         }
     }

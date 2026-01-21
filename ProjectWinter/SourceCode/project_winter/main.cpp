@@ -297,6 +297,16 @@ Boat* boatModel;
 Car* carModel;
 bool doorSoundPlayed = false;
 
+// Spaceship
+Drawable* spaceshipModel; GLuint spaceshipTexture;
+vec3 spaceshipPosition    = vec3(-84.0f, 48.8f, -111.1f);
+float spaceshipRotationX  = -0.26f;
+float spaceshipRotationY  = -1.05f;
+mat4 spaceshipModelMatrix = translate(mat4(), spaceshipPosition)
+                          * rotate(mat4(), spaceshipRotationY, vec3(0, 1, 0))
+                          * rotate(mat4(), spaceshipRotationX, vec3(1, 0, 0))
+                          * scale(mat4(), vec3(60.0f));
+
 // Marine model
 Marina* marinaModel;
 
@@ -343,7 +353,7 @@ const Material gold
 // For testing new models positioning!
 vec3 tempPosition       = vec3(0.0, 60.9, 0.0);
 float tempRotationAngle = 0.0f;
-float tempRotAngleZ     = 0.0f;
+float tempRotAngleZ     = 0.0f; // Actually rotation around X axis...
 mat4 tempModelMatrix    = translate(mat4(), tempPosition)
                         * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0))
                         * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0))
@@ -643,6 +653,10 @@ void createContext()
 	// Task 1.2 Load earth.obj using drawable 
 	sphere = new Drawable("assets/earth.obj"); // Sun!!!
 
+	// Spaceship
+	spaceshipModel   = new Drawable("assets/spaceship/spaceship.obj");
+	spaceshipTexture = loadBMP("assets/spaceship/spaceship.bmp");
+
 	// Snowman creation system!
 	snowmanSystem = new Snowman(sphere, shaderProgram.programID, marinaPosition);
 
@@ -938,19 +952,18 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	}
 	cabinModel->draw(); // Must be last, so everything is visible from the transparent windows!
 
+	// Draw the spaceship
+	if (forceClearFog)
+	{
+		glUniformMatrix4fv(shaderProgram.modelMatrixLocation, 1, GL_FALSE, &spaceshipModelMatrix[0][0]);
+		glUniform1i(shaderProgram.useTextureLocation, 1);
 
+		glActiveTexture(GL_TEXTURE0);
+		glUniform1i(shaderProgram.diffuseColorSampler, 0);
+		glBindTexture(GL_TEXTURE_2D, spaceshipTexture);
 
-	// Sun
-	glUniform1i(shaderProgram.ChampionOfLight, 1);
-
-	mat4 light1SphereModel = translate(mat4(), light1->lightPosition_worldspace) * scale(mat4(), vec3(4.0f));
-	glUniformMatrix4fv(shaderProgram.modelMatrixLocation, 1, GL_FALSE, &light1SphereModel[0][0]);
-
-	uploadMaterial(gold);
-	glUniform1i(shaderProgram.useTextureLocation, 0);
-	sphere->bind(); sphere->draw();
-
-	glUniform1i(shaderProgram.ChampionOfLight, 0); // End of sun rendering
+		spaceshipModel->bind(); spaceshipModel->draw();
+	}
 
 
 
@@ -960,6 +973,21 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
 
 
+	
+	{	// Sun
+
+		glUniform1i(shaderProgram.ChampionOfLight, 1);
+
+		mat4 light1SphereModel = translate(mat4(), light1->lightPosition_worldspace) * scale(mat4(), vec3(4.0f));
+		glUniformMatrix4fv(shaderProgram.modelMatrixLocation, 1, GL_FALSE, &light1SphereModel[0][0]);
+
+		uploadMaterial(gold);
+		glUniform1i(shaderProgram.useTextureLocation, 0);
+		sphere->bind(); sphere->draw();
+
+		glUniform1i(shaderProgram.ChampionOfLight, 0); // End of sun rendering
+
+	}
 
 	// ======< CLOUDS >====== //
 	if (!forceClearFog)
@@ -1052,9 +1080,6 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw terrain
 	terrainSystem->draw(projectionMatrix * mirroredView, light1->frustumPlanes, terrainTime, false);
 
-	// Draw cabin
-	cabinModel->draw();
-
 	// Draw marina
 	marinaModel->draw();
 
@@ -1074,10 +1099,30 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 		glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
 	}
 
+	// Draw cabin
+	cabinModel->draw();
+
+	// Draw spaceship
+	if (forceClearFog)
+	{
+		glUniformMatrix4fv(shaderProgram.modelMatrixLocation, 1, GL_FALSE, &spaceshipModelMatrix[0][0]);
+		glUniform1i(shaderProgram.useTextureLocation, 1);
+
+		glActiveTexture(GL_TEXTURE0);
+		glUniform1i(shaderProgram.diffuseColorSampler, 0);
+		glBindTexture(GL_TEXTURE_2D, spaceshipTexture);
+
+		spaceshipModel->bind(); spaceshipModel->draw();
+	}
+
+
+
 	// Draw boat - Always on Front trick (draw last)!
 	glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
 	boatModel->draw();
 	glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
+
+
 
 	// Draw clouds
 	if (!forceClearFog)
@@ -1205,7 +1250,8 @@ void mainLoop()
 			// --- COLLISION CHECKS --- //
 			vec3 currentBoatPosition = boatModel->getWorldPosition();
 			if (terrainSystem->checkCollisionBoat(currentBoatPosition, BOAT_RADIUS)
-			 || marinaModel ->checkCollision(currentBoatPosition, BOAT_RADIUS))
+			 || marinaModel ->checkCollision(currentBoatPosition, BOAT_RADIUS)
+			 || spaceshipModel->checkCollision(currentBoatPosition, BOAT_RADIUS, spaceshipModelMatrix))
 				boatModel->setPosition(oldBoatPosition);
 
 			cameraViewMatrix = boatModel->getViewMatrix();
