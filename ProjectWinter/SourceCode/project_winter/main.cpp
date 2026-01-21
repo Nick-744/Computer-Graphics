@@ -603,9 +603,10 @@ void createContext()
 	carModel = new Car(shaderProgram.programID);
 
 	// Marina
-	marinaModel = new Marina(
+	vec3 marinaPosition = vec3(-58.2f, 58.7f, 4.5f);
+	marinaModel         = new Marina(
 		shaderProgram.programID,
-		vec3(-58.2f, 58.7f, 4.5f),
+		marinaPosition,
 		1.6f
 	);
 
@@ -643,7 +644,7 @@ void createContext()
 	sphere = new Drawable("assets/earth.obj"); // Sun!!!
 
 	// Snowman creation system!
-	snowmanSystem = new Snowman(sphere, shaderProgram.programID);
+	snowmanSystem = new Snowman(sphere, shaderProgram.programID, marinaPosition);
 
 
 
@@ -1065,6 +1066,14 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw meadow
 	meadowSystem->draw(windPower + 1);
 
+	// Draw snowman
+	if (snowmanSystem->active)
+	{
+		glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on snowman!
+		snowmanSystem->draw();
+		glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
+	}
+
 	// Draw boat - Always on Front trick (draw last)!
 	glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
 	boatModel->draw();
@@ -1255,7 +1264,8 @@ void mainLoop()
 				simulatedDeltaTime,
 				currentCameraPosition,
 				oldCameraPosition - vec3(0.0, 1.2, 0.0f),
-				cameraDirection
+				cameraDirection,
+				light1->frustumPlanes
 			);
 
 			cameraViewMatrix = camera->viewMatrix;

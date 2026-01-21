@@ -2,15 +2,16 @@
 #define SNOWMAN_H
 
 #include <vector>
+#include <glm/glm.hpp>
 #include "snowball.h"
 
 class Snowman
 {
 public:
-    Snowman(Drawable* sphereMesh, GLuint shaderProgram);
+    Snowman(Drawable* sphereMesh, GLuint shaderProgram, glm::vec3 lookAtTarget);
     ~Snowman();
 
-    void update(float deltaTime, glm::vec3 playerPos, glm::vec3 prevPlayerPos, glm::vec3 cameraDir);
+    void update(float deltaTime, glm::vec3 playerPos, glm::vec3 prevPlayerPos, glm::vec3 cameraDir, const glm::vec4 planes[6]);
     void draw();
     void drawOnlyObjects(GLuint shadowModelLocation);
 
@@ -25,6 +26,8 @@ public:
     Snowball* targetedBall = nullptr;
     void clearTarget() { targetedBall = nullptr; }
 
+    bool hasTransformed = false; // Tracks the mesh swap
+
 private:
     std::vector<Snowball*> balls;
     Snowball* heldBall = nullptr;
@@ -34,6 +37,19 @@ private:
     void stackBall(Snowball* topBall, Snowball* bottomBall);
 
     const int MAX_BALLS = 2; // Only 2 balls allowed!
+
+
+
+    // ===< Creepy snowman mesh >=== //
+    Drawable* staticModel;
+    GLuint staticTexture;
+    glm::mat4 staticModelMatrix;
+    glm::vec3 lookAtTarget; // Store the point to face
+
+    // --- UNIFORM LOCATIONS --- //
+    GLuint modelMatrixLocation;
+    GLuint useTextureLocation;
+    GLuint diffuseColorSampler;
 };
 
 #endif

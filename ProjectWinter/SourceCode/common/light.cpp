@@ -89,7 +89,7 @@ void Light::fitToCameraFrustum(const mat4& cameraView, const mat4& cameraProj)
     // Small padding so objects right on the edge don't flicker!
     const float padding = 8.0f;
     minX -= padding; maxX += padding;
-    minY -= padding; maxY += padding;
+    //minY -= padding; maxY += padding; // Not needed...
     minZ -= padding; maxZ += padding;
 
     // Setting near and far plane affects the detail of the shadow
