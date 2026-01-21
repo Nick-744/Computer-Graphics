@@ -188,19 +188,33 @@ bool CabinInterior::captureJavaWindow()
 
 void CabinInterior::updateArcadeTexture()
 {
-    bool windowIsRunning = captureJavaWindow(); // Update the texture every frame
+    bool frameCaptured = false; // Update the texture every frame
     
-    // Try to launch the Java game ONLY ONCE when interacting...
-    static bool launchTriggered = false;
-    if (!windowIsRunning && !launchTriggered && interacting)
+    // Try to launch the [x] ONLY ONCE when interacting...
+    static bool openCVLaunched = false;
+    static bool javaLaunched   = false;
+    if (playOutro)
     {
-        launchJavaGame();
-        launchTriggered = true;
+        frameCaptured = captureOpenCVWindow();
+        if (!frameCaptured && !openCVLaunched)
+        {
+            launchPlayVideo();
+            openCVLaunched = true;
+        }
+    }
+    else
+    {
+        frameCaptured = captureJavaWindow();
+        if (!frameCaptured && !javaLaunched && interacting)
+        {
+            launchJavaGame();
+            javaLaunched = true;
+        }
     }
 
     // Draw the arcade screen!
     glActiveTexture(GL_TEXTURE0);
-    if (windowIsRunning)
+    if (frameCaptured)
         glBindTexture(GL_TEXTURE_2D, arcadeScreenTexture);
     else
         glBindTexture(GL_TEXTURE_2D, arcadeStaticText);
@@ -254,4 +268,82 @@ mat4 CabinInterior::getArcadeScreenViewMatrix()
     vec3 eye       = screenPosition + normalize(normal) * distance;
 
     return lookAt(eye, screenPosition, vec3(0, 1, 0));
+}
+
+
+
+// ===< Outro - Final scene >=== //
+void CabinInterior::launchPlayVideo() // Python script!
+{
+    // Get Path
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(NULL, buffer, MAX_PATH);
+    std::string path(buffer);
+    for (int i = 0; i < 3; ++i)
+    {
+        size_t lastSlash = path.find_last_of("\\/");
+        if (lastSlash != std::string::npos) path = path.substr(0, lastSlash);
+    }
+
+    std::string scriptPath = path + "\\PYTHON_HELPERS\\play_video.py";
+    std::string videoPath  = path + "\\project_winter\\assets\\outro_final.mp4";
+
+    // Launch python script
+    std::string params = "/c python \"" + scriptPath + "\" \"" + videoPath + "\"";
+
+    SHELLEXECUTEINFOA sei = { sizeof(sei) };
+    sei.fMask  = SEE_MASK_NOCLOSEPROCESS;
+    sei.lpVerb = "open";
+    sei.lpFile = "cmd.exe";
+    sei.lpParameters = params.c_str();
+    sei.nShow        = SW_HIDE; // Keep the CMD window hidden
+
+    if (!ShellExecuteExA(&sei))
+        std::cout << "[ERROR] Failed to launch python script." << std::endl;
+}
+
+bool CabinInterior::captureOpenCVWindow()
+{
+    // Find the OpenCV window
+    if (openCVHwnd != NULL && !IsWindow(openCVHwnd)) openCVHwnd = NULL;
+    if (!openCVHwnd) openCVHwnd = FindWindowA(NULL, "outro_final.mp4");
+    if (!openCVHwnd) return false;
+
+    // Get the device context
+    HDC hdcWindow   = GetDC(openCVHwnd);
+    HDC hdcMem      = CreateCompatibleDC(hdcWindow);
+    HBITMAP hbitmap = CreateCompatibleBitmap(hdcWindow, 1280, 720);
+    SelectObject(hdcMem, hbitmap);
+
+    // Capture the OpenCV content
+    BitBlt(hdcMem, 0, 0, 1280, 720, hdcWindow, 0, 0, SRCCOPY);
+
+    // Get the raw bits
+    BITMAPINFOHEADER bi = { sizeof(BITMAPINFOHEADER), 1280, -720, 1, 24, BI_RGB };
+    GetDIBits(hdcMem, hbitmap, 0, 720, specialScreenBuffer, (BITMAPINFO*)& bi, DIB_RGB_COLORS);
+
+    // Update Texture
+    glBindTexture(GL_TEXTURE_2D, arcadeScreenTexture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1280, 720, GL_BGR, GL_UNSIGNED_BYTE, specialScreenBuffer);
+
+    // Cleanup
+    DeleteObject(hbitmap);
+    DeleteDC(hdcMem);
+    ReleaseDC(openCVHwnd, hdcWindow);
+
+    return true;
+}
+
+mat4 CabinInterior::getOutroViewMatrix()
+{
+    vec3 normal = vec3(
+        sin(screenRotY),
+        -sin(screenRotX),
+        cos(screenRotY) * cos(screenRotX)
+    );
+
+    float cinematicDistance = 2.5f;
+    vec3 eye                = screenPosition + normalize(normal) * cinematicDistance;
+
+    return lookAt(eye, screenPosition + vec3(0, 0.5f, 0), vec3(0, 1, 0));
 }

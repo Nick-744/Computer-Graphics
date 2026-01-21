@@ -78,10 +78,9 @@ include_directories(
   external/tinyxml2/include/
   external/tinyobjloader/include/
   external/audio/
-  .
-
   external/imgui/
   external/imgui/backends/
+  .
   )
 
 set(ALL_LIBS

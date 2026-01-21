@@ -26,6 +26,10 @@ public:
     mat4 getArcadeScreenViewMatrix();
     vec3 getArcadePosition() const { return arcadePosition; }
 
+    // Outro/OpenCV Logic
+    mat4 getOutroViewMatrix();
+    void startOutro() { playOutro = true; }
+
     bool checkCollision(const vec3& position, float radius);
     bool isLookingAtArcade(const vec3& position, float radius);
 
@@ -33,6 +37,8 @@ private:
     GLFWwindow* window;
     bool interacting = false;
     HWND javaHwnd    = NULL; // Cache the Java window handle
+    bool playOutro   = false;
+    HWND openCVHwnd  = NULL;
 
     // --- Meshes & Textures --- //
     Drawable* arcadeMesh;
@@ -49,8 +55,12 @@ private:
     GLuint arcadeScreenTexture;
     unsigned char* specialScreenBuffer;
     void initArcade();
+    // Java Logic
     void launchJavaGame();
     bool captureJavaWindow();
+    // Outro/OpenCV Logic
+    void launchPlayVideo();
+    bool captureOpenCVWindow();
 
 
 
