@@ -36,7 +36,9 @@
 #include "src/timer.h"
 #include "src/menuGUI.h" // ImGui backbone
 #include "src/soundManager.h"
+#include "src/snowball.h"
 #include "src/snowman.h"
+#include "src/car.h"
 
 #include <functional> // For rayMarch test function!
 
@@ -220,6 +222,7 @@ int windowedHeight = W_HEIGHT;
 Camera* camera;
 mat4 cameraProjectionMatrix;
 mat4 cameraViewMatrix;
+vec3 cameraDirection;
 float cameraFarPlane = FAR_PLANE_INITIAL; // Optimization for shadow mapping...
 
 SoundManager soundSystem;
@@ -285,9 +288,14 @@ vector<TerrainTriangle> terrainTriangles;
 // Cabin model
 Cabin* cabinModel;
 CabinInterior* cabinIntSystem;
+bool renderCabinInterior = false;
 
 // Boat model
 Boat* boatModel;
+
+// Car model
+Car* carModel;
+bool doorSoundPlayed = false;
 
 // Marine model
 Marina* marinaModel;
@@ -378,11 +386,9 @@ void renderSky(mat4 viewMatrix, mat4 projectionMatrix)
 
 bool rayMarch(float start, float end, std::function<bool(vec3)> testFunc)
 {
-	vec3 camDir = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
-
 	for (float dist = start; dist <= end; dist += 0.1f)
 	{
-		vec3 testPoint = camera->position + camDir * dist;
+		vec3 testPoint = camera->position + cameraDirection * dist;
 		if (testFunc(testPoint)) return true;
 	}
 
@@ -593,10 +599,14 @@ void createContext()
 	// Boat
 	boatModel = new Boat(shaderProgram.programID, window);
 
+	// Car
+	carModel = new Car(shaderProgram.programID);
+
 	// Marina
-	marinaModel = new Marina(
+	vec3 marinaPosition = vec3(-58.2f, 58.7f, 4.5f);
+	marinaModel         = new Marina(
 		shaderProgram.programID,
-		vec3(-58.2f, 58.7f, 4.5f),
+		marinaPosition,
 		1.6f
 	);
 
@@ -634,7 +644,7 @@ void createContext()
 	sphere = new Drawable("assets/earth.obj"); // Sun!!!
 
 	// Snowman creation system!
-	snowmanSystem = new Snowman(sphere);
+	snowmanSystem = new Snowman(sphere, shaderProgram.programID, marinaPosition);
 
 
 
@@ -708,13 +718,23 @@ void free()
 
 	delete terrainSystem;
 	delete cabinModel;
+	delete cabinIntSystem;
 	delete forestSystem;
 	delete forestSystem2;	
 	delete meadowSystem;
 	delete cloudSystem;
 	delete snowfallSystem;
+	delete snowmanSystem;
 	delete lakeReflection;
 	delete sphere;
+	delete quad;
+	delete marinaModel;
+	delete boatModel;
+	delete carModel;
+
+	delete camera;
+	delete light1;
+	delete snowSource;
 
 	soundSystem.cleanup();
 
@@ -723,7 +743,7 @@ void free()
 
 
 
-void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size)
+void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_size, bool isSnowBuffer = false)
 {
 	// Task 3.3
 
@@ -756,6 +776,9 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	// Boat
 	if (cameraFarPlane < FAR_PLANE_INITIAL) // Optimization for shadow mapping
 		boatModel->drawOnlyObjects(shadowModelLocation);
+
+	// Car
+	carModel->drawOnlyObjects(shadowModelLocation, isSnowBuffer);
 
 	// Marina
 	marinaModel->drawOnlyObjects(shadowModelLocation);
@@ -882,14 +905,6 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// ** Look at if statement in the fragment shader
 	//uploadMaterial(gold); glUniform1i(useTextureLocation, 0); // Not used anymore!
 
-	// Draw the cabin
-	cabinModel->draw();
-	cabinIntSystem->draw();
-
-	glUniform1i(shaderProgram.ChampionOfLight, 1); // It is a screen...
-	cabinIntSystem->updateArcadeTexture();
-	glUniform1i(shaderProgram.ChampionOfLight, 0);
-
 	// Draw the marina
 	marinaModel->draw();
 
@@ -904,17 +919,24 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw snowman
 	if (snowmanSystem->active)
 	{
-		glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
-		snowmanSystem->draw(
-			shaderProgram.modelMatrixLocation,
-			shaderProgram.useTextureLocation,
-			shaderProgram.KaLocation,
-			shaderProgram.KdLocation,
-			shaderProgram.KsLocation,
-			shaderProgram.NsLocation
-		);
+		glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on snowman!
+		snowmanSystem->draw();
 		glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
 	}
+
+	// Draw car
+	carModel->draw();
+
+	// Draw the cabin
+	if (renderCabinInterior)
+	{
+		cabinIntSystem->draw();
+
+		glUniform1i(shaderProgram.ChampionOfLight, 1); // It is a screen...
+		cabinIntSystem->updateArcadeTexture();
+		glUniform1i(shaderProgram.ChampionOfLight, 0);
+	}
+	cabinModel->draw(); // Must be last, so everything is visible from the transparent windows!
 
 
 
@@ -1044,6 +1066,14 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Draw meadow
 	meadowSystem->draw(windPower + 1);
 
+	// Draw snowman
+	if (snowmanSystem->active)
+	{
+		glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on snowman!
+		snowmanSystem->draw();
+		glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
+	}
+
 	// Draw boat - Always on Front trick (draw last)!
 	glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
 	boatModel->draw();
@@ -1101,7 +1131,7 @@ void mainLoop()
 	// Also, fix the moving snow artifacts (because of wind animation)!
 	mat4 snow_proj = snowSource->projectionMatrix;
 	mat4 snow_view = snowSource->viewMatrix;
-	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
+	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
 
 	do
 	{
@@ -1117,7 +1147,7 @@ void mainLoop()
 			[&](int newSize)
 			{
 				initDepthFBO(snowSource->snowDepthFBO, snowSource->snowDepthTexture, currentSnowBufferSize, newSize);
-				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize);
+				depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
 			},
 			[&](int newSize)
 			{
@@ -1164,6 +1194,7 @@ void mainLoop()
 
 		// Getting camera information
 		cameraProjectionMatrix     = camera->projectionMatrix;
+		cameraDirection            = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
 		static float footstepTimer = 0.0f;
 		if (boatModel->isOnBoat())
 		{
@@ -1199,26 +1230,43 @@ void mainLoop()
 					|| forestSystem2->checkCollision(currentCameraPosition, PLAYER_RADIUS)
 					|| marinaModel->checkCollision(currentCameraPosition, PLAYER_RADIUS, true)
 					|| boatModel->checkCollision(currentCameraPosition, PLAYER_RADIUS)
-					|| terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen))
+					|| terrainSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS, isLakeFrozen)
+					|| snowmanSystem->checkCollision(currentCameraPosition, PLAYER_RADIUS)
+					|| carModel->checkCollision(currentCameraPosition, PLAYER_RADIUS))
 					camera->position = oldCameraPosition;
 				else if (footstepTimer > 0.7f)
 				{
-					if (cabinModel->isOnWoodenFloor(currentCameraPosition, GROUND_DETECTION_RADIUS)
-						|| marinaModel->checkCollision(currentCameraPosition, GROUND_DETECTION_RADIUS))
+					if (cabinModel->isOnWoodenFloor(currentCameraPosition, GROUND_DETECTION_RADIUS))
+					{
+						soundSystem.play("assets/sounds/wood_walk.ogg");
+						renderCabinInterior = true;
+					}
+					else if (marinaModel->checkCollision(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/wood_walk.ogg");
 					else if (terrainSystem->isOnLake(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/ice_walk.ogg");
 					else if (snowAmount > 0.6f)
 						soundSystem.play("assets/sounds/snow_walk.ogg");
 					else
+					{
 						soundSystem.play("assets/sounds/dirt_walk.ogg");
+						renderCabinInterior = false;
+					}
 					
 					footstepTimer = 0.0f;
 				}
+
+				carModel->toggleDoor(); // Temp solution...
 			}
 			else footstepTimer = 0.7f;
 
-			snowmanSystem->update(simulatedDeltaTime, currentCameraPosition, oldCameraPosition - vec3(0.0, 1.2, 0.0f));
+			snowmanSystem->update(
+				simulatedDeltaTime,
+				currentCameraPosition,
+				oldCameraPosition - vec3(0.0, 1.2, 0.0f),
+				cameraDirection,
+				light1->frustumPlanes
+			);
 
 			cameraViewMatrix = camera->viewMatrix;
 		}
@@ -1296,17 +1344,12 @@ void mainLoop()
 			isDoorClose   = rayMarch(0.6f, 1.8f, [&](vec3 p) { return cabinModel->isLookingAtDoor(p, 0.05f); });
 			isArcadeClose = !cabinIntSystem->isInteracting() // Don't render prompt when playing the arcade!
 				&& rayMarch(0.4f, 0.8f, [&](vec3 p) { return cabinIntSystem->isLookingAtArcade(p, 0.05f); });
-			isBoatClose = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
+			isBoatClose   = (forceClearFog ? fogDensity < 0.1f : !isLakeFrozen) // DETAIL - When fog clears, the lake melts/cracks...
 					   && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
 					   && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
 
-			if (snowmanSystem->held) // Keep the ball in front of the player while holding it!
-			{
-				vec3 camDir             = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
-				snowmanSystem->position = camera->position + camDir * (1.2f + snowmanSystem->radius);
-			}
-			isLookingAtSnowball = snowmanSystem->active && !snowmanSystem->held
-				&& rayMarch(0.4f, 2.5f, [&](vec3 p) { return distance(p, snowmanSystem->position) < snowmanSystem->radius; });
+			snowmanSystem->clearTarget(); // Reset the target - SPECIAL...
+			isLookingAtSnowball = rayMarch(0.4f, 2.5f, [&](vec3 p) { return snowmanSystem->isLookingAtAnyBall(p); });
 
 			// Render the prompt quad
 			if (isDoorClose || isBoatClose || isArcadeClose || isLookingAtSnowball) renderPrompt();
@@ -1322,6 +1365,13 @@ void mainLoop()
 		// Boat animation update! Take into account the frozen lake...
 		if      (!isLakeFrozen && !forceClearFog) boatModel->update(simulatedDeltaTime);
 		else if (fogDensity < 0.1f)               boatModel->update(simulatedDeltaTime);
+
+		// Car's door animation update - It happens only once!
+		if (carModel->update(simulatedDeltaTime) && !doorSoundPlayed)
+		{
+			soundSystem.play("assets/sounds/car_door_shut.ogg");
+			doorSoundPlayed = true;
+		}
 
 
 
@@ -1390,24 +1440,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		}
 		if (isArcadeClose) cabinIntSystem->toggleInteraction();
 
-		// ===< Snowman interactions >=== //
-		if (snowmanSystem->held)
-			snowmanSystem->held = false;
-		else if (snowmanSystem->active && isLookingAtSnowball)
-			snowmanSystem->held = true;
-		else if (!snowmanSystem->active)
-		{
-			// Check if player is on snow
-			vec3 p      = camera->position;
-			bool onWood = cabinModel->isOnWoodenFloor(p, GROUND_DETECTION_RADIUS) || marinaModel->checkCollision(p, GROUND_DETECTION_RADIUS);
-			bool onIce  = terrainSystem->isOnLake(p, GROUND_DETECTION_RADIUS);
-
-			if (snowAmount > 0.8f && !onWood && !onIce)
-			{
-				vec3 camDir = vec3(inverse(cameraViewMatrix)[2]) * -1.0f;
-				snowmanSystem->spawn(camera->position + camDir * 1.5f);
-			}
-		}
+		snowmanSystem->handleInteraction(camera->position, cameraDirection, snowAmount);
 	}
 
 	// ---< Snow control >--- //

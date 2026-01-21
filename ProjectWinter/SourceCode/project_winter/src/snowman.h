@@ -1,47 +1,55 @@
 #ifndef SNOWMAN_H
 #define SNOWMAN_H
 
+#include <vector>
 #include <glm/glm.hpp>
-#include <common/model.h>
+#include "snowball.h"
 
 class Snowman
 {
 public:
-    Snowman(Drawable* sphereMesh);
+    Snowman(Drawable* sphereMesh, GLuint shaderProgram, glm::vec3 lookAtTarget);
     ~Snowman();
 
-    glm::vec3 position;
-    float radius;
-    bool active = false;
-    bool held   = false;
+    void update(float deltaTime, glm::vec3 playerPos, glm::vec3 prevPlayerPos, glm::vec3 cameraDir, const glm::vec4 planes[6]);
+    void draw();
+    void drawOnlyObjects(GLuint shadowModelLocation);
 
-    // Updates physics, collision with player, and growth
-    void update(float deltaTime, glm::vec3 currentPlayerPos, glm::vec3 prevPlayerPos);
-    void spawn(glm::vec3 pos);
+    void handleInteraction(glm::vec3 playerPos, glm::vec3 lookDir, float snowAmount);
+    bool isLookingAtAnyBall(glm::vec3 testPoint);
 
-    void draw(
-        GLuint modelMatrixLocation,
-        GLuint useTextureLocation,
-        GLuint KaLoc, GLuint KdLoc, GLuint KsLoc, GLuint NsLoc
-    );
+    bool checkCollision(glm::vec3 playerPos, float playerRadius);
 
-    // Depth/Shadow pass
-    void drawOnlyObjects(GLuint modelMatrixLocation);
+    bool active = true; // System-wide active flag
 
-    glm::vec3 getPosition() { return position; }
-    float getRadius()       { return radius;   }
+    // The snowball the player is currently looking at
+    Snowball* targetedBall = nullptr;
+    void clearTarget() { targetedBall = nullptr; }
+
+    bool hasTransformed = false; // Tracks the mesh swap
 
 private:
-    Drawable* mesh;
+    std::vector<Snowball*> balls;
+    Snowball* heldBall = nullptr;
+    GLuint programID;
+    Drawable* mesh; // The sphere mesh for snowballs
 
-    glm::vec3 velocity;
-    float mass;
+    void stackBall(Snowball* topBall, Snowball* bottomBall);
 
-    // Constants
-    const float MAX_RADIUS    = 0.36f;
-    const float GROWTH_RATE   = 0.03f;
-    const float FRICTION      = 0.9f;
-    const float PLAYER_RADIUS = 1.2f;
+    const int MAX_BALLS = 2; // Only 2 balls allowed!
+
+
+
+    // ===< Creepy snowman mesh >=== //
+    Drawable* staticModel;
+    GLuint staticTexture;
+    glm::mat4 staticModelMatrix;
+    glm::vec3 lookAtTarget; // Store the point to face
+
+    // --- UNIFORM LOCATIONS --- //
+    GLuint modelMatrixLocation;
+    GLuint useTextureLocation;
+    GLuint diffuseColorSampler;
 };
 
 #endif

@@ -134,8 +134,8 @@ void Boat::steer(float deltaTime)
     else
     {
         // Apply friction when no input
-        if (currentSpeed > 0) currentSpeed = std::max(0.0f, currentSpeed - FRICTION * deltaTime);
-        if (currentSpeed < 0) currentSpeed = std::min(0.0f, currentSpeed + FRICTION * deltaTime);
+        if (currentSpeed > 0) currentSpeed = (std::max) (0.0f, currentSpeed - FRICTION * deltaTime);
+        if (currentSpeed < 0) currentSpeed = (std::min) (0.0f, currentSpeed + FRICTION * deltaTime);
     }
 
     // --- STEERING INERTIA (Angular) --- //
@@ -147,8 +147,8 @@ void Boat::steer(float deltaTime)
         currentTurnSpeed += (targetTurn > 0 ? TURN_ACCEL : -TURN_ACCEL) * deltaTime;
     else
     {
-        if (currentTurnSpeed > 0) currentTurnSpeed = std::max(0.0f, currentTurnSpeed - TURN_FRICTION * deltaTime);
-        if (currentTurnSpeed < 0) currentTurnSpeed = std::min(0.0f, currentTurnSpeed + TURN_FRICTION * deltaTime);
+        if (currentTurnSpeed > 0) currentTurnSpeed = (std::max) (0.0f, currentTurnSpeed - TURN_FRICTION * deltaTime);
+        if (currentTurnSpeed < 0) currentTurnSpeed = (std::min) (0.0f, currentTurnSpeed + TURN_FRICTION * deltaTime);
     }
     currentTurnSpeed = glm::clamp(currentTurnSpeed, -MAX_TURN_SPEED, MAX_TURN_SPEED);
 
