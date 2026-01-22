@@ -1461,7 +1461,10 @@ void mainLoop()
 						renderCabinInterior = true;
 					}
 					else if (marinaModel->checkCollision(currentCameraPosition, GROUND_DETECTION_RADIUS))
+					{
 						soundSystem.play("assets/sounds/wood_walk.ogg");
+						forceClearFog = true;
+					}
 					else if (terrainSystem->isOnLake(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/ice_walk.ogg");
 					else if (snowAmount > 0.6f)
@@ -1498,6 +1501,7 @@ void mainLoop()
 				{
 					soundSystem.play("assets/sounds/the_boat.ogg");
 					snowmanTalkPlayed = true;
+					windPower         = 6;
 				}
 			}
 
@@ -1592,6 +1596,58 @@ void mainLoop()
 			// Render the prompt quad
 			if (isDoorClose || isBoatClose || isBoatCloseToSpaceship || isArcadeClose || isLookingAtSnowball) renderPrompt();
 
+		}
+
+		// ---< Dog Random Buttons Press Simulation >--- //
+		if (isEndingSequence)
+		{
+			static float dogTimer    = 0.0f;
+			static int sequenceIndex = 0;
+
+			// Define the sequence
+			static std::vector<char> dogSequence = { 'C', 'Q', '1', '1', 'T', 'Q', 'T', 'Q', '2', '1', 'X' };
+
+			dogTimer += simulatedDeltaTime;
+
+			if (dogTimer >= 3.0f && sequenceIndex < dogSequence.size())
+			{
+				char currentKey = dogSequence[sequenceIndex];
+
+				// Execute logic based on the "pressed" key
+				if (currentKey == 'C')
+				{
+					forceClearFog = !forceClearFog;
+					snowingActive = false;
+					windPower     = -1;
+				}
+				else if (currentKey == 'Q')
+				{
+					if   ( snowAmount < 1.0f) snowAmount  = 1.0f;
+					else { snowAmount = 0.0f; snowInflate = 0.0f; }
+				}
+				else if (currentKey == '1')
+				{
+					if  (fogDensity < 1.0f) fogDensity = 1.0f;
+					else fogDensity = 0.0f;
+				}
+				else if (currentKey == 'T')
+				{
+					GLint polygonMode[2];
+					glGetIntegerv(GL_POLYGON_MODE, &polygonMode[0]);
+					if  (polygonMode[0] == GL_LINE) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+					else glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+				}
+				else if (currentKey == '2')
+					forceCrackedLake = (forceCrackedLake == 0 && !forceClearFog) ? 1 : 0;
+				else if (currentKey == 'X')
+					glfwSetWindowShouldClose(window, GL_TRUE); // Ending the game
+
+				// Play a random click
+				soundSystem.play("assets/sounds/pause.ogg");
+
+				sequenceIndex++;
+				dogTimer = 0.0f; // Reset timer for the next press
+			}
 		}
 
 
@@ -1697,6 +1753,7 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		{
 			// FORCE EXIT ARCADE INTERACTION - BS BUG FIX...
 			cabinIntSystem->toggleInteraction();
+			snowingActive = true;
 			return;
 		}
 		if (isArcadeClose) cabinIntSystem->toggleInteraction();
