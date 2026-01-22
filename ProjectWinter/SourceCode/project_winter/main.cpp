@@ -232,6 +232,8 @@ bool isBoatClose;
 bool isDoorClose;
 bool isArcadeClose;
 bool isLookingAtSnowball;
+bool isEndingSequence = false;
+bool isBoatCloseToSpaceship;
 MenuGUI myMenu;
 
 float lastFrameTime = 0.0f;
@@ -239,6 +241,13 @@ float terrainTime   = 0.0f; // For terrain's animation control!
 float cloudTime     = 0.0f; // For cloud movement!
 
 float simulatedFrameTime = 0.0f;
+
+// ---< Sounds play flags/handling >--- //
+bool doorSoundPlayed   = false;
+bool introDialogPlayed = false;
+Timer introDialogTimer;
+bool buildSnowmanPlayed = false;
+bool snowmanTalkPlayed  = false;
 
 // Light
 Light* light1;
@@ -295,13 +304,12 @@ Boat* boatModel;
 
 // Car model
 Car* carModel;
-bool doorSoundPlayed = false;
 
 // Spaceship
 Drawable* spaceshipModel; GLuint spaceshipTexture;
-vec3 spaceshipPosition    = vec3(-84.0f, 48.8f, -111.1f);
-float spaceshipRotationX  = -0.26f;
-float spaceshipRotationY  = -1.05f;
+vec3 spaceshipPosition    = vec3(92.4f, 57.8f, -85.0f);
+float spaceshipRotationX  = -0.30f;
+float spaceshipRotationY  =  0.64f;
 mat4 spaceshipModelMatrix = translate(mat4(), spaceshipPosition)
                           * rotate(mat4(), spaceshipRotationY, vec3(0, 1, 0))
                           * rotate(mat4(), spaceshipRotationX, vec3(1, 0, 0))
@@ -1250,13 +1258,14 @@ void mainLoop()
 			// --- COLLISION CHECKS --- //
 			vec3 currentBoatPosition = boatModel->getWorldPosition();
 			if (terrainSystem->checkCollisionBoat(currentBoatPosition, BOAT_RADIUS)
-			 || marinaModel ->checkCollision(currentBoatPosition, BOAT_RADIUS)
-			 || spaceshipModel->checkCollision(currentBoatPosition, BOAT_RADIUS, spaceshipModelMatrix))
+				|| marinaModel->checkCollision(currentBoatPosition, BOAT_RADIUS)
+				|| spaceshipModel->checkCollision(currentBoatPosition, BOAT_RADIUS, spaceshipModelMatrix))
 				boatModel->setPosition(oldBoatPosition);
 
 			cameraViewMatrix = boatModel->getViewMatrix();
 		}
 		else if (cabinIntSystem->isInteracting()) cameraViewMatrix = cabinIntSystem->getArcadeScreenViewMatrix();
+		else if (isEndingSequence)                cameraViewMatrix = cabinIntSystem->getOutroViewMatrix(); // Ending sequence...
 		else
 		{
 			vec3 oldCameraPosition = camera->position;
@@ -1292,7 +1301,14 @@ void mainLoop()
 					else if (terrainSystem->isOnLake(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/ice_walk.ogg");
 					else if (snowAmount > 0.6f)
+					{
 						soundSystem.play("assets/sounds/snow_walk.ogg");
+						if (!buildSnowmanPlayed)
+						{
+							soundSystem.play("assets/sounds/build_snowman.ogg");
+							buildSnowmanPlayed = true;
+						}
+					}
 					else
 					{
 						soundSystem.play("assets/sounds/dirt_walk.ogg");
@@ -1306,13 +1322,20 @@ void mainLoop()
 			}
 			else footstepTimer = 0.7f;
 
-			snowmanSystem->update(
-				simulatedDeltaTime,
-				currentCameraPosition,
-				oldCameraPosition - vec3(0.0, 1.2, 0.0f),
-				cameraDirection,
-				light1->frustumPlanes
-			);
+			{	// Snowman system update
+				snowmanSystem->update(
+					simulatedDeltaTime,
+					currentCameraPosition,
+					oldCameraPosition - vec3(0.0, 1.2, 0.0f),
+					cameraDirection,
+					light1->frustumPlanes
+				);
+				if (snowmanSystem->hasTransformed && !snowmanTalkPlayed)
+				{
+					soundSystem.play("assets/sounds/the_boat.ogg");
+					snowmanTalkPlayed = true;
+				}
+			}
 
 			cameraViewMatrix = camera->viewMatrix;
 		}
@@ -1394,11 +1417,14 @@ void mainLoop()
 					   && distance(camera->position, boatModel->INITIAL_POSITION) < 5.0f
 					   && distance(boatModel->getWorldPosition(), boatModel->INITIAL_POSITION) < 2.0f;
 
+			isBoatCloseToSpaceship = forceClearFog && !isEndingSequence
+				                  && distance(boatModel->getWorldPosition(), spaceshipPosition) < 8.0f;
+
 			snowmanSystem->clearTarget(); // Reset the target - SPECIAL...
 			isLookingAtSnowball = rayMarch(0.4f, 2.5f, [&](vec3 p) { return snowmanSystem->isLookingAtAnyBall(p); });
 
 			// Render the prompt quad
-			if (isDoorClose || isBoatClose || isArcadeClose || isLookingAtSnowball) renderPrompt();
+			if (isDoorClose || isBoatClose || isBoatCloseToSpaceship || isArcadeClose || isLookingAtSnowball) renderPrompt();
 
 		}
 
@@ -1413,10 +1439,17 @@ void mainLoop()
 		else if (fogDensity < 0.1f)               boatModel->update(simulatedDeltaTime);
 
 		// Car's door animation update - It happens only once!
-		if (carModel->update(simulatedDeltaTime) && !doorSoundPlayed)
+		if (!doorSoundPlayed && carModel->update(simulatedDeltaTime))
 		{
 			soundSystem.play("assets/sounds/car_door_shut.ogg");
 			doorSoundPlayed = true;
+
+			introDialogTimer.start(); // Start the intro dialog after the car door sound!
+		}
+		if (!introDialogPlayed && introDialogTimer.hasFinished(2.0f))
+		{
+			soundSystem.play("assets/sounds/intro_com.ogg");
+			introDialogPlayed = true;
 		}
 
 
@@ -1478,6 +1511,14 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 			boatModel->invertOnBoat();
 		}
 
+		if (isBoatCloseToSpaceship && !isEndingSequence) // Start ending sequence!
+		{
+			cabinIntSystem->startOutro();
+			isEndingSequence    = true;
+			renderCabinInterior = true;
+			boatModel->invertOnBoat();
+		}
+
 		if (cabinIntSystem->isInteracting())
 		{
 			// FORCE EXIT ARCADE INTERACTION - BS BUG FIX...
@@ -1527,6 +1568,13 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 
 	if (key == GLFW_KEY_2 && action == GLFW_PRESS)
 		forceCrackedLake = (forceCrackedLake == 0 && !forceClearFog) ? 1 : 0;
+
+	// Don't play dialogs...
+	if (key == GLFW_KEY_3 && action == GLFW_PRESS)
+	{
+		introDialogPlayed  = true;
+		buildSnowmanPlayed = true;
+	}
 
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)

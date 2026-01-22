@@ -342,8 +342,10 @@ mat4 CabinInterior::getOutroViewMatrix()
         cos(screenRotY) * cos(screenRotX)
     );
 
-    float cinematicDistance = 2.5f;
-    vec3 eye                = screenPosition + normalize(normal) * cinematicDistance;
+    float cinematicDistance = 1.0f;
+    vec3 eye                = screenPosition
+                            + normalize(normal) * cinematicDistance
+                            + vec3(0.0f, -0.35f, +0.1f);
 
-    return lookAt(eye, screenPosition + vec3(0, 0.5f, 0), vec3(0, 1, 0));
+    return lookAt(eye, screenPosition + vec3(0.0f, -0.2f, 0.28f), vec3(0, 1, 0));
 }
