@@ -1464,6 +1464,8 @@ void mainLoop()
 					{
 						soundSystem.play("assets/sounds/wood_walk.ogg");
 						forceClearFog = true;
+						snowingActive = false; // Stop snowing too!
+						windPower     = -1;    // Stop wind!
 					}
 					else if (terrainSystem->isOnLake(currentCameraPosition, GROUND_DETECTION_RADIUS))
 						soundSystem.play("assets/sounds/ice_walk.ogg");
@@ -1753,7 +1755,10 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		{
 			// FORCE EXIT ARCADE INTERACTION - BS BUG FIX...
 			cabinIntSystem->toggleInteraction();
+
+			snowStartTimer.start();
 			snowingActive = true;
+
 			return;
 		}
 		if (isArcadeClose) cabinIntSystem->toggleInteraction();
