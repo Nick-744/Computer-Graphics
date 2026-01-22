@@ -32,7 +32,7 @@
 #include "src/marina.h"
 #include "src/snowSource.h"
 #include "src/snowfall.h"
-#include "src/lakeReflection.h"
+#include "src/mirrorReflection.h"
 #include "src/timer.h"
 #include "src/menuGUI.h" // ImGui backbone
 #include "src/soundManager.h"
@@ -342,7 +342,7 @@ Snowfall* snowfallSystem;
 Snowman* snowmanSystem;
 
 // Lake reflection system
-LakeReflection* lakeReflection;
+MirrorReflection* lakeReflection;
 const float WATER_HEIGHT = 58.1f; // Trial and error...
 
 int forceCrackedLake = 0;
@@ -654,7 +654,7 @@ void createContext()
 	);
 
 	// Lake reflection
-	lakeReflection = new LakeReflection(currentReflectionBufferSize);
+	lakeReflection = new MirrorReflection(currentReflectionBufferSize);
 	lakeReflection->initialize();
 
 	// ---< Loading a model >--- //
@@ -907,7 +907,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 	// Lake Reflection
 	glActiveTexture(GL_TEXTURE27);
-	glBindTexture(GL_TEXTURE_2D, lakeReflection->getReflectionTexture());
+	glBindTexture(GL_TEXTURE_2D, lakeReflection->getMirrorTexture());
 	glUniform1i(shaderProgram.reflectionTextureSamplerLocation, 27);
 	glUniform1i(shaderProgram.useReflectionLocation, 1); // Enable reflection...
 
@@ -1021,7 +1021,8 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 {
 	// Calculate mirrored view matrix!
-	mat4 mirroredView = lakeReflection->getMirroredViewMatrix(viewMatrix, WATER_HEIGHT);
+	mat4 mirroredView = lakeReflection->getMirroredViewMatrix(viewMatrix, vec3(0.0f, WATER_HEIGHT, 0.0f), vec3(0.0f, 1.0f, 0.0f));
+	// Plane equation: 0x + 1y + 0z - waterHeight = 0
 
 	// Begin reflection rendering
 	lakeReflection->beginReflectionPass();
@@ -1210,7 +1211,7 @@ void mainLoop()
 
 				// Re-create the reflection system with the new size
 				delete lakeReflection;
-				lakeReflection = new LakeReflection(currentReflectionBufferSize);
+				lakeReflection = new MirrorReflection(currentReflectionBufferSize);
 				lakeReflection->initialize();
 			},
 			[&](bool goFullscreen)

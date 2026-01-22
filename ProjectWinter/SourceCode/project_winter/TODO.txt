@@ -2,7 +2,7 @@ What’s left:
 - 7C: Lake rising - NOT NEEDED!
 
 To consider:
-- Story!!! Add the spaceship and DONE!!!
+Ok!
 
 DONE:
 - Split the terrain / lake / river into separate meshes...
@@ -19,12 +19,11 @@ DONE:
 - Frustum Culling - Terrain (Combine with the shadow calculation one - DONE)
 - Arcade working!!!
 - rayMarch interactions
-
 - 7D: Snowman! Check the stack snowballs mechanic (DONE) and change to creepy snowman when not looking
 - Add collision to the snowballs (Not needed?). Implement second snowball. (Done)
 Stack on top of the first and create snowman! (Done)
-
 - Car intro!!!!! Done! Maybe add reflection in mirror?
+- Story!!! Add the spaceship and DONE!!!
 
 Didn't work:
 - Change player collision from sphere to capsule... Just improved the sphere one!
