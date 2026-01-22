@@ -20,6 +20,8 @@ public:
     void toggleDoor();
     bool checkCollision(const vec3& position, float radius);
 
+    mat4 getDoorMatrix();
+
 private:
     // --- MESHES --- //
     Drawable* bodyMesh;
@@ -34,7 +36,7 @@ private:
     vec3 position;
     float rotationAngleY;
     float rotationAngleX;
-	float rotationAngleZ;
+    float rotationAngleZ;
     float scaleFactor;
     mat4 modelMatrix;
 
@@ -50,7 +52,6 @@ private:
     float doorOpenAngle;
     float targetDoorAngle;
     vec3 doorHingePosition;
-    mat4 getDoorMatrix();
 
     void updateModelMatrix();
 };

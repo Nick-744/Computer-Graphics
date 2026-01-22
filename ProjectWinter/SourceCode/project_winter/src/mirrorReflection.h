@@ -22,6 +22,7 @@ public:
     GLuint getMirrorTexture() const { return mirrorTexture; }
 
     // Calculate mirrored view matrix for reflection camera
+    mat4 getReflectionMatrix(vec3 mirrorPos, vec3 mirrorNormal);
     mat4 getMirroredViewMatrix(const mat4& viewMatrix, vec3 mirrorPos, vec3 mirrorNormal);
 
     // Get clipping plane for reflection rendering (to avoid rendering behind the mirror...)

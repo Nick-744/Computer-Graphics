@@ -72,34 +72,41 @@ void MirrorReflection::beginReflectionPass()
 
 void MirrorReflection::endReflectionPass() { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
 
-mat4 MirrorReflection::getMirroredViewMatrix(const mat4& viewMatrix, vec3 mirrorPos, vec3 mirrorNormal)
+mat4 MirrorReflection::getReflectionMatrix(vec3 mirrorPos, vec3 mirrorNormal)
 {
     mirrorNormal = normalize(mirrorNormal);
     float d      = -dot(mirrorNormal, mirrorPos);
 
     // Create a general reflection matrix!
     // This matrix reflects a point across the plane: ax + by + cz + d = 0
-    mat4 reflectionMatrix  = mat4();
-    reflectionMatrix[0][0] = 1 - 2 * mirrorNormal.x * mirrorNormal.x;
-    reflectionMatrix[1][0] =    -2 * mirrorNormal.x * mirrorNormal.y;
-    reflectionMatrix[2][0] =    -2 * mirrorNormal.x * mirrorNormal.z;
-    reflectionMatrix[3][0] =    -2 * mirrorNormal.x * d;
+    mat4 R  = mat4();
+    R[0][0] = 1 - 2 * mirrorNormal.x * mirrorNormal.x;
+    R[1][0] =    -2 * mirrorNormal.x * mirrorNormal.y;
+    R[2][0] =    -2 * mirrorNormal.x * mirrorNormal.z;
+    R[3][0] =    -2 * mirrorNormal.x * d;
 
-    reflectionMatrix[0][1] =    -2 * mirrorNormal.y * mirrorNormal.x;
-    reflectionMatrix[1][1] = 1 - 2 * mirrorNormal.y * mirrorNormal.y;
-    reflectionMatrix[2][1] =    -2 * mirrorNormal.y * mirrorNormal.z;
-    reflectionMatrix[3][1] =    -2 * mirrorNormal.y * d;
+    R[0][1] =    -2 * mirrorNormal.y * mirrorNormal.x;
+    R[1][1] = 1 - 2 * mirrorNormal.y * mirrorNormal.y;
+    R[2][1] =    -2 * mirrorNormal.y * mirrorNormal.z;
+    R[3][1] =    -2 * mirrorNormal.y * d;
 
-    reflectionMatrix[0][2] =    -2 * mirrorNormal.z * mirrorNormal.x;
-    reflectionMatrix[1][2] =    -2 * mirrorNormal.z * mirrorNormal.y;
-    reflectionMatrix[2][2] = 1 - 2 * mirrorNormal.z * mirrorNormal.z;
-    reflectionMatrix[3][2] =    -2 * mirrorNormal.z * d;
-    
+    R[0][2] =    -2 * mirrorNormal.z * mirrorNormal.x;
+    R[1][2] =    -2 * mirrorNormal.z * mirrorNormal.y;
+    R[2][2] = 1 - 2 * mirrorNormal.z * mirrorNormal.z;
+    R[3][2] =    -2 * mirrorNormal.z * d;
+
+    return R;
+}
+
+mat4 MirrorReflection::getMirroredViewMatrix(const mat4& viewMatrix, vec3 mirrorPos, vec3 mirrorNormal)
+{
+    mat4 reflectionMatrix = getReflectionMatrix(mirrorPos, mirrorNormal);
+
     // Apply reflection transformation to the inverse view matrix!
     // This mirrors the camera position and orientation correctly...
     mat4 inverseView         = inverse(viewMatrix);
     mat4 mirroredInverseView = reflectionMatrix * inverseView;
-    
+
     return inverse(mirroredInverseView); // Inverse View -> Reflect -> Inverse back to View
 }
 

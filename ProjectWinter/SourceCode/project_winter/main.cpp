@@ -116,7 +116,7 @@ struct MainShader // Shadow Mapping Shader...
 	GLuint snowInflateLocation;
 	GLuint skipSnowLocation;
 
-	// --- Lake Reflection --- //
+	// --- Reflection --- //
 	GLuint reflectionTextureSamplerLocation;
 	GLuint useReflectionLocation;
 
@@ -172,7 +172,7 @@ struct MainShader // Shadow Mapping Shader...
 		snowInflateLocation = glGetUniformLocation(programID, "snowInflate");
 		skipSnowLocation    = glGetUniformLocation(programID, "skipSnow");
 
-		// Lake reflection
+		// Reflection
 		reflectionTextureSamplerLocation = glGetUniformLocation(programID, "reflectionTextureSampler");
 		useReflectionLocation            = glGetUniformLocation(programID, "useReflection");
 
@@ -343,9 +343,25 @@ Snowman* snowmanSystem;
 
 // Lake reflection system
 MirrorReflection* lakeReflection;
-const float WATER_HEIGHT = 58.1f; // Trial and error...
+const float WATER_HEIGHT = 58.23f; // Trial and error...
 
 int forceCrackedLake = 0;
+
+// Car mirror variables
+MirrorReflection* carMirror;
+vec3 mirrorPos   = vec3(-5.19f, 60.27f, 32.495f);
+vec3 mirrorRot   = vec3( 0.08f,  3.78f,  0.05f);
+vec3 mirrorScale = vec3( 0.46f,  0.36f,  0.68f);
+vec3 initialNorm = vec3( 0.0f,   0.0f,   1.0f);
+
+mat4 rotationMatrix = rotate(mat4(), mirrorRot.y, vec3(0, 1, 0))  // Y
+                    * rotate(mat4(), mirrorRot.x, vec3(1, 0, 0))  // X
+                    * rotate(mat4(), mirrorRot.z, vec3(0, 0, 1)); // Z
+vec3 mirrorNorm     = normalize(vec3(rotationMatrix * vec4(initialNorm, 0.0f)));
+
+mat4 mirrorModelMatrix = translate(mat4(), mirrorPos)
+                       * rotationMatrix
+                       * scale(mat4(), mirrorScale);
 
 
 
@@ -359,13 +375,12 @@ const Material gold
 };
 
 // For testing new models positioning!
-vec3 tempPosition       = vec3(0.0, 60.9, 0.0);
-float tempRotationAngle = 0.0f;
-float tempRotAngleZ     = 0.0f; // Actually rotation around X axis...
-mat4 tempModelMatrix    = translate(mat4(), tempPosition)
-                        * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0))
-                        * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0))
-                        * scale(mat4(), vec3(2.5f));
+vec3 tempPosition       = vec3(-5.19f, 60.27f, 32.49f);
+vec3  tempScale         = vec3(0.51f, 0.36f, 0.68f);
+float tempRotationAngle = 3.72f; // Y-axis
+float tempRotAngleX     = 0.09f; // X-axis
+float tempRotAngleZ     = 0.06f; // Z-axis
+mat4 tempModelMatrix    = mat4();
 
 
 
@@ -657,6 +672,10 @@ void createContext()
 	lakeReflection = new MirrorReflection(currentReflectionBufferSize);
 	lakeReflection->initialize();
 
+	// Car mirror
+	carMirror = new MirrorReflection(currentReflectionBufferSize);
+	carMirror->initialize();
+
 	// ---< Loading a model >--- //
 	// Task 1.2 Load earth.obj using drawable 
 	sphere = new Drawable("assets/earth.obj"); // Sun!!!
@@ -947,7 +966,25 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	}
 
 	// Draw car
-	carModel->draw();
+	{
+
+		// Car Mirror
+		glUniformMatrix4fv(shaderProgram.modelMatrixLocation, 1, GL_FALSE, &mirrorModelMatrix[0][0]);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, carMirror->getMirrorTexture());
+		glUniform1i(shaderProgram.diffuseColorSampler, 0);
+		glUniform1i(shaderProgram.useTextureLocation, 1);
+
+		glUniform1i(shaderProgram.ChampionOfLight, 1); // Too dim otherwise...
+		quad->bind(); quad->draw();
+		glUniform1i(shaderProgram.ChampionOfLight, 0);
+
+
+
+		carModel->draw();
+
+	}
 
 	// Draw the cabin
 	if (renderCabinInterior)
@@ -1018,6 +1055,7 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 
+// Lake Reflection Pass
 void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 {
 	// Calculate mirrored view matrix!
@@ -1156,6 +1194,128 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 
 
 
+// Car Mirror Reflection Pass
+void mirror_pass(mat4 viewMatrix, mat4 projectionMatrix)
+{
+	// Calculate mirrored view matrix!
+	mat4 mirroredView     = carMirror->getMirroredViewMatrix(viewMatrix, mirrorPos + mirrorNorm, mirrorNorm);
+	mat4 reflectionMatrix = carMirror->getReflectionMatrix(mirrorPos, mirrorNorm);
+
+	// Mirror the Frustum Planes...
+	mat4 planeTransform = transpose(reflectionMatrix);
+	vec4 mirroredPlanes[6];
+	for (int i = 0; i < 6; i++) mirroredPlanes[i] = planeTransform * light1->frustumPlanes[i];
+
+	// Begin reflection rendering
+	carMirror->beginReflectionPass();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+
+	shaderProgram.useProgram(); // Use main shader
+
+	// Upload mirrored matrices
+	glUniformMatrix4fv(shaderProgram.viewMatrixLocation,       1, GL_FALSE, &mirroredView[0][0]);
+	glUniformMatrix4fv(shaderProgram.projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+	// Disable reflection rendering in the reflection pass (avoid recursion)
+	glUniform1i(shaderProgram.useReflectionLocation, 0);
+
+
+
+	// Upload lighting (same as normal pass!)
+	uploadLight(
+		*light1,
+		shaderProgram.LaLocation1,
+		shaderProgram.LdLocation1,
+		shaderProgram.LsLocation1,
+		shaderProgram.light1PositionLocation
+	);
+
+	// Shadow maps
+	glActiveTexture(GL_TEXTURE23);
+	glBindTexture(GL_TEXTURE_2D, depthTexture1);
+	glUniform1i(shaderProgram.depthMapSampler1, 23);
+
+	mat4 light1VP = light1->lightVP();
+	glUniformMatrix4fv(shaderProgram.light1VPLocation, 1, GL_FALSE, &light1VP[0][0]);
+
+
+
+	// Snow (keep same for reflection)
+	glUniform3f(shaderProgram.snowPositionLocation,
+		snowSource->snowSourcePosition_worldspace.x,
+		snowSource->snowSourcePosition_worldspace.y,
+		snowSource->snowSourcePosition_worldspace.z
+	);
+	glUniform1f(shaderProgram.snowAmountLocation, snowAmount);
+	glUniform1f(shaderProgram.snowInflateLocation, snowInflate);
+
+	glActiveTexture(GL_TEXTURE25);
+	glBindTexture(GL_TEXTURE_2D, snowSource->snowDepthTexture);
+	glUniform1i(shaderProgram.snowDepthMapSampler, 25);
+
+	glActiveTexture(GL_TEXTURE26);
+	glBindTexture(GL_TEXTURE_2D, shaderProgram.textureSnowMask);
+	glUniform1i(shaderProgram.textureSamplerSnowMask, 26);
+
+	mat4 snowVP = snowSource->snowVP();
+	glUniformMatrix4fv(shaderProgram.snowVPLocation, 1, GL_FALSE, &snowVP[0][0]);
+
+	glCullFace(GL_FRONT); // Flip culling for mirrored rendering
+
+
+
+	// ===< Render scene objects (reflected) >=== //
+
+	// Draw terrain
+	terrainSystem->draw(projectionMatrix * mirroredView, mirroredPlanes, terrainTime, false);
+
+	// Draw marina
+	marinaModel->draw();
+
+	// Draw forests
+	glUniform1f(shaderProgram.timeLocation, simulatedFrameTime); // For wind animation!
+	forestSystem->draw(windPower);
+	forestSystem2->draw(windPower);
+
+	// Draw meadow
+	meadowSystem->draw(windPower + 1);
+
+	// Draw car
+	carModel->draw();
+
+	// Draw cabin
+	cabinModel->draw();
+
+	// Draw boat - Always on Front trick (draw last)!
+	glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
+	boatModel->draw();
+	glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
+
+	// Draw clouds
+	if (!forceClearFog)
+	{
+		GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
+		cloudSystem->draw(
+			mirroredView,
+			projectionMatrix,
+			cloudTime,
+			currentSkyColor,
+			fogDensity
+		);
+		if (cull) glEnable(GL_CULL_FACE);
+	}
+
+
+
+	// End reflection pass
+	glCullFace(GL_BACK); // Restore culling
+	carMirror->endReflectionPass();
+}
+
+
+
 void renderPrompt()
 {
 	glDisable(GL_DEPTH_TEST); // Disable depth test so quad is always on top
@@ -1186,6 +1346,9 @@ void mainLoop()
 	mat4 snow_proj = snowSource->projectionMatrix;
 	mat4 snow_view = snowSource->viewMatrix;
 	depth_pass(snow_view, snow_proj, snowSource->snowDepthFBO, currentSnowBufferSize, true);
+
+	// Calculate the mirror's position relative to the door (Local Space)...
+	mat4 mirrorLocalMatrix = inverse(carModel->getDoorMatrix()) * mirrorModelMatrix;
 
 	do
 	{
@@ -1394,6 +1557,8 @@ void mainLoop()
 
 		// Lake Reflection Pass
 		reflection_pass(cameraViewMatrix, cameraProjectionMatrix);
+		// Car Mirror Pass
+		if (distance(camera->position, mirrorPos) < 3.5f) mirror_pass(cameraViewMatrix, cameraProjectionMatrix);
 		
 		if (GLFW_PRESS == glfwGetKey(window, GLFW_KEY_F1))
 			lighting_pass(snow_view, snow_proj); // See terrain's Frustum Culling!
@@ -1440,12 +1605,20 @@ void mainLoop()
 		else if (fogDensity < 0.1f)               boatModel->update(simulatedDeltaTime);
 
 		// Car's door animation update - It happens only once!
-		if (!doorSoundPlayed && carModel->update(simulatedDeltaTime))
+		bool carDoorAnimationActive = !carModel->update(simulatedDeltaTime);
+		if (!doorSoundPlayed && !carDoorAnimationActive)
 		{
 			soundSystem.play("assets/sounds/car_door_shut.ogg");
 			doorSoundPlayed = true;
 
 			introDialogTimer.start(); // Start the intro dialog after the car door sound!
+		}
+		if (carDoorAnimationActive)
+		{
+			// Update the Mirror's World Matrix based on the door's current animation state!
+			mirrorModelMatrix = carModel->getDoorMatrix() * mirrorLocalMatrix;
+			mirrorPos         = vec3(mirrorModelMatrix[3]);
+			mirrorNorm        = normalize(vec3(mirrorModelMatrix * vec4(initialNorm, 0.0f)));
 		}
 		if (!introDialogPlayed && introDialogTimer.hasFinished(2.0f))
 		{
@@ -1580,7 +1753,9 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 	// Move model [x] with numpad!
 	/*else if (action == GLFW_PRESS || action == GLFW_REPEAT)
 	{
-		const float step = 0.1f; // movement step size
+		const float step      = 0.001f; // movement step size
+		const float rotStep   = 0.001f;
+		const float scaleStep = 0.001f;
 
 		bool moved = false;
 
@@ -1590,25 +1765,35 @@ void pollKeyboard(GLFWwindow* window, int key, int scancode, int action, int mod
 		else if (key == GLFW_KEY_KP_6) { tempPosition.x += step; moved = true; } // right
 
 		else if (key == GLFW_KEY_KP_ADD)      { tempPosition.y += step; moved = true; } // up
-		else if (key == GLFW_KEY_KP_SUBTRACT) {tempPosition.y -= step; moved = true; } // down
+		else if (key == GLFW_KEY_KP_SUBTRACT) { tempPosition.y -= step; moved = true; } // down
 
-		else if (key == GLFW_KEY_KP_7) { tempRotationAngle += 0.01f; moved = true; }
-		else if (key == GLFW_KEY_KP_9) { tempRotationAngle -= 0.01f; moved = true; }
+		else if (key == GLFW_KEY_KP_7) { tempRotationAngle += rotStep; moved = true; }
+		else if (key == GLFW_KEY_KP_9) { tempRotationAngle -= rotStep; moved = true; }
 
-		else if (key == GLFW_KEY_KP_1) { tempRotAngleZ += 0.01f; moved = true; }
-		else if (key == GLFW_KEY_KP_3) { tempRotAngleZ -= 0.01f; moved = true; }
+		else if (key == GLFW_KEY_KP_0)       { tempRotAngleX += rotStep; moved = true; }
+		else if (key == GLFW_KEY_KP_DECIMAL) { tempRotAngleX -= rotStep; moved = true; }
+
+		else if (key == GLFW_KEY_KP_1) { tempRotAngleZ += rotStep; moved = true; }
+		else if (key == GLFW_KEY_KP_3) { tempRotAngleZ -= rotStep; moved = true; }
+
+		else if (key == GLFW_KEY_G) { tempScale.x += scaleStep; moved = true; }
+		else if (key == GLFW_KEY_B) { tempScale.x -= scaleStep; moved = true; }
+		else if (key == GLFW_KEY_H) { tempScale.y += scaleStep; moved = true; }
+		else if (key == GLFW_KEY_N) { tempScale.y -= scaleStep; moved = true; }
+		else if (key == GLFW_KEY_J) { tempScale.z += scaleStep; moved = true; }
+		else if (key == GLFW_KEY_M) { tempScale.z -= scaleStep; moved = true; }
 
 		if (moved)
 		{
 			tempModelMatrix = translate(mat4(), tempPosition)
-			                * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0))
-			                * rotate(mat4(), tempRotAngleZ, vec3(1, 0, 0))
-			                * scale(mat4(), vec3(1.5f));
+			                * rotate(mat4(), tempRotationAngle, vec3(0, 1, 0)) // Y
+			                * rotate(mat4(), tempRotAngleX, vec3(1, 0, 0))     // X
+			                * rotate(mat4(), tempRotAngleZ, vec3(0, 0, 1))     // Z
+			                * scale(mat4(), tempScale);
 
-			printf("Position: (%.2f, %.2f, %.2f)\n",
-				tempPosition.x, tempPosition.y, tempPosition.z);
-			printf("Rotation angle: %.2f radians\n", tempRotationAngle);
-			printf("Rotation Z angle: %.2f radians\n", tempRotAngleZ);
+			printf("Pos: (%.2f, %.2f, %.2f)\n",         tempPosition.x, tempPosition.y,    tempPosition.z);
+			printf("Rot (X,Y,Z): (%.2f, %.2f, %.2f)\n", tempRotAngleX,  tempRotationAngle, tempRotAngleZ);
+			printf("Scale: (%.2f, %.2f, %.2f)\n",       tempScale.x,    tempScale.y,       tempScale.z);
 		}
 	}*/
 }
