@@ -2,7 +2,6 @@
 
 // ===< Reflection >=== //
 uniform sampler2D reflectionTextureSampler;
-uniform int useReflection = 0;
 in vec4 vertex_position_clipspace;
 
 // ===< Light & Shadows >=== //
@@ -351,11 +350,8 @@ vec3 frozenLakeColor_Alekseev(vec3 baseUnderIce, vec2 ndc, float depth)
 
     // reflection - NO FRESNEL!
     vec3 reflection = vec3(0.0);
-    if (useReflection == 1)
-        reflection = texture(reflectionTextureSampler, ndc).rgb;
-    else
-        reflection = mix(vec3(0.02, 0.03, 0.05), vec3(0.35, 0.45, 0.6), clamp(reflect(e, norm).y * 0.5 + 0.5, 0.0, 1.0));
-    col = mix(col, reflection, 0.22);
+    reflection      = texture(reflectionTextureSampler, ndc).rgb;
+    col             = mix(col, reflection, 0.22);
 
 
 
@@ -767,7 +763,6 @@ vec3 computeLakeTexture(vec2 ndc, float depth)
     vec3 displacedWater      = texture(textureSamplerWater, waterUV + length(surfaceTexture)*0.05).rgb;
 
     // ===< LAKE REFLECTION >=== //
-    if (useReflection == 1)
     {
         // Calculate reflection texture coordinates from clip space
         vec2 reflectionUV = ndc;

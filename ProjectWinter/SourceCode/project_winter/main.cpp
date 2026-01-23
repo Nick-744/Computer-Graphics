@@ -118,7 +118,6 @@ struct MainShader // Shadow Mapping Shader...
 
 	// --- Reflection --- //
 	GLuint reflectionTextureSamplerLocation;
-	GLuint useReflectionLocation;
 
 	GLuint forceCrackedLakeLocation; // For debugging
 
@@ -174,7 +173,6 @@ struct MainShader // Shadow Mapping Shader...
 
 		// Reflection
 		reflectionTextureSamplerLocation = glGetUniformLocation(programID, "reflectionTextureSampler");
-		useReflectionLocation            = glGetUniformLocation(programID, "useReflection");
 
 		forceCrackedLakeLocation = glGetUniformLocation(programID, "forceCrackedLake");
 
@@ -935,7 +933,6 @@ void lighting_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glActiveTexture(GL_TEXTURE27);
 	glBindTexture(GL_TEXTURE_2D, lakeReflection->getMirrorTexture());
 	glUniform1i(shaderProgram.reflectionTextureSamplerLocation, 27);
-	glUniform1i(shaderProgram.useReflectionLocation, 1); // Enable reflection...
 
 	glUniform1i(shaderProgram.forceCrackedLakeLocation, forceCrackedLake);
 
@@ -1081,9 +1078,6 @@ void reflection_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glUniformMatrix4fv(shaderProgram.viewMatrixLocation,       1, GL_FALSE, &mirroredView[0][0]);
 	glUniformMatrix4fv(shaderProgram.projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
 
-	// Disable reflection rendering in the reflection pass (avoid recursion)
-	glUniform1i(shaderProgram.useReflectionLocation, 0);
-
 
 
 	// Upload lighting (same as normal pass!)
@@ -1224,9 +1218,6 @@ void mirror_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	// Upload mirrored matrices
 	glUniformMatrix4fv(shaderProgram.viewMatrixLocation,       1, GL_FALSE, &mirroredView[0][0]);
 	glUniformMatrix4fv(shaderProgram.projectionMatrixLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
-
-	// Disable reflection rendering in the reflection pass (avoid recursion)
-	glUniform1i(shaderProgram.useReflectionLocation, 0);
 
 
 
