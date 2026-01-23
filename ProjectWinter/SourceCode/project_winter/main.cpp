@@ -835,6 +835,13 @@ void depth_pass(mat4 viewMatrix, mat4 projectionMatrix, GLuint fbo, int buffer_s
 	// Snowman
 	snowmanSystem->drawOnlyObjects(shadowModelLocation);
 
+	// Spaceship
+	if (forceClearFog)
+	{
+		glUniformMatrix4fv(shadowModelLocation, 1, GL_FALSE, &spaceshipModelMatrix[0][0]);
+		spaceshipModel->bind(); spaceshipModel->draw();
+	}
+
 
 
 	// binding the default framebuffer again
@@ -1292,20 +1299,6 @@ void mirror_pass(mat4 viewMatrix, mat4 projectionMatrix)
 	glUniform1i(shaderProgram.skipSnowLocation, 1); // Skip snow on boat!
 	boatModel->draw();
 	glUniform1i(shaderProgram.skipSnowLocation, 0); // Resume snow on other objects!
-
-	// Draw clouds
-	if (!forceClearFog)
-	{
-		GLboolean cull = glIsEnabled(GL_CULL_FACE); glDisable(GL_CULL_FACE);
-		cloudSystem->draw(
-			mirroredView,
-			projectionMatrix,
-			cloudTime,
-			currentSkyColor,
-			fogDensity
-		);
-		if (cull) glEnable(GL_CULL_FACE);
-	}
 
 
 
