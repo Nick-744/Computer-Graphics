@@ -115,10 +115,48 @@ void Boat::update(float deltaTime)
 void Boat::steer(float deltaTime)
 {
     // Capture Input
-    bool movingForward  = glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS;
-    bool movingBackward = glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS;
-    bool steeringLeft   = glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS;
-    bool steeringRight  = glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS;
+    bool movingForward  = false;
+    bool movingBackward = false;
+    bool steeringLeft   = false;
+    bool steeringRight  = false;
+
+    float moveAxis = 0.0f; // Forward/Backward
+    float turnAxis = 0.0f; // Left/Right
+
+    int present = glfwJoystickPresent(GLFW_JOYSTICK_1);
+
+    if (present)
+    {
+        int axesCount;
+        const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axesCount);
+
+        if (axesCount >= 2)
+        {
+            // Left Stick: Axis 0 (Horizontal), Axis 1 (Vertical)
+            float lsX = axes[0];
+            float lsY = axes[1];
+
+            // Apply deadzone to avoid "ghost" steering
+            if (abs(lsX) < 0.2f) lsX = 0.0f;
+            if (abs(lsY) < 0.2f) lsY = 0.0f;
+
+            moveAxis = -lsY; // Invert Y because pushing up is usually -1.0
+            turnAxis = -lsX; // Invert X for correct steering direction
+
+            // Determine if we are moving enough to trigger animations
+            if (moveAxis >  0.1f) movingForward  = true;
+            if (moveAxis < -0.1f) movingBackward = true;
+            if (turnAxis >  0.1f) steeringLeft   = true;
+            if (turnAxis < -0.1f) steeringRight  = true;
+        }
+    }
+    else // Fallback to Keyboard
+    {
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) { movingForward  = true; moveAxis =  1.0f; }
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) { movingBackward = true; moveAxis = -1.0f; }
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) { steeringLeft   = true; turnAxis =  1.0f; }
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) { steeringRight  = true; turnAxis = -1.0f; }
+    }
 
     // --- BOAT INERTIA (Linear) --- //
     float targetSpeed = 0.0f;

@@ -1,11 +1,13 @@
 #include <glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include "camera.h"
+#include <algorithm> 
 
 using namespace glm;
 
 #define PLAYER_HEIGHT 1.8f
 #define WALKING_SPEED 3.5f
+#define STICK_DEADZONE 0.2f
 
 extern float cameraFarPlane; // Optimization for shadow mapping...
 extern float getTerrainHeight(float x, float z);
@@ -26,25 +28,53 @@ bool Camera::update(float deltaTime)
     // Static variable to track walking time for head bobbing...
     static float walkTimer = 0.0f;
 
+    int present = glfwJoystickPresent(GLFW_JOYSTICK_1); // Check if joystick is connected!
+
+    int axesCount, buttonCount;
+    const float* axes            = NULL;
+    const unsigned char* buttons = NULL;
+    if (present)
+    {
+        axes    = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &axesCount);
+        buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &buttonCount);
+    }
 
 
-    // Get mouse position
-    double xPos, yPos;
-    glfwGetCursorPos(window, &xPos, &yPos);
 
-    int width, height;
-    glfwGetWindowSize(window, &width, &height);
+    // --- LOOK LOGIC --- //
+    if (present && axesCount >= 4)
+    {
+        float rsX = axes[2];
+        float rsY = axes[5]; // Right stick Y
 
-    // Reset mouse position for next frame
-    glfwSetCursorPos(window, width / 2, height / 2);
+        if (abs(rsX) < STICK_DEADZONE) rsX = 0.0f;
+        if (abs(rsY) < STICK_DEADZONE) rsY = 0.0f;
 
 
 
-    // Task 5.3: Compute new horizontal and vertical angles, given windows size
-    //*/
-    // and cursor position
-    horizontalAngle += mouseSpeed * float(width / 2 - xPos);
-    verticalAngle   += mouseSpeed * float(height / 2 - yPos);
+        float controllerSens = 2.5f;
+        horizontalAngle     += mouseSpeed * -rsX * controllerSens * 500.0f * deltaTime;
+        verticalAngle       += mouseSpeed * -rsY * controllerSens * 500.0f * deltaTime;
+    }
+    else
+    {
+        // Get mouse position
+        double xPos, yPos;
+        glfwGetCursorPos(window, &xPos, &yPos);
+
+        int width, height;
+        glfwGetWindowSize(window, &width, &height);
+
+        // Reset mouse position for next frame
+        glfwSetCursorPos(window, width / 2, height / 2);
+
+
+
+        // Task 5.3: Compute new horizontal and vertical angles, given windows size
+        // and cursor position
+        horizontalAngle += mouseSpeed * float(width / 2 - xPos);
+        verticalAngle   += mouseSpeed * float(height / 2 - yPos);
+    }
 
     // Don't flip over...
     float temp    = 1.1f;
@@ -75,7 +105,24 @@ bool Camera::update(float deltaTime)
     // Task 5.5: update camera position using the direction/right vectors
     bool isMoving = false; // For head bobbing!
     vec3 moveDir(0.0f);    // Movement direction vector...
-    if (flyingMode)
+    if (present && axesCount >= 2)
+    {
+        float lsX = axes[0];
+        float lsY = axes[1];
+
+        if (abs(lsX) > STICK_DEADZONE || abs(lsY) > STICK_DEADZONE)
+        {
+            vec3 forwardFlat = normalize(vec3(direction.x, 0.0f, direction.z));
+            vec3 rightFlat   = normalize(vec3(right.x, 0.0f, right.z));
+
+            vec3 moveBasisF = flyingMode ? direction : forwardFlat;
+            vec3 moveBasisR = flyingMode ? right : rightFlat;
+
+            moveDir += moveBasisF * -lsY;
+            moveDir += moveBasisR * lsX;
+        }
+    }
+    else if (flyingMode)
     {
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) moveDir += direction;
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) moveDir -= direction;
@@ -96,14 +143,14 @@ bool Camera::update(float deltaTime)
 
     if (length(moveDir) > 0.001f)
     {
-        moveDir   = normalize(moveDir); // Prevent faster diagonal movement...
+        if (!present) moveDir = normalize(moveDir); // Prevent faster diagonal movement...
         position += moveDir * deltaTime * speed;
 
         isMoving = true;
     }
-    
-    
-    
+
+
+
     // ===< FLYING MODE TOGGLE >=== //
     static int lastToggleState = GLFW_RELEASE; // Remembered between frames
     int currentToggleState     = glfwGetKey(window, GLFW_KEY_F);
@@ -145,7 +192,7 @@ bool Camera::update(float deltaTime)
             bobBlend -= deltaTime * 4.0f; // Smooth stop...
             if (bobBlend < 0.0f) bobBlend = 0.0f;
         }
-        
+
         if (bobBlend > 0.001f) // Apply bobbing only if walking/stopping!
         {
             // Increment timer based on movement speed
@@ -166,9 +213,13 @@ bool Camera::update(float deltaTime)
 
     // Task 5.6: handle ZOOM EFFECT!
     float targetFoV = 45.0f; // Default Base FoV
-    
+
     // If SPACE is held, ZOOOOOOOOM IN!
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) targetFoV = 20.0f;
+    bool zoomPressed = (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS);
+    if (present && buttonCount >= 6)
+        if (buttons[5] == GLFW_PRESS) zoomPressed = true; // Check R1 button...
+
+    if (zoomPressed) targetFoV = 20.0f;
 
     // Smoothly move current FoV towards the Target...
     if (FoV < targetFoV)

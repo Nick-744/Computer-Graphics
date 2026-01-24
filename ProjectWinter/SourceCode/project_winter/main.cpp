@@ -1334,6 +1334,9 @@ void mainLoop()
 	// Calculate the mirror's position relative to the door (Local Space)...
 	mat4 mirrorLocalMatrix = inverse(carModel->getDoorMatrix()) * mirrorModelMatrix;
 
+	// Track controller button state to prevent multiple triggers per press...
+	static int lastControllerSquareState = GLFW_RELEASE;
+
 	do
 	{
 		// Real Time Control
@@ -1581,6 +1584,54 @@ void mainLoop()
 
 			// Render the prompt quad
 			if (isDoorClose || isBoatClose || isBoatCloseToSpaceship || isArcadeClose || isLookingAtSnowball) renderPrompt();
+
+			// === DUALSHOCK 4 INTERACTION (Square Button) === //
+			if (glfwJoystickPresent(GLFW_JOYSTICK_1))
+			{
+				int buttonCount;
+				const unsigned char* buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &buttonCount);
+
+				if (buttonCount > 0)
+				{
+					int currentSquareState = buttons[0];
+					if (currentSquareState == GLFW_PRESS && lastControllerSquareState == GLFW_RELEASE)
+					{
+						// Replicate 'E' logic
+						if (isDoorClose)
+						{
+							if (cabinModel->toggleDoor())
+								soundSystem.play("assets/sounds/door_open.ogg");
+							else
+								soundSystem.play("assets/sounds/door_close.ogg");
+						}
+
+						if (isBoatClose)
+						{
+							if (boatModel->isOnBoat()) boatModel->setToPort1();
+							boatModel->invertOnBoat();
+						}
+
+						if (isBoatCloseToSpaceship && !isEndingSequence)
+						{
+							cabinIntSystem->startOutro();
+							isEndingSequence    = true;
+							renderCabinInterior = true;
+							boatModel->invertOnBoat();
+						}
+
+						if (cabinIntSystem->isInteracting())
+						{
+							cabinIntSystem->toggleInteraction();
+							snowStartTimer.start();
+							snowingActive = true;
+						}
+						else if (isArcadeClose) cabinIntSystem->toggleInteraction();
+
+						snowmanSystem->handleInteraction(camera->position, cameraDirection, snowAmount);
+					}
+					lastControllerSquareState = currentSquareState;
+				}
+			}
 
 		}
 
