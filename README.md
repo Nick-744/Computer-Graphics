@@ -52,3 +52,19 @@ This project involves the creation of a dynamic 3D winter environment implemente
 .
 ├── Labs/          # Complete answers to all semester lab exercises (Lab1 -> Lab7)
 └── ProjectWinter/ # Main project source code and shaders
+```
+
+---
+
+## Setup & Execution
+
+### Main Project
+* Detailed build and startup instructions are provided within each individual **Lab directory** in this repository.
+
+### Dependencies
+* **Video Ending (Python):** You must install the `opencv-python` library in your system's Python environment to handle the video playback sequence.
+* **Arcade Game (Java):** Detailed code and setup instructions for the arcade sub-project can be found here: [TheForbiddenSpaceship Repository](https://github.com/Nick-744/TheForbiddenSpaceship).
+
+### Game Assets
+* Due to their significant size, 3D models and textures are hosted externally.
+* **Download Link:** [Assets on Google Drive](https://drive.google.com/file/d/1Ai8aJKiwMq9GCRMP1zTyG7Gfd6AkC7tq/view?usp=sharing)
