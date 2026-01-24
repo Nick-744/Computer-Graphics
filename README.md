@@ -1,4 +1,4 @@
-# Project Winter ❄️ | Graphics and Virtual Reality (ECE AK709)
+# Project Winter ❄️ | Graphics & VR (ECE AK709)
 
 **Academic Year 2025/2026**
 
