@@ -1,5 +1,7 @@
 # Project Winter ❄️ | Graphics & VR (ECE AK709)
 
+<img width="1282" height="722" alt="FromTheBoat" src="https://github.com/user-attachments/assets/6616a494-a864-45f3-ac2d-afcb1a6edc08" />
+
 **Academic Year 2025/2026**
 
 ---
@@ -50,8 +52,15 @@ This project involves the creation of a dynamic 3D winter environment implemente
 
 ```text
 .
-├── Labs/          # Complete answers to all semester lab exercises (Lab1 -> Lab7)
-└── ProjectWinter/ # Main project source code and shaders
+├── TheForbiddenSpaceship/      # Java arcade game
+│   └── run_game-Windows.bat    # Run for convenient setup
+└── Computer-Graphics/
+    ├── Labs/                   # Complete answers to all semester lab exercises (Lab1 -> Lab7)
+    └── ProjectWinter/
+        ├── PW_report.pdf       # Technical project documentation
+        └── SourceCode/         # Main C++/OpenGL project
+            └── project_winter/
+                └── assets/     # See 'Game Assets' section for link
 ```
 
 ---
