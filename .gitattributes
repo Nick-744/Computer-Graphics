@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+*.obj filter=lfs diff=lfs merge=lfs -text
+/ProjectWinter/SourceCode/project_winter/assets/** filter=lfs diff=lfs merge=lfs -text
