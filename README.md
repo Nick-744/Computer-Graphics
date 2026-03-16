@@ -14,7 +14,7 @@ This project involves the creation of a dynamic 3D winter environment implemente
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
 ### 🏔️ Procedural World Generation
 * **Terrain:** Realistic mountainous geometry with a central valley created using **Gaea** (procedural erosion and river simulation).
@@ -75,5 +75,5 @@ This project involves the creation of a dynamic 3D winter environment implemente
 * **Arcade Game (Java):** Detailed code and setup instructions for the arcade sub-project can be found here: [TheForbiddenSpaceship Repository](https://github.com/Nick-744/TheForbiddenSpaceship).
 
 ### Game Assets
-* Due to their significant size, 3D models and textures are hosted externally.
+* 3D models and textures were previously hosted on Google Drive due to their significant size, but are now included directly in the repository using Git LFS.
 * **Download Link:** [Assets on Google Drive](https://drive.google.com/file/d/1Ai8aJKiwMq9GCRMP1zTyG7Gfd6AkC7tq/view?usp=sharing)
